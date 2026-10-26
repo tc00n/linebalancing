@@ -98,6 +98,8 @@
   --yz-takt: var(--nx-red);
   --yz-over: var(--nx-red);
   --yz-grid: #e3e8ee;
+  /* Verschobene Arbeitsgänge im Vergleich (F113); bewusst keine Kategorie- oder Warnfarbe. */
+  --yz-moved: #2563eb;
 }
 
 @layer base {

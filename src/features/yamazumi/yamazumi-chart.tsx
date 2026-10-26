@@ -12,8 +12,15 @@ import {
   type CollisionDetection,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { PlusIcon, XIcon } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { ArrowLeftRightIcon, PlusIcon, XIcon } from "lucide-react";
+import {
+  memo,
+  useCallback,
+  useMemo,
+  useState,
+  type Ref,
+  type UIEvent,
+} from "react";
 import { textColorFor } from "@/domain/model/categories";
 import { violationsAfterMove } from "@/domain/ops/movePreview";
 import type { ScenarioView } from "@/features/workspace/scenario-view";
@@ -54,12 +61,24 @@ interface YamazumiChartProps {
   readonly labels: LabelFields;
   readonly selectedStepId: string | null;
   readonly onSelectStep: (stepId: string) => void;
-  readonly actions: ChartActions;
+  /** Ohne Aktionen ist das Diagramm schreibgeschützt (F118). */
+  readonly actions?: ChartActions;
+  /** Vergleich: gemeinsame Stationsfolge (F111) mit Mindestbreiten je Station. */
+  readonly stationLabels?: readonly string[];
+  readonly slotWidths?: ReadonlyMap<string, number>;
+  /** Vergleich: gemeinsame vertikale Skala (F112). */
+  readonly axisMaximum?: number;
+  /** Vergleich: gekoppeltes horizontales Scrollen (F104). */
+  readonly scrollRef?: Ref<HTMLDivElement>;
+  readonly onScroll?: (event: UIEvent<HTMLDivElement>) => void;
+  /** Vergleich: gegenüber dem Ist verschobene Arbeitsgänge (F113, F116). */
+  readonly movedStepIds?: ReadonlySet<string>;
 }
 
 const AXIS_WIDTH = 64;
 const HEADROOM_PX = 28;
 const LANE_GAP = 3;
+const MIN_COLUMN_WIDTH = 64;
 
 interface Hover {
   readonly stepId: string;
@@ -71,6 +90,27 @@ interface DropData {
   readonly stationId: string;
   readonly employeeId?: string;
 }
+
+/** Spurbreite je Ansicht: in der Mitarbeiteransicht breiter (F102). */
+export function effectiveLaneWidth(laneWidth: number, mode: ChartMode): number {
+  return mode === "employee" ? Math.round(laneWidth * 2.2) : laneWidth;
+}
+
+/** Breite einer Stationsspalte; im Vergleich gilt das Maximum beider Seiten. */
+export function stationColumnWidth(
+  column: StationColumn,
+  laneWidth: number,
+): number {
+  const lanes =
+    column.lanes.length * laneWidth +
+    Math.max(0, column.lanes.length - 1) * LANE_GAP;
+  const unassigned = column.unassigned.length
+    ? LANE_GAP * 2 + Math.max(14, Math.round(laneWidth * 0.8))
+    : 0;
+  return Math.max(MIN_COLUMN_WIDTH, lanes + unassigned);
+}
+
+const labelKey = (label: string) => label.toLocaleLowerCase("de");
 
 /** Eine Mitarbeiterspur hat Vorrang vor der Station, in der sie liegt. */
 const collisionDetection: CollisionDetection = (args) => {
@@ -87,7 +127,11 @@ const collisionDetection: CollisionDetection = (args) => {
  * separater Warnspur für nicht zugeordnete Schritte (F67, E10) und
  * Drag-and-drop zwischen Stationen ohne Dialog (F28, F95).
  */
-export function YamazumiChart(props: YamazumiChartProps) {
+export function YamazumiChart({
+  scrollRef,
+  onScroll,
+  ...props
+}: YamazumiChartProps) {
   const [hover, setHover] = useState<Hover | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const onHover = useCallback((next: Hover | null) => setHover(next), []);
@@ -112,7 +156,7 @@ export function YamazumiChart(props: YamazumiChartProps) {
     const stepId = String(event.active.id);
     const target = event.over?.data.current as DropData | undefined;
     const step = props.view.steps.get(stepId);
-    if (!target || !step) return;
+    if (!target || !step || !props.actions) return;
     if (target.stationId !== step.stationId) {
       // F61: Stationswechsel, Mitarbeiter wird bewusst danach zugewiesen.
       props.actions.onMoveStep(stepId, target.stationId);
@@ -122,8 +166,9 @@ export function YamazumiChart(props: YamazumiChartProps) {
   }
 
   const takt = props.view.input.taktMin;
-  const ticks = axisTicks(axisMaximum(props.columns, takt) * 1.04);
-  const top = Math.max(ticks.at(-1)!, axisMaximum(props.columns, takt));
+  const maximum = props.axisMaximum ?? axisMaximum(props.columns, takt);
+  const ticks = axisTicks(maximum * 1.04);
+  const top = Math.max(ticks.at(-1)!, maximum);
   const plotHeight = top * props.pxPerMinute + HEADROOM_PX;
   const y = (minutes: number) => minutes * props.pxPerMinute;
   const dragged = draggingId ? props.view.steps.get(draggingId) : undefined;
@@ -169,7 +214,11 @@ export function YamazumiChart(props: YamazumiChartProps) {
           </div>
         </div>
 
-        <div className="relative min-w-0 flex-1 overflow-x-auto">
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          className="relative min-w-0 flex-1 overflow-x-auto"
+        >
           <div className="relative w-max min-w-full px-4">
             <div
               className="pointer-events-none absolute inset-x-0 top-0"
@@ -190,16 +239,8 @@ export function YamazumiChart(props: YamazumiChartProps) {
             </div>
 
             <ChartBody
-              view={props.view}
-              columns={props.columns}
-              mode={props.mode}
-              laneWidth={props.laneWidth}
-              pxPerMinute={props.pxPerMinute}
+              {...props}
               plotHeight={plotHeight}
-              labels={props.labels}
-              selectedStepId={props.selectedStepId}
-              onSelectStep={props.onSelectStep}
-              actions={props.actions}
               onHover={onHover}
               draggedStep={
                 dragged
@@ -225,7 +266,10 @@ export function YamazumiChart(props: YamazumiChartProps) {
   );
 }
 
-interface ChartBodyProps extends YamazumiChartProps {
+interface ChartBodyProps extends Omit<
+  YamazumiChartProps,
+  "scrollRef" | "onScroll"
+> {
   readonly plotHeight: number;
   readonly onHover: (hover: Hover | null) => void;
   readonly draggedStep: { id: string; stationId: string } | null;
@@ -233,29 +277,72 @@ interface ChartBodyProps extends YamazumiChartProps {
 }
 
 const ChartBody = memo(function ChartBody(props: ChartBodyProps) {
-  const laneWidth =
-    props.mode === "employee"
-      ? Math.round(props.laneWidth * 2.2)
-      : props.laneWidth;
+  const laneWidth = effectiveLaneWidth(props.laneWidth, props.mode);
+  const byLabel = new Map(
+    props.columns.map((c) => [labelKey(c.station.label), c]),
+  );
+  const slots =
+    props.stationLabels ?? props.columns.map((c) => c.station.label);
 
   return (
     <div className="relative flex gap-6">
-      {props.columns.map((column) => (
-        <StationColumnView
-          key={column.station.id}
-          {...props}
-          column={column}
-          laneWidth={laneWidth}
-          warnings={props.dropWarnings?.get(column.station.id) ?? null}
-        />
-      ))}
+      {slots.map((label) => {
+        const column = byLabel.get(labelKey(label));
+        const minWidth = props.slotWidths?.get(labelKey(label)) ?? 0;
+        return column ? (
+          <StationColumnView
+            key={column.station.id}
+            {...props}
+            column={column}
+            laneWidth={laneWidth}
+            minWidth={minWidth}
+            warnings={props.dropWarnings?.get(column.station.id) ?? null}
+          />
+        ) : (
+          <MissingStation
+            key={`missing:${label}`}
+            label={label}
+            width={Math.max(MIN_COLUMN_WIDTH, minWidth)}
+            plotHeight={props.plotHeight}
+          />
+        );
+      })}
     </div>
   );
 });
 
+/** Station, die es nur im anderen Szenario gibt (F111). */
+function MissingStation(props: {
+  label: string;
+  width: number;
+  plotHeight: number;
+}) {
+  return (
+    <section
+      className="flex flex-col"
+      style={{ width: props.width }}
+      aria-label={`Station ${props.label} (nicht vorhanden)`}
+    >
+      <div
+        className="rounded-md border border-dashed border-border bg-secondary/40"
+        style={{ height: props.plotHeight }}
+      />
+      <footer className="mt-1 flex flex-col items-center border-t-2 border-dashed border-border pt-1.5 pb-2 text-center">
+        <span className="max-w-full truncate text-sm text-muted-foreground">
+          {props.label}
+        </span>
+        <span className="text-[11px] text-muted-foreground">
+          nicht vorhanden
+        </span>
+      </footer>
+    </section>
+  );
+}
+
 function StationColumnView(
   props: Omit<ChartBodyProps, "columns"> & {
     column: StationColumn;
+    minWidth: number;
     warnings: string[] | null;
   },
 ) {
@@ -263,6 +350,7 @@ function StationColumnView(
   const { setNodeRef, isOver } = useDroppable({
     id: `station:${column.station.id}`,
     data: { stationId: column.station.id } satisfies DropData,
+    disabled: !props.actions,
   });
   const y = (minutes: number) => minutes * pxPerMinute;
   const unassignedWidth = Math.max(14, Math.round(laneWidth * 0.8));
@@ -270,10 +358,7 @@ function StationColumnView(
   const lanesWidth =
     column.lanes.length * laneWidth +
     Math.max(0, column.lanes.length - 1) * LANE_GAP;
-  const width = Math.max(
-    64,
-    lanesWidth + (hasUnassigned ? LANE_GAP * 2 + unassignedWidth : 0),
-  );
+  const width = Math.max(props.minWidth, stationColumnWidth(column, laneWidth));
   const dragging = props.draggedStep !== null;
   const isOrigin = props.draggedStep?.stationId === column.station.id;
   const warn =
@@ -326,6 +411,11 @@ function StationColumnView(
                       "stepId" in segment &&
                       segment.stepId === props.selectedStepId
                     }
+                    moved={
+                      "stepId" in segment &&
+                      !!props.movedStepIds?.has(segment.stepId)
+                    }
+                    draggable={!!props.actions}
                     onSelectStep={props.onSelectStep}
                     onHover={props.onHover}
                   />
@@ -370,14 +460,14 @@ function StationColumnView(
                 title={`${lane.employee.label}: ${formatMinutes(lane.occupancy)} min`}
               >
                 {lane.employee.label.replace("Mitarbeiter ", "MA ")}
-                {empty && (
+                {empty && props.actions && (
                   <button
                     type="button"
                     className="rounded p-0.5 hover:bg-secondary"
                     aria-label={`${lane.employee.label} an ${column.station.label} entfernen`}
                     title="Mitarbeiter ohne Arbeitsgänge entfernen"
                     onClick={() =>
-                      props.actions.onRemoveEmployee(lane.employee.id)
+                      props.actions!.onRemoveEmployee(lane.employee.id)
                     }
                   >
                     <XIcon className="size-3" />
@@ -403,15 +493,17 @@ function StationColumnView(
         {/* Zwei Zeilen, damit schmale Stationen nicht in die Nachbarspalte laufen. */}
         <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
           {column.lanes.length} MA
-          <button
-            type="button"
-            className="rounded p-0.5 hover:bg-secondary hover:text-nx-blue"
-            aria-label={`Mitarbeiter an ${column.station.label} hinzufügen`}
-            title="Mitarbeiter hinzufügen"
-            onClick={() => props.actions.onAddEmployee(column.station.id)}
-          >
-            <PlusIcon className="size-3" />
-          </button>
+          {props.actions && (
+            <button
+              type="button"
+              className="rounded p-0.5 hover:bg-secondary hover:text-nx-blue"
+              aria-label={`Mitarbeiter an ${column.station.label} hinzufügen`}
+              title="Mitarbeiter hinzufügen"
+              onClick={() => props.actions!.onAddEmployee(column.station.id)}
+            >
+              <PlusIcon className="size-3" />
+            </button>
+          )}
         </span>
         {column.lanes.length > 0 && (
           <span
@@ -444,6 +536,7 @@ function LaneView(
       stationId: lane.employee.stationId,
       employeeId: lane.employee.id,
     } satisfies DropData,
+    disabled: !props.actions,
   });
   const takt = props.view.input.taktMin;
 
@@ -464,6 +557,10 @@ function LaneView(
           selected={
             "stepId" in segment && segment.stepId === props.selectedStepId
           }
+          moved={
+            "stepId" in segment && !!props.movedStepIds?.has(segment.stepId)
+          }
+          draggable={!!props.actions}
           onSelectStep={props.onSelectStep}
           onHover={props.onHover}
         />
@@ -483,15 +580,19 @@ function LaneView(
   );
 }
 
-const SegmentView = memo(function SegmentView(props: {
+interface SegmentProps {
   segment: Segment;
   view: ScenarioView;
   pxPerMinute: number;
   labels: LabelFields;
   selected: boolean;
+  moved: boolean;
+  draggable: boolean;
   onSelectStep: (stepId: string) => void;
   onHover: (hover: Hover | null) => void;
-}) {
+}
+
+const SegmentView = memo(function SegmentView(props: SegmentProps) {
   const { segment, pxPerMinute } = props;
   const style = {
     bottom: segment.from * pxPerMinute,
@@ -526,19 +627,17 @@ const SegmentView = memo(function SegmentView(props: {
   return <StepSegment {...props} segment={segment} style={style} />;
 });
 
-function StepSegment(props: {
-  segment: Extract<Segment, { kind: "step" | "unassigned" }>;
-  style: { bottom: number; height: number };
-  view: ScenarioView;
-  labels: LabelFields;
-  selected: boolean;
-  onSelectStep: (stepId: string) => void;
-  onHover: (hover: Hover | null) => void;
-}) {
+function StepSegment(
+  props: Omit<SegmentProps, "segment"> & {
+    segment: Extract<Segment, { kind: "step" | "unassigned" }>;
+    style: { bottom: number; height: number };
+  },
+) {
   const { segment, style } = props;
   const step = props.view.steps.get(segment.stepId)!;
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: step.id,
+    disabled: !props.draggable,
   });
   const unassigned = segment.kind === "unassigned";
   const category = step.categoryId
@@ -562,20 +661,30 @@ function StepSegment(props: {
           backgroundColor: category?.color ?? "var(--yz-step)",
           color: category ? textColorFor(category.color) : "#003c73",
         };
+  // F113/F116: verschobene Arbeitsgänge mit eigener Randfarbe und Symbol.
+  const movedStyle = props.moved
+    ? { boxShadow: "inset 4px 0 0 var(--yz-moved)" }
+    : {};
 
   return (
     <button
       ref={setNodeRef}
       type="button"
-      {...attributes}
+      // Ohne Ziehen keine dnd-kit-Attribute: sonst meldet aria-disabled den Arbeitsgang als gesperrt,
+      // obwohl er per Klick (Details) bedienbar bleibt.
+      {...(props.draggable ? attributes : {})}
       {...listeners}
-      className={`absolute inset-x-0 cursor-grab touch-none overflow-hidden border-t border-white px-0.5 text-left text-[10px] leading-[1.15] outline-none hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing ${
-        props.selected ? "z-10" : ""
-      } ${isDragging ? "opacity-40" : ""}`}
-      style={{ ...style, ...colors }}
+      className={`absolute inset-x-0 touch-none overflow-hidden border-t border-white px-0.5 text-left text-[10px] leading-[1.15] outline-none hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring ${
+        props.draggable
+          ? "cursor-grab active:cursor-grabbing"
+          : "cursor-pointer"
+      } ${props.selected ? "z-10" : ""} ${isDragging ? "opacity-40" : ""} ${
+        props.moved ? "pl-1.5" : ""
+      }`}
+      style={{ ...style, ...colors, ...movedStyle }}
       aria-label={`Arbeitsgang ${step.id}, ${formatMinutes(step.timeMin)} min${
         unassigned ? ", nicht zugeordnet" : ""
-      }`}
+      }${props.moved ? ", verschoben" : ""}`}
       onClick={() => props.onSelectStep(step.id)}
       onPointerEnter={(e) =>
         props.onHover({ stepId: step.id, x: e.clientX, y: e.clientY })
@@ -585,8 +694,13 @@ function StepSegment(props: {
       }
       onPointerLeave={() => props.onHover(null)}
     >
-      {style.height >= 12 && parts.length > 0 && (
-        <span className="block truncate">{parts.join(" · ")}</span>
+      {style.height >= 12 && (parts.length > 0 || props.moved) && (
+        <span className="flex items-center gap-0.5 truncate">
+          {props.moved && (
+            <ArrowLeftRightIcon className="size-2.5 shrink-0" aria-hidden />
+          )}
+          <span className="truncate">{parts.join(" · ")}</span>
+        </span>
       )}
     </button>
   );

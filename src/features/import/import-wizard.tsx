@@ -8,7 +8,7 @@ import {
   XCircleIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -21,7 +21,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { scenarioRepository } from "@/data/scenarioRepository";
+import {
+  scenarioRepository,
+  uniqueName,
+  type StoredScenario,
+} from "@/data/scenarioRepository";
 import { buildScenario, nameFromFilename } from "@/domain/import/buildScenario";
 import { cellText, parseGermanNumber } from "@/domain/import/cells";
 import { defaultCategories } from "@/domain/model/categories";
@@ -33,6 +37,27 @@ import {
 } from "@/domain/import/validateRows";
 import { TemplateDownloadButton } from "./template-download-button";
 import { readWorkbook } from "./workbook";
+
+interface VariantInfo {
+  readonly id: string;
+  readonly name: string;
+  readonly stepIds: ReadonlySet<string>;
+  readonly scenarioNames: readonly string[];
+}
+
+function variantsOf(scenarios: readonly StoredScenario[]): VariantInfo[] {
+  const byId = new Map<string, VariantInfo>();
+  for (const s of scenarios) {
+    const known = byId.get(s.variantId);
+    byId.set(s.variantId, {
+      id: s.variantId,
+      name: s.variantName,
+      stepIds: known?.stepIds ?? new Set(s.input.steps.map((step) => step.id)),
+      scenarioNames: [...(known?.scenarioNames ?? []), s.name],
+    });
+  }
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name, "de"));
+}
 
 type Stage =
   | { kind: "idle" }
@@ -49,12 +74,37 @@ export function ImportWizard() {
   const [allowance, setAllowance] = useState("0");
   const [onlyFlagged, setOnlyFlagged] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [variantName, setVariantName] = useState("");
+  /** "new" oder die ID einer bestehenden Variante (E20). */
+  const [target, setTarget] = useState("new");
+  const [variants, setVariants] = useState<VariantInfo[]>([]);
+
+  useEffect(() => {
+    scenarioRepository()
+      .list()
+      .then((all) => setVariants(variantsOf(all)));
+  }, []);
 
   const rawRows = stage.kind === "loaded" ? stage.rows : null;
   const validation = useMemo(
     () => (rawRows ? validateRows(rawRows) : null),
     [rawRows],
   );
+
+  const selectedVariant =
+    target === "new" ? undefined : variants.find((v) => v.id === target);
+  // E20: ein weiteres Szenario einer Variante nur bei identischen Arbeitsgang-IDs.
+  const idMismatch = (() => {
+    if (!selectedVariant || !validation) return null;
+    const fileIds = new Set(validation.rows.map((r) => r.id));
+    const onlyInFile = [...fileIds].filter(
+      (id) => !selectedVariant.stepIds.has(id),
+    ).length;
+    const onlyInVariant = [...selectedVariant.stepIds].filter(
+      (id) => !fileIds.has(id),
+    ).length;
+    return onlyInFile || onlyInVariant ? { onlyInFile, onlyInVariant } : null;
+  })();
 
   const taktValue = positiveNumber(takt);
   const allowanceValue = nonNegativeNumber(allowance);
@@ -68,6 +118,9 @@ export function ImportWizard() {
     taktValue !== null &&
     allowanceValue !== null &&
     name.trim() !== "" &&
+    (target === "new"
+      ? variantName.trim() !== ""
+      : !!selectedVariant && !idMismatch) &&
     !saving;
 
   async function onFile(file: File | undefined) {
@@ -80,6 +133,7 @@ export function ImportWizard() {
     }
     setStage({ kind: "loaded", filename: file.name, rows: read.rows });
     setName(nameFromFilename(file.name));
+    setVariantName(nameFromFilename(file.name)); // F88
   }
 
   function updateCell(rowNumber: number, key: ColumnKey, text: string) {
@@ -109,8 +163,9 @@ export function ImportWizard() {
     const id = crypto.randomUUID();
     await scenarioRepository().save({
       id,
-      name: name.trim(),
-      variantName: name.trim(),
+      variantId: selectedVariant?.id ?? crypto.randomUUID(),
+      variantName: selectedVariant?.name ?? variantName.trim(),
+      name: uniqueName(name.trim(), selectedVariant?.scenarioNames ?? []),
       sourceFilename: stage.filename,
       importedAt: now,
       updatedAt: now,
@@ -120,7 +175,7 @@ export function ImportWizard() {
       }),
       categories: defaultCategories(),
     });
-    router.push(`/szenario?id=${id}`);
+    router.push(`/szenario?ist=${id}`);
   }
 
   return (
@@ -222,32 +277,97 @@ export function ImportWizard() {
                 nur für dieses Szenario.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-[2fr_1fr_1fr_auto] sm:items-end">
-              <Field label="Name (Variante und Szenario)">
-                <Input value={name} onChange={(e) => setName(e.target.value)} />
-              </Field>
-              <Field
-                label="Taktzeit [min]"
-                invalid={takt !== "" && taktValue === null}
-              >
-                <Input
-                  inputMode="decimal"
-                  placeholder="z. B. 4,00"
-                  value={takt}
-                  onChange={(e) => setTakt(e.target.value)}
-                />
-              </Field>
-              <Field label="Zuschlag [%]" invalid={allowanceValue === null}>
-                <Input
-                  inputMode="decimal"
-                  value={allowance}
-                  onChange={(e) => setAllowance(e.target.value)}
-                />
-              </Field>
-              <Button size="lg" onClick={importScenario} disabled={!canImport}>
-                Szenario anlegen
-              </Button>
-              <p className="text-xs text-muted-foreground sm:col-span-4">
+            <CardContent className="flex flex-col gap-4">
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-1 text-sm font-medium">Variante</legend>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="import-target"
+                    checked={target === "new"}
+                    onChange={() => setTarget("new")}
+                  />
+                  Neue Variante
+                </label>
+                {variants.length > 0 && (
+                  <label className="flex flex-wrap items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="import-target"
+                      checked={target !== "new"}
+                      onChange={() => setTarget(variants[0].id)}
+                    />
+                    Neues Szenario zu bestehender Variante
+                    <select
+                      aria-label="Bestehende Variante"
+                      className="h-8 rounded-lg border border-input bg-white px-2"
+                      value={target === "new" ? variants[0].id : target}
+                      onChange={(e) => setTarget(e.target.value)}
+                    >
+                      {variants.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {idMismatch && (
+                  <p className="text-sm text-destructive" role="alert">
+                    Die Arbeitsgang-IDs stimmen nicht mit der Variante „
+                    {selectedVariant!.name}“ überein ({idMismatch.onlyInFile}{" "}
+                    nur in der Datei, {idMismatch.onlyInVariant} nur in der
+                    Variante). Bitte als neue Variante anlegen.
+                  </p>
+                )}
+              </fieldset>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[2fr_2fr_1fr_1fr_auto] lg:items-end">
+                {target === "new" ? (
+                  <Field label="Variantenname">
+                    <Input
+                      value={variantName}
+                      onChange={(e) => setVariantName(e.target.value)}
+                    />
+                  </Field>
+                ) : (
+                  <Field label="Variantenname">
+                    <Input value={selectedVariant?.name ?? ""} disabled />
+                  </Field>
+                )}
+                <Field label="Szenarioname">
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </Field>
+                <Field
+                  label="Taktzeit [min]"
+                  invalid={takt !== "" && taktValue === null}
+                >
+                  <Input
+                    inputMode="decimal"
+                    placeholder="z. B. 4,00"
+                    value={takt}
+                    onChange={(e) => setTakt(e.target.value)}
+                  />
+                </Field>
+                <Field label="Zuschlag [%]" invalid={allowanceValue === null}>
+                  <Input
+                    inputMode="decimal"
+                    value={allowance}
+                    onChange={(e) => setAllowance(e.target.value)}
+                  />
+                </Field>
+                <Button
+                  size="lg"
+                  onClick={importScenario}
+                  disabled={!canImport}
+                >
+                  Szenario anlegen
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
                 Der Zuschlag wird nur auf die produktive Zeit je Mitarbeiter
                 angewendet. Enthalten die importierten Zeiten bereits
                 Verteilzeit („Zeit T mit Vt“), den Zuschlag auf 0 % lassen.

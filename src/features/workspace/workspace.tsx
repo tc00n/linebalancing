@@ -2,31 +2,41 @@
 
 import {
   AlertTriangleIcon,
-  CheckCircle2Icon,
-  Loader2Icon,
+  InfoIcon,
   Redo2Icon,
   Undo2Icon,
   XCircleIcon,
   XIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+  type UIEvent,
+} from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
+  duplicateScenario,
   scenarioRepository,
   type StoredScenario,
 } from "@/data/scenarioRepository";
 import { evaluateScenario } from "@/domain/calc/evaluate";
-import { parseGermanNumber } from "@/domain/import/cells";
-import type { Category } from "@/domain/model/categories";
-import type { Operation } from "@/domain/ops/operations";
-import { axisMaximum, buildColumns } from "@/features/yamazumi/layout";
+import { alignedStationLabels, movedStepIds } from "@/domain/compare/compare";
+import type { EditableScenario } from "@/domain/ops/operations";
 import {
+  axisMaximum,
+  buildColumns,
+  type StationColumn,
+} from "@/features/yamazumi/layout";
+import {
+  effectiveLaneWidth,
+  stationColumnWidth,
   YamazumiChart,
   type ChartActions,
   type ChartMode,
@@ -36,33 +46,79 @@ import { formatDateTime, formatMinutes } from "@/lib/format";
 import { DetailPanel } from "./detail-panel";
 import { IssuesList } from "./issues-list";
 import { KpiBar } from "./kpi-bar";
-import { createScenarioView } from "./scenario-view";
-import { useScenarioEditor, type SaveStatus } from "./use-scenario-editor";
+import { KpiComparison } from "./kpi-comparison";
+import { ScenarioBar, type Side } from "./scenario-bar";
+import { createScenarioView, type ScenarioView } from "./scenario-view";
+import { useScenarioEditor } from "./use-scenario-editor";
+import {
+  Legend,
+  NumberSetting,
+  SaveIndicator,
+  ScaleSlider,
+} from "./workspace-controls";
 
+interface Params {
+  readonly ist: string | null;
+  readonly ziel: string | null;
+  readonly tab: Side;
+  readonly compare: boolean;
+}
+
+function readParams(search: URLSearchParams): Params {
+  return {
+    ist: search.get("ist") ?? search.get("id"),
+    ziel: search.get("ziel"),
+    tab: search.get("tab") === "ziel" ? "ziel" : "ist",
+    compare: search.get("vergleich") === "1",
+  };
+}
+
+function toQuery(p: Params): string {
+  const q = new URLSearchParams();
+  if (p.ist) q.set("ist", p.ist);
+  if (p.ziel) q.set("ziel", p.ziel);
+  if (p.tab === "ziel") q.set("tab", "ziel");
+  if (p.compare) q.set("vergleich", "1");
+  return q.toString();
+}
+
+/**
+ * Lädt die Szenarien einer Variante und löst Ist/Ziel aus der URL auf.
+ * Während eines Wechsels bleibt der bisherige Stand sichtbar, damit der
+ * Bearbeitungszustand des gleichen Szenarios erhalten bleibt.
+ */
 export function Workspace() {
-  const id = useSearchParams().get("id");
+  const search = useSearchParams();
+  const router = useRouter();
+  const query = search.toString();
+  const params = readParams(search);
   const [loaded, setLoaded] = useState<{
-    id: string;
-    scenario: StoredScenario | null;
+    query: string;
+    scenarios: StoredScenario[];
   } | null>(null);
 
   useEffect(() => {
-    if (!id) return;
     let active = true;
     scenarioRepository()
-      .get(id)
-      .then((scenario) => {
-        if (active) setLoaded({ id, scenario: scenario ?? null });
+      .list()
+      .then((scenarios) => {
+        if (active) setLoaded({ query, scenarios });
       });
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [query]);
 
-  if (id && (!loaded || loaded.id !== id)) {
+  if (!loaded)
     return <p className="p-8 text-muted-foreground">Lade Szenario …</p>;
-  }
-  if (!id || !loaded?.scenario) {
+
+  const byId = (id: string | null) => loaded.scenarios.find((s) => s.id === id);
+  const ist = byId(params.ist);
+  const requestedZiel = byId(params.ziel);
+  if (!ist || (params.ziel && !requestedZiel)) {
+    if (loaded.query !== query) {
+      return <p className="p-8 text-muted-foreground">Lade Szenario …</p>;
+    }
     return (
       <div className="p-8">
         <Alert variant="destructive">
@@ -76,29 +132,82 @@ export function Workspace() {
       </div>
     );
   }
+
+  // E15: nur Szenarien derselben Variante; Ziel standardmäßig das nächste andere Szenario.
+  const siblings = loaded.scenarios
+    .filter((s) => s.variantId === ist.variantId)
+    .sort((a, b) => a.importedAt.localeCompare(b.importedAt));
+  const ziel =
+    requestedZiel?.variantId === ist.variantId
+      ? requestedZiel
+      : (siblings.find((s) => s.id !== ist.id) ?? ist);
+  const current: Params = { ...params, ist: ist.id, ziel: ziel.id };
+  const navigate = (next: Partial<Params>) =>
+    router.replace(`/szenario?${toQuery({ ...current, ...next })}`, {
+      scroll: false,
+    });
+
+  // F48: genau ein Szenario wird bearbeitet; im Vergleich ist das das Ziel (F118).
+  const editable = current.compare || current.tab === "ziel" ? ziel : ist;
+
   return (
-    <ScenarioWorkspace key={loaded.scenario.id} scenario={loaded.scenario} />
+    <ScenarioWorkspace
+      key={editable.id}
+      editable={editable}
+      ist={ist}
+      ziel={ziel}
+      siblings={siblings}
+      params={current}
+      navigate={navigate}
+    />
   );
 }
 
 const LABEL_KEYS = ["id", "description", "duration"] as const;
 
-function ScenarioWorkspace({ scenario }: { scenario: StoredScenario }) {
-  const editor = useScenarioEditor(scenario);
-  const { doc } = editor;
+type Evaluation =
+  | { ok: true; view: ScenarioView; columns: StationColumn[] }
+  | { ok: false; message: string };
 
-  const evaluation = useMemo(() => {
-    try {
-      const result = evaluateScenario(doc.input);
-      return {
-        ok: true as const,
-        view: createScenarioView(doc.input, result, doc.categories),
-        columns: buildColumns(doc.input, result),
-      };
-    } catch (error) {
-      return { ok: false as const, message: String(error) };
-    }
-  }, [doc]);
+function evaluate(doc: EditableScenario): Evaluation {
+  try {
+    const result = evaluateScenario(doc.input);
+    return {
+      ok: true,
+      view: createScenarioView(doc.input, result, doc.categories),
+      columns: buildColumns(doc.input, result),
+    };
+  } catch (error) {
+    return { ok: false, message: String(error) };
+  }
+}
+
+function ScenarioWorkspace(props: {
+  editable: StoredScenario;
+  ist: StoredScenario;
+  ziel: StoredScenario;
+  siblings: readonly StoredScenario[];
+  params: Params;
+  navigate: (next: Partial<Params>) => void;
+}) {
+  const { editable, params } = props;
+  const editor = useScenarioEditor(editable);
+  const compare = params.compare;
+  const sameScenario = props.ist.id === props.ziel.id;
+
+  const main = useMemo(() => evaluate(editor.doc), [editor.doc]);
+  // Ist im Vergleich: eigenes, schreibgeschütztes Szenario oder derselbe Datensatz wie das Ziel (F115).
+  const istDoc = useMemo<EditableScenario | null>(
+    () =>
+      compare && !sameScenario
+        ? { input: props.ist.input, categories: props.ist.categories }
+        : null,
+    [compare, sameScenario, props.ist],
+  );
+  const istEvaluation = useMemo(
+    () => (istDoc ? evaluate(istDoc) : compare ? main : null),
+    [istDoc, compare, main],
+  );
 
   const [mode, setMode] = useState<ChartMode>("station");
   const [labels, setLabels] = useState<LabelFields>({
@@ -108,31 +217,54 @@ function ScenarioWorkspace({ scenario }: { scenario: StoredScenario }) {
   });
   const [laneWidth, setLaneWidth] = useState(36);
   const [pxPerMinute, setPxPerMinute] = useState(() =>
-    evaluation.ok
+    main.ok
       ? clamp(
-          Math.round(440 / axisMaximum(evaluation.columns, doc.input.taktMin)),
+          Math.round(440 / axisMaximum(main.columns, editor.doc.input.taktMin)),
           1,
           300,
         )
       : 40,
   );
-  const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<{
+    side: Side;
+    stepId: string;
+  } | null>(null);
   const [showIssues, setShowIssues] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelectedStepId(null);
+      if (e.key === "Escape") setSelected(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // F104: horizontales Scrollen beider Diagramme koppeln.
+  const istScroll = useRef<HTMLDivElement>(null);
+  const zielScroll = useRef<HTMLDivElement>(null);
+  const syncing = useRef(false);
+  function syncScroll(
+    target: RefObject<HTMLDivElement | null>,
+    e: UIEvent<HTMLDivElement>,
+  ) {
+    if (syncing.current) {
+      syncing.current = false;
+      return;
+    }
+    const other = target.current;
+    if (other && other.scrollLeft !== e.currentTarget.scrollLeft) {
+      syncing.current = true;
+      other.scrollLeft = e.currentTarget.scrollLeft;
+    }
+  }
+
   const apply = editor.apply;
+  const editSide: Side = compare || params.tab === "ziel" ? "ziel" : "ist";
   const actions: ChartActions = {
     onMoveStep: (stepId, stationId) => {
       // F61/F95: nach dem Ablegen ohne Mitarbeiter; Panel öffnen, damit direkt zugewiesen werden kann (F100).
       if (!apply({ type: "moveStep", stepId, stationId }))
-        setSelectedStepId(stepId);
+        setSelected({ side: editSide, stepId });
     },
     onAssignEmployee: (stepId, employeeId) =>
       apply({ type: "assignEmployee", stepId, employeeId }),
@@ -141,25 +273,88 @@ function ScenarioWorkspace({ scenario }: { scenario: StoredScenario }) {
       apply({ type: "removeEmployee", employeeId }),
   };
 
-  if (!evaluation.ok) {
+  async function duplicate() {
+    const copy = duplicateScenario(
+      {
+        ...editable,
+        input: editor.doc.input,
+        categories: editor.doc.categories,
+      },
+      props.siblings,
+    );
+    await scenarioRepository().save(copy);
+    props.navigate({ ziel: copy.id, tab: "ziel" });
+  }
+
+  if (!main.ok || (istEvaluation && !istEvaluation.ok)) {
+    const message = !main.ok
+      ? main.message
+      : istEvaluation && !istEvaluation.ok
+        ? istEvaluation.message
+        : "";
     return (
       <div className="p-8">
         <Alert variant="destructive">
           <XCircleIcon />
           <AlertTitle>Szenario kann nicht berechnet werden</AlertTitle>
           <AlertDescription className="whitespace-pre-line">
-            {evaluation.message}
+            {message}
           </AlertDescription>
         </Alert>
       </div>
     );
   }
 
-  const { view, columns } = evaluation;
+  const view = main.view;
   const kpis = view.result.kpis;
   const violations = view.result.issues.filter(
     (i) => i.severity === "violation",
   );
+  const effectiveLane = effectiveLaneWidth(laneWidth, mode);
+
+  // Vergleich: gemeinsame Stationsfolge, Spaltenbreiten und Skala (F111, F112).
+  const comparison =
+    compare && istEvaluation?.ok
+      ? (() => {
+          const istInput = istEvaluation.view.input;
+          const zielInput = view.input;
+          const widths = new Map<string, number>();
+          for (const column of [...istEvaluation.columns, ...main.columns]) {
+            const key = column.station.label.toLocaleLowerCase("de");
+            widths.set(
+              key,
+              Math.max(
+                widths.get(key) ?? 0,
+                stationColumnWidth(column, effectiveLane),
+              ),
+            );
+          }
+          return {
+            ist: istEvaluation,
+            labels: alignedStationLabels(istInput, zielInput),
+            widths,
+            axis: Math.max(
+              axisMaximum(istEvaluation.columns, istInput.taktMin),
+              axisMaximum(main.columns, zielInput.taktMin),
+            ),
+            moved: sameScenario
+              ? new Set<string>()
+              : movedStepIds(istInput, zielInput),
+          };
+        })()
+      : null;
+
+  const chartProps = {
+    mode,
+    laneWidth,
+    pxPerMinute,
+    labels,
+  };
+  const panelView =
+    selected?.side === "ist" && comparison && !sameScenario
+      ? comparison.ist.view
+      : view;
+  const panelReadOnly = selected?.side === "ist" && compare && !sameScenario;
 
   return (
     <div className="flex flex-col gap-4 p-4 sm:px-6">
@@ -167,7 +362,7 @@ function ScenarioWorkspace({ scenario }: { scenario: StoredScenario }) {
         <div>
           {/* Links, damit das Detailpanel rechts Rückgängig/Wiederholen nicht verdeckt. */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h1 className="text-2xl font-semibold">{scenario.name}</h1>
+            <h1 className="text-2xl font-semibold">{editable.name}</h1>
             <SaveIndicator status={editor.saveStatus} />
             <div className="flex gap-1">
               <Button
@@ -193,8 +388,11 @@ function ScenarioWorkspace({ scenario }: { scenario: StoredScenario }) {
             </div>
           </div>
           <p className="text-sm text-muted-foreground">
-            Variante {scenario.variantName} · {scenario.sourceFilename} ·
-            zuletzt geändert {formatDateTime(editor.updatedAt)}
+            Variante {editable.variantName} ·{" "}
+            {editable.copiedFrom
+              ? `Kopie von ${editable.copiedFrom}`
+              : editable.sourceFilename}{" "}
+            · zuletzt geändert {formatDateTime(editor.updatedAt)}
           </p>
         </div>
         <Link href="/" className={buttonVariants({ variant: "outline" })}>
@@ -202,8 +400,41 @@ function ScenarioWorkspace({ scenario }: { scenario: StoredScenario }) {
         </Link>
       </div>
 
-      <KpiBar view={view} />
+      <ScenarioBar
+        siblings={props.siblings}
+        istId={props.ist.id}
+        zielId={props.ziel.id}
+        tab={params.tab}
+        compare={compare}
+        onTab={(tab) => props.navigate({ tab })}
+        onSelect={(side, id) =>
+          props.navigate(side === "ist" ? { ist: id } : { ziel: id })
+        }
+        onToggleCompare={() => props.navigate({ compare: !compare })}
+        onDuplicate={duplicate}
+      />
 
+      {comparison ? (
+        <KpiComparison
+          ist={comparison.ist.view}
+          ziel={view}
+          movedCount={comparison.moved.size}
+        />
+      ) : (
+        <KpiBar view={view} />
+      )}
+
+      {compare && sameScenario && (
+        <Alert>
+          <InfoIcon />
+          <AlertTitle>Ist und Ziel sind dasselbe Szenario</AlertTitle>
+          <AlertDescription>
+            Änderungen am Ziel wirken auf denselben Datensatz und erscheinen
+            deshalb auch im Ist. Für einen echten Vorher-Nachher-Vergleich
+            zuerst „Duplizieren“.
+          </AlertDescription>
+        </Alert>
+      )}
       {editor.error && (
         <Alert variant="destructive">
           <XCircleIcon />
@@ -219,7 +450,7 @@ function ScenarioWorkspace({ scenario }: { scenario: StoredScenario }) {
           </button>
         </Alert>
       )}
-      {kpis.incomplete && (
+      {!compare && kpis.incomplete && (
         <Alert className="border-warning/40 bg-warning/5">
           <AlertTriangleIcon className="text-warning" />
           <AlertTitle>Ergebnis unvollständig</AlertTitle>
@@ -234,7 +465,11 @@ function ScenarioWorkspace({ scenario }: { scenario: StoredScenario }) {
       {violations.length > 0 && (
         <Alert variant="destructive">
           <XCircleIcon />
-          <AlertTitle>Szenario ist konfliktbehaftet</AlertTitle>
+          <AlertTitle>
+            {compare
+              ? "Ziel-Szenario ist konfliktbehaftet"
+              : "Szenario ist konfliktbehaftet"}
+          </AlertTitle>
           <AlertDescription>
             {violations.length} Vorgängerbeziehungen sind verletzt. Details
             unter „Hinweise“.
@@ -255,13 +490,13 @@ function ScenarioWorkspace({ scenario }: { scenario: StoredScenario }) {
         </ToggleGroup>
 
         <NumberSetting
-          label="Takt [min]"
-          value={doc.input.taktMin}
+          label={compare ? "Takt Ziel [min]" : "Takt [min]"}
+          value={editor.doc.input.taktMin}
           onCommit={(taktMin) => apply({ type: "setTakt", taktMin })}
         />
         <NumberSetting
-          label="Zuschlag [%]"
-          value={doc.input.allowancePct}
+          label={compare ? "Zuschlag Ziel [%]" : "Zuschlag [%]"}
+          value={editor.doc.input.allowancePct}
           onCommit={(allowancePct) =>
             apply({ type: "setAllowance", allowancePct })
           }
@@ -317,196 +552,85 @@ function ScenarioWorkspace({ scenario }: { scenario: StoredScenario }) {
 
       {showIssues && (
         <div className="rounded-lg border bg-white p-2">
-          <IssuesList view={view} onSelectStep={setSelectedStepId} />
+          <IssuesList
+            view={view}
+            onSelectStep={(stepId) => setSelected({ side: editSide, stepId })}
+          />
         </div>
       )}
 
-      <YamazumiChart
-        view={view}
-        columns={columns}
-        mode={mode}
-        laneWidth={laneWidth}
-        pxPerMinute={pxPerMinute}
-        labels={labels}
-        selectedStepId={selectedStepId}
-        onSelectStep={setSelectedStepId}
-        actions={actions}
-      />
-
-      <Legend categories={doc.categories} onApply={apply} />
-
-      {selectedStepId && (
-        <DetailPanel
-          key={selectedStepId}
+      {comparison ? (
+        <div className="grid gap-4 xl:grid-cols-2">
+          <section aria-label="Ist" className="flex min-w-0 flex-col gap-1.5">
+            <h2 className="text-sm font-semibold">
+              Ist: {props.ist.name}
+              <span className="ml-2 font-normal text-muted-foreground">
+                schreibgeschützt
+              </span>
+            </h2>
+            <YamazumiChart
+              {...chartProps}
+              view={comparison.ist.view}
+              columns={comparison.ist.columns}
+              stationLabels={comparison.labels}
+              slotWidths={comparison.widths}
+              axisMaximum={comparison.axis}
+              scrollRef={istScroll}
+              onScroll={(e) => syncScroll(zielScroll, e)}
+              selectedStepId={selected?.stepId ?? null}
+              onSelectStep={(stepId) => setSelected({ side: "ist", stepId })}
+            />
+          </section>
+          <section aria-label="Ziel" className="flex min-w-0 flex-col gap-1.5">
+            <h2 className="text-sm font-semibold">Ziel: {props.ziel.name}</h2>
+            <YamazumiChart
+              {...chartProps}
+              view={view}
+              columns={main.columns}
+              stationLabels={comparison.labels}
+              slotWidths={comparison.widths}
+              axisMaximum={comparison.axis}
+              scrollRef={zielScroll}
+              onScroll={(e) => syncScroll(istScroll, e)}
+              movedStepIds={comparison.moved}
+              selectedStepId={selected?.stepId ?? null}
+              onSelectStep={(stepId) => setSelected({ side: "ziel", stepId })}
+              actions={actions}
+            />
+          </section>
+        </div>
+      ) : (
+        <YamazumiChart
+          {...chartProps}
           view={view}
-          stepId={selectedStepId}
-          onClose={() => setSelectedStepId(null)}
-          onSelectStep={setSelectedStepId}
-          onApply={apply}
+          columns={main.columns}
+          selectedStepId={selected?.stepId ?? null}
+          onSelectStep={(stepId) => setSelected({ side: editSide, stepId })}
+          actions={actions}
         />
       )}
-    </div>
-  );
-}
 
-/** Speicherstatus neben dem Szenarionamen (F119). */
-function SaveIndicator({ status }: { status: SaveStatus }) {
-  if (status === "saving") {
-    return (
-      <span
-        className="flex items-center gap-1 text-xs font-normal text-muted-foreground"
-        role="status"
-      >
-        <Loader2Icon className="size-4 animate-spin" /> speichert …
-      </span>
-    );
-  }
-  if (status === "failed") {
-    return (
-      <span
-        className="flex items-center gap-1 text-xs font-medium text-destructive"
-        role="alert"
-      >
-        <AlertTriangleIcon className="size-4" /> nicht gespeichert
-      </span>
-    );
-  }
-  return (
-    <span
-      className="flex items-center gap-1 text-xs font-normal text-muted-foreground"
-      role="status"
-      title="Alle Änderungen sind in diesem Browser gespeichert."
-    >
-      <CheckCircle2Icon className="size-4 text-chart-3" /> gespeichert
-    </span>
-  );
-}
-
-/** Zahleneingabe, die erst beim Verlassen bzw. Enter übernommen wird (F59, F60). */
-function NumberSetting(props: {
-  label: string;
-  value: number;
-  onCommit: (value: number) => string | null;
-}) {
-  const shown = formatMinutes(props.value);
-  const [invalid, setInvalid] = useState(false);
-  return (
-    <label className="flex items-center gap-2 text-sm">
-      <span className="text-muted-foreground">{props.label}</span>
-      <Input
-        key={shown}
-        defaultValue={shown}
-        inputMode="decimal"
-        aria-invalid={invalid}
-        className="h-8 w-20 tabular-nums"
-        onBlur={(e) => {
-          const parsed = parseGermanNumber(e.target.value);
-          const error = parsed.ok
-            ? parsed.value === props.value
-              ? null
-              : props.onCommit(parsed.value)
-            : "ungültig";
-          setInvalid(error !== null);
-          if (error) e.target.value = shown;
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-        }}
+      <Legend
+        categories={editor.doc.categories}
+        onApply={apply}
+        showMoved={!!comparison}
       />
-    </label>
-  );
-}
 
-function ScaleSlider(props: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="flex items-center gap-2 text-sm">
-      <span className="text-muted-foreground">{props.label}</span>
-      {/* Feste Breite außen: der Slider selbst ist auf 100 % seines Containers gesetzt. */}
-      <div className="w-28">
-        <Slider
-          min={props.min}
-          max={props.max}
-          value={[props.value]}
-          onValueChange={(value) =>
-            props.onChange(Array.isArray(value) ? value[0] : value)
+      {selected && panelView.steps.has(selected.stepId) && (
+        <DetailPanel
+          key={`${selected.side}:${selected.stepId}`}
+          view={panelView}
+          stepId={selected.stepId}
+          context={
+            compare ? (selected.side === "ist" ? "Ist" : "Ziel") : undefined
           }
-          aria-label={props.label}
+          onClose={() => setSelected(null)}
+          onSelectStep={(stepId) =>
+            setSelected({ side: selected.side, stepId })
+          }
+          onApply={panelReadOnly ? undefined : apply}
         />
-      </div>
-    </label>
-  );
-}
-
-/** Legende mit änderbaren Kategoriefarben (F27, F93, F97). */
-function Legend(props: {
-  categories: readonly Category[];
-  onApply: (op: Operation) => string | null;
-}) {
-  const swatch = "inline-block size-3 rounded-sm border border-white";
-  return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground">
-      {props.categories.map((c) => (
-        <label
-          key={c.id}
-          className="flex cursor-pointer items-center gap-1.5"
-          title="Farbe ändern"
-        >
-          <input
-            type="color"
-            value={c.color}
-            onChange={(e) =>
-              props.onApply({
-                type: "setCategoryColor",
-                categoryId: c.id,
-                color: e.target.value,
-              })
-            }
-            className="size-4 cursor-pointer rounded-sm border-0 bg-transparent p-0"
-            aria-label={`Farbe der Kategorie ${c.label}`}
-          />
-          {c.label}
-        </label>
-      ))}
-      <span className="flex items-center gap-1.5">
-        <span
-          className={swatch}
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(135deg, var(--yz-wait) 0 3px, var(--yz-wait-stripe) 3px 4px)",
-          }}
-        />
-        Wartezeit (berechnet)
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span
-          className={`${swatch} border-dashed border-nx-steel-dark bg-(--yz-allowance)`}
-        />
-        Zuschlag
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span
-          className={swatch}
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(135deg, color-mix(in srgb, var(--yz-unassigned) 35%, white) 0 3px, color-mix(in srgb, var(--yz-unassigned) 60%, white) 3px 5px)",
-          }}
-        />
-        ohne Mitarbeiter (nicht eingerechnet)
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block h-0 w-5 border-t-2 border-dashed border-(--yz-takt)" />
-        Taktzeit
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block size-3 border-2 border-(--yz-over) bg-(--yz-over)/15" />
-        über Takt
-      </span>
+      )}
     </div>
   );
 }

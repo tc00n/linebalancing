@@ -12,11 +12,16 @@ import type { ScenarioInput } from "@/domain/model/types";
  */
 export interface StoredScenario {
   readonly id: string;
+  /** Szenarien einer Variante teilen die ID; nur sie sind vergleichbar (E15, E20). */
+  readonly variantId: string;
   /** Varianten- und Szenarioname starten mit dem Dateinamen (F88). */
   readonly variantName: string;
   readonly name: string;
   readonly sourceFilename: string;
+  /** Anlagezeitpunkt (Import oder Duplizieren). */
   readonly importedAt: string;
+  /** Name des Szenarios, aus dem dieses dupliziert wurde (E20). */
+  readonly copiedFrom?: string;
   /** Letzte Änderung (F38); Bearbeiter folgt mit dem Login in Phase 2. */
   readonly updatedAt: string;
   readonly input: ScenarioInput;
@@ -35,6 +40,7 @@ export interface ScenarioRepository {
 /** Ergänzt Felder, die ältere gespeicherte Stände noch nicht hatten. */
 export function withDefaults(stored: StoredScenario): StoredScenario {
   if (
+    stored.variantId &&
     stored.categories?.length &&
     stored.input.steps.every((s) => s.categoryId)
   ) {
@@ -42,6 +48,7 @@ export function withDefaults(stored: StoredScenario): StoredScenario {
   }
   return {
     ...stored,
+    variantId: stored.variantId ?? `variant:${stored.variantName}`,
     categories: stored.categories?.length
       ? stored.categories
       : defaultCategories(),
@@ -51,6 +58,35 @@ export function withDefaults(stored: StoredScenario): StoredScenario {
         s.categoryId ? s : { ...s, categoryId: DEFAULT_CATEGORY_ID },
       ),
     },
+  };
+}
+
+/** Name, der in der Liste noch nicht vorkommt: „X – Kopie“, „X – Kopie 2“ … */
+export function uniqueName(base: string, taken: readonly string[]): string {
+  const used = new Set(taken.map((n) => n.toLocaleLowerCase("de")));
+  if (!used.has(base.toLocaleLowerCase("de"))) return base;
+  for (let n = 2; ; n++) {
+    const candidate = `${base} ${n}`;
+    if (!used.has(candidate.toLocaleLowerCase("de"))) return candidate;
+  }
+}
+
+/** Kopie eines Szenarios in derselben Variante mit allen Zuordnungen (E20). */
+export function duplicateScenario(
+  source: StoredScenario,
+  siblings: readonly StoredScenario[],
+  now = new Date().toISOString(),
+): StoredScenario {
+  return {
+    ...source,
+    id: crypto.randomUUID(),
+    name: uniqueName(
+      `${source.name} – Kopie`,
+      siblings.map((s) => s.name),
+    ),
+    importedAt: now,
+    updatedAt: now,
+    copiedFrom: source.name,
   };
 }
 

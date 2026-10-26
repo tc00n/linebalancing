@@ -24,7 +24,10 @@ export function DetailPanel(props: {
   stepId: string;
   onClose: () => void;
   onSelectStep: (stepId: string) => void;
-  onApply: (op: Operation) => string | null;
+  /** Ohne Änderungsfunktion ist das Panel schreibgeschützt (Ist im Vergleich, F118). */
+  onApply?: (op: Operation) => string | null;
+  /** Kennzeichnung der Seite im Vergleich, z. B. „Ist“. */
+  context?: string;
 }) {
   const { view } = props;
   const step = view.steps.get(props.stepId);
@@ -32,6 +35,9 @@ export function DetailPanel(props: {
   const [predecessorError, setPredecessorError] = useState<string | null>(null);
   const [newPredecessor, setNewPredecessor] = useState("");
   if (!step) return null;
+
+  const readOnly = !props.onApply;
+  const apply = (op: Operation) => props.onApply?.(op) ?? null;
 
   const scheduled = view.scheduled.get(step.id);
   const issues = view.issuesByStep.get(step.id) ?? [];
@@ -41,7 +47,7 @@ export function DetailPanel(props: {
   );
 
   function setPredecessors(predecessorIds: string[]) {
-    const error = props.onApply({
+    const error = apply({
       type: "setPredecessors",
       stepId: step!.id,
       predecessorIds,
@@ -57,7 +63,11 @@ export function DetailPanel(props: {
     >
       <header className="flex items-start gap-2 border-b p-4">
         <div className="min-w-0 flex-1">
-          <p className="text-xs text-muted-foreground">Arbeitsgang</p>
+          <p className="text-xs text-muted-foreground">
+            Arbeitsgang
+            {props.context && ` · ${props.context}`}
+            {readOnly && " · schreibgeschützt"}
+          </p>
           <h2 className="truncate text-lg font-semibold">{step.id}</h2>
         </div>
         <Button
@@ -93,8 +103,9 @@ export function DetailPanel(props: {
               id={`${ids}-station`}
               className={selectClass}
               value={step.stationId}
+              disabled={readOnly}
               onChange={(e) =>
-                props.onApply({
+                apply({
                   type: "moveStep",
                   stepId: step.id,
                   stationId: e.target.value,
@@ -122,8 +133,9 @@ export function DetailPanel(props: {
               id={`${ids}-employee`}
               className={`${selectClass} ${step.employeeId ? "" : "border-warning text-warning"}`}
               value={step.employeeId ?? ""}
+              disabled={readOnly}
               onChange={(e) =>
-                props.onApply({
+                apply({
                   type: "assignEmployee",
                   stepId: step.id,
                   employeeId: e.target.value || null,
@@ -160,8 +172,9 @@ export function DetailPanel(props: {
               id={`${ids}-category`}
               className={selectClass}
               value={step.categoryId ?? ""}
+              disabled={readOnly}
               onChange={(e) =>
-                props.onApply({
+                apply({
                   type: "setCategory",
                   stepId: step.id,
                   categoryId: e.target.value,
@@ -191,10 +204,11 @@ export function DetailPanel(props: {
               defaultValue={String(step.sequence).replace(".", ",")}
               inputMode="decimal"
               className="h-8"
+              disabled={readOnly}
               onBlur={(e) => {
                 const parsed = parseGermanNumber(e.target.value);
                 if (parsed.ok && parsed.value !== step.sequence) {
-                  props.onApply({
+                  apply({
                     type: "setSequence",
                     stepId: step.id,
                     sequence: parsed.value,
@@ -241,58 +255,62 @@ export function DetailPanel(props: {
                   >
                     {id}
                   </button>
-                  <button
-                    type="button"
-                    className="rounded-r-md px-1 py-0.5 hover:bg-nx-steel"
-                    aria-label={`Vorgänger ${id} entfernen`}
-                    onClick={() =>
-                      setPredecessors(
-                        step.predecessorIds.filter((p) => p !== id),
-                      )
-                    }
-                  >
-                    <XIcon className="size-3" />
-                  </button>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      className="rounded-r-md px-1 py-0.5 hover:bg-nx-steel"
+                      aria-label={`Vorgänger ${id} entfernen`}
+                      onClick={() =>
+                        setPredecessors(
+                          step.predecessorIds.filter((p) => p !== id),
+                        )
+                      }
+                    >
+                      <XIcon className="size-3" />
+                    </button>
+                  )}
                 </span>
               ))}
             </span>
-            <form
-              className="flex gap-1"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const id = newPredecessor.trim();
-                if (id) setPredecessors([...step.predecessorIds, id]);
-              }}
-            >
-              <Input
-                aria-label="Vorgänger hinzufügen"
-                placeholder="Arbeitsgang-ID"
-                list={`${ids}-steps`}
-                value={newPredecessor}
-                onChange={(e) => setNewPredecessor(e.target.value)}
-                className="h-7 text-xs"
-              />
-              <datalist id={`${ids}-steps`}>
-                {view.input.steps
-                  .filter(
-                    (s) =>
-                      s.id !== step.id && !step.predecessorIds.includes(s.id),
-                  )
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.description}
-                    </option>
-                  ))}
-              </datalist>
-              <Button
-                type="submit"
-                size="icon-sm"
-                variant="outline"
-                aria-label="Vorgänger hinzufügen"
+            {!readOnly && (
+              <form
+                className="flex gap-1"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const id = newPredecessor.trim();
+                  if (id) setPredecessors([...step.predecessorIds, id]);
+                }}
               >
-                <PlusIcon />
-              </Button>
-            </form>
+                <Input
+                  aria-label="Vorgänger hinzufügen"
+                  placeholder="Arbeitsgang-ID"
+                  list={`${ids}-steps`}
+                  value={newPredecessor}
+                  onChange={(e) => setNewPredecessor(e.target.value)}
+                  className="h-7 text-xs"
+                />
+                <datalist id={`${ids}-steps`}>
+                  {view.input.steps
+                    .filter(
+                      (s) =>
+                        s.id !== step.id && !step.predecessorIds.includes(s.id),
+                    )
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.description}
+                      </option>
+                    ))}
+                </datalist>
+                <Button
+                  type="submit"
+                  size="icon-sm"
+                  variant="outline"
+                  aria-label="Vorgänger hinzufügen"
+                >
+                  <PlusIcon />
+                </Button>
+              </form>
+            )}
             {predecessorError && (
               <p className="text-xs text-destructive" role="alert">
                 {predecessorError}

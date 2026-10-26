@@ -38,5 +38,5 @@ export async function importExample(
   await page.getByLabel("Taktzeit [min]").fill("4,00");
   await page.getByLabel("Zuschlag [%]").fill(options.allowance ?? "0");
   await page.getByRole("button", { name: "Szenario anlegen" }).click();
-  await expect(page).toHaveURL(/\/szenario\?id=/);
+  await expect(page).toHaveURL(/\/szenario\?ist=/);
 }

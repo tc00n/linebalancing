@@ -26,14 +26,14 @@ test("Excel importieren, korrigieren und als Yamazumi anzeigen", async ({
   await station.press("Enter");
   await expect(page.getByText("5 Arbeitsgänge ohne Fehler")).toBeVisible();
 
-  await expect(page.getByLabel("Name (Variante und Szenario)")).toHaveValue(
-    "Beispiel XT",
-  );
+  // F88: Dateiname als Varianten- und Szenarioname.
+  await expect(page.getByLabel("Variantenname")).toHaveValue("Beispiel XT");
+  await expect(page.getByLabel("Szenarioname")).toHaveValue("Beispiel XT");
   await page.getByLabel("Taktzeit [min]").fill("4,00");
   await page.getByLabel("Zuschlag [%]").fill("10");
   await page.getByRole("button", { name: "Szenario anlegen" }).click();
 
-  await expect(page).toHaveURL(/\/szenario\?id=/);
+  await expect(page).toHaveURL(/\/szenario\?ist=/);
   await expect(
     page.getByRole("heading", { name: "Beispiel XT" }),
   ).toBeVisible();
