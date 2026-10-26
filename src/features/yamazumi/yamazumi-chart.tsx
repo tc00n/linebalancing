@@ -73,6 +73,8 @@ interface YamazumiChartProps {
   readonly onScroll?: (event: UIEvent<HTMLDivElement>) => void;
   /** Vergleich: gegenüber dem Ist verschobene Arbeitsgänge (F113, F116). */
   readonly movedStepIds?: ReadonlySet<string>;
+  /** Suchtreffer hervorheben, Rest abschwächen (E37); null = keine Suche aktiv. */
+  readonly highlightStepIds?: ReadonlySet<string> | null;
 }
 
 const AXIS_WIDTH = 64;
@@ -415,6 +417,7 @@ function StationColumnView(
                       "stepId" in segment &&
                       !!props.movedStepIds?.has(segment.stepId)
                     }
+                    highlight={highlightOf(segment, props.highlightStepIds)}
                     draggable={!!props.actions}
                     onSelectStep={props.onSelectStep}
                     onHover={props.onHover}
@@ -433,10 +436,17 @@ function StationColumnView(
           >
             <span
               className={`absolute -top-5 left-0 rounded px-1 text-[11px] font-semibold tabular-nums ${
-                column.overTakt
-                  ? "bg-nx-red text-white"
-                  : "bg-white text-nx-blue"
+                column.filtered
+                  ? "bg-secondary text-muted-foreground"
+                  : column.overTakt
+                    ? "bg-nx-red text-white"
+                    : "bg-white text-nx-blue"
               }`}
+              title={
+                column.filtered
+                  ? "Summe der sichtbaren Arbeitsgänge"
+                  : "Stationshöhe"
+              }
             >
               {formatMinutes(column.height)}
             </span>
@@ -505,7 +515,7 @@ function StationColumnView(
             </button>
           )}
         </span>
-        {column.lanes.length > 0 && (
+        {column.lanes.length > 0 && !column.filtered && (
           <span
             className={`text-[11px] whitespace-nowrap tabular-nums ${
               column.overTakt
@@ -560,6 +570,7 @@ function LaneView(
           moved={
             "stepId" in segment && !!props.movedStepIds?.has(segment.stepId)
           }
+          highlight={highlightOf(segment, props.highlightStepIds)}
           draggable={!!props.actions}
           onSelectStep={props.onSelectStep}
           onHover={props.onHover}
@@ -587,9 +598,18 @@ interface SegmentProps {
   labels: LabelFields;
   selected: boolean;
   moved: boolean;
+  highlight: "match" | "dim" | null;
   draggable: boolean;
   onSelectStep: (stepId: string) => void;
   onHover: (hover: Hover | null) => void;
+}
+
+function highlightOf(
+  segment: Segment,
+  matches: ReadonlySet<string> | null | undefined,
+): "match" | "dim" | null {
+  if (!matches) return null;
+  return "stepId" in segment && matches.has(segment.stepId) ? "match" : "dim";
 }
 
 const SegmentView = memo(function SegmentView(props: SegmentProps) {
@@ -597,6 +617,7 @@ const SegmentView = memo(function SegmentView(props: SegmentProps) {
   const style = {
     bottom: segment.from * pxPerMinute,
     height: Math.max(1, (segment.to - segment.from) * pxPerMinute),
+    ...(props.highlight === "dim" ? { opacity: 0.25 } : {}),
   };
   const minutes = segment.to - segment.from;
 
@@ -630,7 +651,7 @@ const SegmentView = memo(function SegmentView(props: SegmentProps) {
 function StepSegment(
   props: Omit<SegmentProps, "segment"> & {
     segment: Extract<Segment, { kind: "step" | "unassigned" }>;
-    style: { bottom: number; height: number };
+    style: { bottom: number; height: number; opacity?: number };
   },
 ) {
   const { segment, style } = props;
@@ -665,6 +686,15 @@ function StepSegment(
   const movedStyle = props.moved
     ? { boxShadow: "inset 4px 0 0 var(--yz-moved)" }
     : {};
+  // E37: Suchtreffer mit kräftigem Rahmen, alles andere abgeschwächt (opacity in style).
+  const matchStyle =
+    props.highlight === "match"
+      ? {
+          outline: "2px solid var(--nx-red)",
+          outlineOffset: "-2px",
+          zIndex: 15,
+        }
+      : {};
 
   return (
     <button
@@ -681,7 +711,7 @@ function StepSegment(
       } ${props.selected ? "z-10" : ""} ${isDragging ? "opacity-40" : ""} ${
         props.moved ? "pl-1.5" : ""
       }`}
-      style={{ ...style, ...colors, ...movedStyle }}
+      style={{ ...style, ...colors, ...movedStyle, ...matchStyle }}
       aria-label={`Arbeitsgang ${step.id}, ${formatMinutes(step.timeMin)} min${
         unassigned ? ", nicht zugeordnet" : ""
       }${props.moved ? ", verschoben" : ""}`}

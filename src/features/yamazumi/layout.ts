@@ -47,6 +47,112 @@ export interface StationColumn {
   readonly height: number;
   readonly stationUtilization: number;
   readonly overTakt: boolean;
+  /** Gefilterte Darstellung (E8): Höhe = Summe sichtbarer Arbeitsgänge, keine Taktbewertung. */
+  readonly filtered?: boolean;
+}
+
+/** Filterkriterien (F96): innerhalb eines Kriteriums ODER, zwischen Kriterien UND. Leer = alle. */
+export interface StepFilter {
+  readonly stationIds: ReadonlySet<string>;
+  /** Mitarbeiterbezeichnungen über alle Stationen, z. B. „Mitarbeiter 1“; UNASSIGNED für nicht zugeordnet. */
+  readonly employeeLabels: ReadonlySet<string>;
+  readonly categoryIds: ReadonlySet<string>;
+}
+
+export const UNASSIGNED = "__unassigned__";
+
+export const EMPTY_FILTER: StepFilter = {
+  stationIds: new Set(),
+  employeeLabels: new Set(),
+  categoryIds: new Set(),
+};
+
+export function isFilterActive(filter: StepFilter): boolean {
+  return (
+    filter.stationIds.size > 0 ||
+    filter.employeeLabels.size > 0 ||
+    filter.categoryIds.size > 0
+  );
+}
+
+/** Passt ein Arbeitsgang zum Filter? */
+export function matchesFilter(
+  step: Step,
+  employeeLabel: string | null,
+  filter: StepFilter,
+): boolean {
+  const { stationIds, employeeLabels, categoryIds } = filter;
+  return (
+    (stationIds.size === 0 || stationIds.has(step.stationId)) &&
+    (categoryIds.size === 0 || categoryIds.has(step.categoryId ?? "")) &&
+    (employeeLabels.size === 0 ||
+      employeeLabels.has(employeeLabel ?? UNASSIGNED))
+  );
+}
+
+/**
+ * Gefilterte Darstellung (E8, F128): Die Berechnung bleibt unverändert;
+ * sichtbar sind nur passende Arbeitsgänge, lückenlos gestapelt in ihrer Spur.
+ * Warte- und Zuschlagssegmente entfallen, die Höhe ist die Summe der sichtbaren Zeiten.
+ */
+export function applyFilter(
+  columns: readonly StationColumn[],
+  input: ScenarioInput,
+  filter: StepFilter,
+): StationColumn[] {
+  if (!isFilterActive(filter)) return [...columns];
+  const steps = new Map(input.steps.map((s) => [s.id, s]));
+  const restack = (
+    segments: readonly Segment[],
+    label: string | null,
+    kind: "step" | "unassigned",
+  ) => {
+    let top = 0;
+    const out: Segment[] = [];
+    for (const segment of segments) {
+      if (segment.kind !== kind) continue;
+      const step = steps.get(segment.stepId)!;
+      if (!matchesFilter(step, label, filter)) continue;
+      out.push({ kind, stepId: step.id, from: top, to: top + step.timeMin });
+      top += step.timeMin;
+    }
+    return { segments: out, total: top };
+  };
+
+  return columns
+    .filter(
+      (c) =>
+        filter.stationIds.size === 0 || filter.stationIds.has(c.station.id),
+    )
+    .map((column) => {
+      const lanes = column.lanes
+        .filter(
+          (lane) =>
+            filter.employeeLabels.size === 0 ||
+            filter.employeeLabels.has(lane.employee.label),
+        )
+        .map((lane) => {
+          const { segments, total } = restack(
+            lane.segments,
+            lane.employee.label,
+            "step",
+          );
+          return { ...lane, segments, occupancy: total, overTakt: false };
+        });
+      const unassigned = restack(
+        column.unassigned,
+        null,
+        "unassigned",
+      ).segments;
+      return {
+        ...column,
+        lanes,
+        unassigned,
+        height: Math.max(0, ...lanes.map((l) => l.occupancy)),
+        overTakt: false,
+        filtered: true,
+      };
+    });
 }
 
 export function buildColumns(

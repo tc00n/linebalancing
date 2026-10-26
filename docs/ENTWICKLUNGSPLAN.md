@@ -246,3 +246,5 @@ Stand 26.10.2026, Phase 7: Szenarien sind nach Varianten gruppiert, lassen sich 
 Entscheidung 26.10.2026: **Phase 9 (Export) wird zurückgestellt**; E18 und E19 bleiben offen. Der Export gehört weiterhin zum MVP (F42, F45) und muss vor der Abnahme umgesetzt sein.
 
 Entscheidung 26.10.2026: Neue Anforderung **F132 Tabellenansicht mit Bearbeitung** (eigene Seite je Szenario, Felder wie im Detailpanel). Gehört zum MVP und wird als **Phase 8b** direkt nach Phase 8 umgesetzt.
+
+Stand 26.10.2026, Phase 8: Suche mit Hervorhebung (F96, E37), kombinierbare Filter nach Station, Mitarbeiter und Kategorie mit Chips und Zurücksetzen (F96, F121), gefilterte Ansicht nach E8 mit deutlichem Hinweis und Gesamtkennzahlen (F128), Vollbild mit ausblendbaren Kennzahlen und Bedienelementen (F34), „An Fenster anpassen“ und erweiterter Breitenregler (F98, F125, Backlog), Anzeigeeinstellungen je Gerät gespeichert (E16). Darstellung auf Laptop, Desktop und großem Bildschirm per Screenshot geprüft; die Abnahme auf dem echten Workshop-Bildschirm steht aus (F125).
