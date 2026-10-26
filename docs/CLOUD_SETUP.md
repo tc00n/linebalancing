@@ -2,6 +2,14 @@
 
 Stand: 26.10.2026. Gemeinsamer Arbeitsstand fuer Codex und Claude; verbindliche Projektregeln stehen in `AGENTS.md`, von `CLAUDE.md` eingebunden.
 
+## Produktivbetrieb auf Vercel (26.10.2026)
+
+- Produktiv-App: https://linebalancing.vercel.app, Region `fra1`. Vercel baut jeden Push auf `main` automatisch über die GitHub-Verknüpfung.
+- Umgebungsvariablen in Vercel (Production und Preview): nur `NEXT_PUBLIC_SUPABASE_URL` und `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Keine Datenbank-URL, kein Secret-/Service-Role-Key. Die Werte werden beim Build eingesetzt; nach einer Änderung ist ein Redeploy nötig.
+- Fehlen die Werte, ist der Build trotzdem erfolgreich, aber jede Seite liefert 500, weil `src/proxy.ts` bei jeder Anfrage `supabaseConfig()` aufruft. So war es bis zum 26.10.2026; vom Nutzer behoben.
+- Supabase Authentication → URL Configuration: `https://linebalancing.vercel.app/auth/callback` als Redirect-URL eingetragen (vom Nutzer gemeldet).
+- Geprüft am 26.10.2026: Login-Seite, Startseite und Projektliste antworten mit 200; die geschützte API meldet ohne Anmeldung korrekt 401 „Anmeldung erforderlich“. Ein Anmeldelink über die Produktiv-Adresse ist noch manuell abzunehmen.
+
 ## Aktueller Stand: Phase 2
 
 Migration 202610260001_phase2.sql ist auf dem Frankfurt-Projekt angewendet. Anmeldung, Projektzugang und Cloud-Speicherung sind implementiert. Maßgebliche Übergabe mit Prüfungen und offenen Einstellungen: [PHASE2.md](PHASE2.md). Die folgenden Verbindungsnotizen sind historisch.
