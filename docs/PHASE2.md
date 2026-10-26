@@ -72,6 +72,8 @@ Phase 2 wurde als Commit `0aa5449` gesichert und gepusht. Befunde und Korrekture
 
 Beide Datenbankkorrekturen stehen in `supabase/migrations/202610260002_review_fixes.sql`. `db-test.mjs` spielt ausstehende Migrationen jetzt in der Testtransaktion ein, sodass sie vor `db:migrate` geprüft werden. Zwei neue Tests (vernetzte Vorgänger, Codepflicht für Staff-Editoren): 30 Datenbanktests bestanden; Gegenprobe ohne `…0002` scheitert erwartungsgemäß mit Zeitüberschreitung. Lint, TypeScript, Format, 106 Unit-Tests, Produktionsbuild und 5 Auth-Browsertests bestanden.
 
-**Offen:** `…0002` ist noch **nicht** auf Frankfurt angewendet (`npm run db:migrate`). Bis dahin gelten live die beiden alten Funktionen.
+`…0002` wurde am 26.10.2026 vom Nutzer per `npm run db:migrate` auf Frankfurt angewendet; Migrationsvorschau meldet „up to date“, alle 30 Datenbanktests gegen das Live-Schema bestanden.
+
+CI war seit Phase 0 rot: `tsc` lief vor dem Build ohne die generierten Next.js-Typen (`LayoutProps`). `typecheck` ruft jetzt zuerst `next typegen` auf. Erster vollständig grüner CI-Lauf (check, e2e, database) mit Commit `21d31e7`. GitHub-CLI ist installiert und angemeldet.
 
 Zur Kenntnis ohne Korrektur: Nach jedem Speicherfehler (auch Netzwerkaussetzer) ruht das Autosave bis zum Neuladen, ungespeicherte Änderungen gehen dabei verloren (Phase 6). `scenarios.updated_by` und `projects.owner_id` verweisen ohne `on delete` auf `auth.users`; Nutzer mit Änderungen sind damit nicht löschbar (E26).
