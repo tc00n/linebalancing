@@ -2,7 +2,7 @@
 
 Webanwendung für Line Balancing mit interaktivem Yamazumi-Diagramm. Erster Einsatz: Projekt Eura Mobil, Workshop Arbeitsvorbereitung.
 
-**Status:** Rechenkern (Phase 1), Excel-Import (Phase 3), Yamazumi (Phase 4), Bearbeiten im Diagramm (Phase 5 ohne Szenariosperre), Szenarien und Ist/Ziel-Vergleich (Phase 7) sowie Suche, Filter und Vollbild (Phase 8) sind umgesetzt. Szenarien werden vorerst nur im Browser gespeichert; Datenbank und Login (Phase 2) folgen.
+**Status:** Rechenkern (Phase 1), Excel-Import (Phase 3), Yamazumi (Phase 4), Bearbeiten im Diagramm (Phase 5 ohne Szenariosperre), Szenarien und Ist/Ziel-Vergleich (Phase 7) sowie Suche, Filter und Vollbild (Phase 8) sind umgesetzt. Phase 2 ergänzt Supabase-Speicherung, Anmeldung und Projektberechtigungen. Browserdaten können ausdrücklich in ein Projekt übernommen werden; siehe [Phase-2-Übergabe](docs/PHASE2.md).
 
 ## Dokumentation
 
@@ -22,8 +22,8 @@ Voraussetzungen: Node.js 24, für die lokale Datenbank zusätzlich Docker.
 
 ```bash
 npm install
-cp .env.example .env.local   # Werte aus `npx supabase status` eintragen
-npm run db:start             # lokale Supabase (Docker)
+cp .env.example .env.local   # vier Supabase-Werte eintragen (docs/CLOUD_SETUP.md)
+npm run check:env            # API-/Datenbankverbindung prüfen
 npm run dev                  # http://localhost:3000
 ```
 
@@ -31,16 +31,16 @@ Das Repo liegt bewusst nicht in OneDrive: Der Sync von `node_modules` und `.next
 
 ## Prüfungen
 
-| Befehl                 | Zweck                                                      |
-| ---------------------- | ---------------------------------------------------------- |
-| `npm run lint`         | ESLint                                                     |
-| `npm run typecheck`    | TypeScript                                                 |
-| `npm run format:check` | Prettier                                                   |
-| `npm test`             | Unit-Tests (Vitest)                                        |
-| `npm run e2e`          | End-to-End-Tests (Playwright, gegen den Produktions-Build) |
-| `npm run db:test`      | Datenbank- und RLS-Tests (pgTAP, ab Phase 2)               |
+| Befehl                 | Zweck                                                     |
+| ---------------------- | --------------------------------------------------------- |
+| `npm run lint`         | ESLint                                                    |
+| `npm run typecheck`    | TypeScript                                                |
+| `npm run format:check` | Prettier                                                  |
+| `npm test`             | Unit-Tests (Vitest)                                       |
+| `npm run e2e`          | UI-Regressionen mit isolierter lokaler Entwicklungsablage |
+| `npm run db:test`      | Datenbank- und RLS-Tests mit Rollback (Node/pg)           |
 
-Die CI unter `.github/workflows/ci.yml` führt alle Prüfungen außer `db:test` bei jedem Push aus.
+Zusätzlich: `npm run e2e:auth` prüft nach einem Build den Produktionszugang; `npm run e2e:cloud` prüft die echte Cloud-Anbindung mit temporären Testdaten. `npm run db:test:remote` prüft Datenbank und RLS mit Rollback. CI führt Code-, UI-, Produktionszugangs- und Datenbankprüfungen gegen eine lokale Docker-Supabase aus. Details: [docs/PHASE2.md](docs/PHASE2.md).
 
 ## Zeitaufnahme in Importdatei umwandeln
 

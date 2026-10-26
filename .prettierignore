@@ -5,3 +5,5 @@ supabase/.temp
 playwright-report
 test-results
 docs/spezifikation
+
+.next-e2e/

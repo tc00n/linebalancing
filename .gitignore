@@ -53,3 +53,5 @@ next-env.d.ts
 *.xlsx
 *.xlsm
 *.xls
+
+.next-e2e/

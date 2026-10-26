@@ -1,0 +1,384 @@
+import { readFileSync, existsSync } from "node:fs";
+import assert from "node:assert/strict";
+import pg from "pg";
+if (existsSync(".env.local")) process.loadEnvFile(".env.local");
+const localDb = ["localhost", "127.0.0.1"].includes(
+  new URL(process.env.SUPABASE_DB_URL).hostname,
+);
+const client = new pg.Client({
+  connectionString: process.env.SUPABASE_DB_URL,
+  ssl: localDb
+    ? false
+    : {
+        rejectUnauthorized: true,
+        ca: readFileSync("supabase/certs/prod-ca-2021.crt", "utf8"),
+      },
+  connectionTimeoutMillis: 15000,
+});
+const owner = "10000000-0000-4000-8000-000000000001",
+  editor = "10000000-0000-4000-8000-000000000002",
+  outsider = "10000000-0000-4000-8000-000000000003";
+const sid = "20000000-0000-4000-8000-000000000001",
+  otherSid = "20000000-0000-4000-8000-000000000002";
+let count = 0;
+const q = (sql, args = []) => client.query(sql, args);
+async function as(user, session = sid) {
+  await q("reset role");
+  await q("select set_config('request.jwt.claims',$1,true)", [
+    JSON.stringify({ sub: user, role: "authenticated", session_id: session }),
+  ]);
+  await q("set local role authenticated");
+}
+async function test(name, fn) {
+  await fn();
+  count++;
+  console.log("OK " + name);
+}
+async function denied(sql, args = [], code = "42501") {
+  await q("savepoint denied");
+  try {
+    await q(sql, args);
+    assert.fail("Zugriff unerwartet erlaubt");
+  } catch (e) {
+    await q("rollback to savepoint denied");
+    assert.equal(e.code, code);
+  } finally {
+    await q("release savepoint denied");
+  }
+}
+try {
+  await client.connect();
+  await q("begin");
+  const existing = await q(
+    "select to_regclass('public.projects') is not null present",
+  );
+  if (!existing.rows[0].present)
+    await q(
+      readFileSync("supabase/migrations/202610260001_phase2.sql", "utf8"),
+    );
+  await q(
+    "insert into auth.users(id,email,email_confirmed_at) values($1,'phase2-owner@neonex.de',now()),($2,'phase2-editor@example.org',now()),($3,'phase2-outsider@example.org',now())",
+    [owner, editor, outsider],
+  );
+  await as(owner);
+  const p = (await q("select public.create_project('Phase 2 Test') id")).rows[0]
+    .id;
+  const code = (await q("select public.get_project_code($1) code", [p])).rows[0]
+    .code;
+  await test("Owner sieht eigenes Projekt", async () =>
+    assert.equal(
+      (await q("select count(*)::int n from public.projects where id=$1", [p]))
+        .rows[0].n,
+      1,
+    ));
+  await test("Projektcode hat vereinbartes Format", async () =>
+    assert.match(code, /^[A-F0-9]{5}-[A-F0-9]{5}$/));
+  await as(editor);
+  await test("Externe duerfen keine Projekte anlegen", () =>
+    denied("select public.create_project('Verboten')"));
+  await test("Ohne Code keine Projektdaten", async () =>
+    assert.equal(
+      (await q("select count(*)::int n from public.projects where id=$1", [p]))
+        .rows[0].n,
+      0,
+    ));
+  await test("Code- und Sitzungstabellen nicht direkt lesbar", async () => {
+    for (const t of [
+      "project_codes",
+      "member_sessions",
+      "code_attempts",
+      "staff_domains",
+    ])
+      await denied("select * from public." + t);
+  });
+  const redeemed = (
+    await q("select public.redeem_project_code($1) result", [code])
+  ).rows[0].result;
+  assert.equal(redeemed.ok, true);
+  await test("Editor mit Code hat Zugriff", async () =>
+    assert.equal(
+      (await q("select public.can_access_project($1) ok", [p])).rows[0].ok,
+      true,
+    ));
+  await test("Editor sieht keinen Code", () =>
+    denied("select public.get_project_code($1)", [p]));
+  await test("Direkte Schreibzugriffe gesperrt", async () => {
+    await denied("update public.projects set name='Manipuliert' where id=$1", [
+      p,
+    ]);
+    await denied(
+      "insert into public.project_members values($1,$2,'owner','owner')",
+      [p, outsider],
+    );
+  });
+  const doc = {
+    id: "30000000-0000-4000-8000-000000000001",
+    variantId: "40000000-0000-4000-8000-000000000001",
+    variantName: "Test",
+    name: "Ist",
+    sourceFilename: "Test.xlsx",
+    categories: [
+      { id: "value_adding", label: "Wertschoepfend", color: "#7fb3ae" },
+    ],
+    input: {
+      taktMin: 4,
+      allowancePct: 0,
+      stations: [
+        { id: "s1", label: "T1" },
+        { id: "s2", label: "T2" },
+      ],
+      employees: [{ id: "e1", stationId: "s1", label: "Mitarbeiter 1" }],
+      steps: [
+        {
+          id: "A",
+          description: "Test A",
+          timeMin: 2,
+          sequence: 1,
+          stationId: "s1",
+          employeeId: "e1",
+          categoryId: "value_adding",
+          predecessorIds: [],
+        },
+        {
+          id: "B",
+          description: "Test B",
+          timeMin: 1,
+          sequence: 2,
+          stationId: "s1",
+          employeeId: "e1",
+          categoryId: "value_adding",
+          predecessorIds: ["A"],
+        },
+      ],
+    },
+  };
+  await test("Import wird serverseitig gespeichert", async () => {
+    const result = (
+      await q("select public.import_scenario($1,$2) doc", [p, doc])
+    ).rows[0].doc;
+    assert.equal(result.version, 1);
+    assert.equal(result.input.steps.length, 2);
+  });
+  await test("Editor kann zuweisen und versioniert speichern", async () => {
+    doc.input.steps[0].employeeId = null;
+    const result = (
+      await q("select public.save_scenario($1,$2,1) doc", [p, doc])
+    ).rows[0].doc;
+    assert.equal(result.version, 2);
+  });
+  await test("Veraltete Version wird abgelehnt", () =>
+    denied("select public.save_scenario($1,$2,1)", [p, doc], "40001"));
+  await test("Importzeit durch RPC unveraenderlich", async () => {
+    const changed = structuredClone(doc);
+    changed.input.steps[0].timeMin = 99;
+    await denied("select public.save_scenario($1,$2,2)", [p, changed], "23514");
+  });
+  await test("Direkte Aenderung und Loeschung von Schritten verboten", async () => {
+    await denied("update public.steps set time_min=99 where scenario_id=$1", [
+      doc.id,
+    ]);
+    await denied("delete from public.steps where scenario_id=$1", [doc.id]);
+  });
+  await test("Kreise beim Speichern abgelehnt", async () => {
+    const changed = structuredClone(doc);
+    changed.input.steps[0].predecessorIds = ["B"];
+    await denied("select public.save_scenario($1,$2,2)", [p, changed], "23514");
+  });
+  await test("Unbekannte Vorgaenger abgelehnt", async () => {
+    const changed = structuredClone(doc);
+    changed.input.steps[0].predecessorIds = ["unbekannt"];
+    await denied("select public.save_scenario($1,$2,2)", [p, changed], "23503");
+  });
+  await test("Fremder Mitarbeiter an Station abgelehnt", async () => {
+    const changed = structuredClone(doc);
+    changed.input.steps[0].stationId = "s2";
+    changed.input.steps[0].employeeId = "e1";
+    await denied("select public.save_scenario($1,$2,2)", [p, changed], "23503");
+  });
+  await as(editor, otherSid);
+  await test("Neue Anmeldung erfordert Code erneut", async () =>
+    assert.equal(
+      (await q("select public.can_access_project($1) ok", [p])).rows[0].ok,
+      false,
+    ));
+  await test("Neue Sitzung sieht keine Szenarien", () =>
+    denied("select public.list_scenario_documents($1)", [p]));
+  await as(outsider);
+  await test("Fremdes Projekt bleibt isoliert", async () => {
+    assert.equal(
+      (
+        await q(
+          "select count(*)::int n from public.scenarios where project_id=$1",
+          [p],
+        )
+      ).rows[0].n,
+      0,
+    );
+    await denied("select public.import_scenario($1,$2)", [
+      p,
+      { ...doc, id: "30000000-0000-4000-8000-000000000099" },
+    ]);
+  });
+  await test("Fuenf Fehlversuche fuehren zu Sperre", async () => {
+    for (let i = 0; i < 5; i++)
+      await q("select public.redeem_project_code('00000-00000')");
+    const result = (
+      await q("select public.redeem_project_code($1) result", [code])
+    ).rows[0].result;
+    assert.equal(result.ok, false);
+    assert.match(result.message, /15 Minuten/);
+  });
+
+  await as(owner);
+  await test("RLS-/Grant-Matrix fuer alle Projekttabellen", async () => {
+    const readable = [
+      "projects",
+      "project_members",
+      "variants",
+      "scenarios",
+      "stations",
+      "employees",
+      "categories",
+      "steps",
+      "step_predecessors",
+    ];
+    const privateTables = [
+      "staff_domains",
+      "member_sessions",
+      "project_codes",
+      "code_attempts",
+    ];
+    for (const role of ["owner", "editor", "outsider", "anonymous"]) {
+      if (role === "owner") await as(owner);
+      if (role === "editor") {
+        await as(editor);
+        await q("select public.redeem_project_code($1)", [code]);
+      }
+      if (role === "outsider") await as(outsider);
+      if (role === "anonymous") {
+        await q("reset role");
+        await q("set local role anon");
+      }
+      for (const table of [...readable, ...privateTables]) {
+        const col =
+          table === "projects"
+            ? "id"
+            : table === "staff_domains"
+              ? "domain"
+              : table === "code_attempts"
+                ? "user_id"
+                : "project_id";
+        await denied("insert into public." + table + " default values");
+        await denied(
+          "update public." + table + " set " + col + "=" + col + " where false",
+        );
+        await denied("delete from public." + table + " where false");
+        if (role === "anonymous" || privateTables.includes(table))
+          await denied("select * from public." + table);
+        else if (role === "outsider")
+          assert.equal(
+            (await q("select count(*)::int n from public." + table)).rows[0].n,
+            0,
+          );
+        else await q("select * from public." + table);
+      }
+    }
+  });
+  await as(editor);
+  await test("E-Mail-Wechsel erfordert Code erneut", async () => {
+    await q("reset role");
+    await q(
+      "update auth.users set email='phase2-editor-new@example.org' where id=$1",
+      [editor],
+    );
+    await as(editor);
+    assert.equal(
+      (await q("select public.can_access_project($1) ok", [p])).rows[0].ok,
+      false,
+    );
+    await q("select public.redeem_project_code($1)", [code]);
+    assert.equal(
+      (await q("select public.can_access_project($1) ok", [p])).rows[0].ok,
+      true,
+    );
+  });
+  await as(outsider);
+  await test("Unbestaetigte Identitaet und gefaelschte Staff-E-Mail reichen nicht", async () => {
+    await q("reset role");
+    await q("select set_config('request.jwt.claims',$1,true)", [
+      JSON.stringify({
+        sub: outsider,
+        role: "authenticated",
+        session_id: sid,
+        email: "fake@neonex.de",
+      }),
+    ]);
+    await q("set local role authenticated");
+    assert.equal((await q("select public.is_staff() ok")).rows[0].ok, false);
+    await q("reset role");
+    await q("update auth.users set email_confirmed_at=null where id=$1", [
+      outsider,
+    ]);
+    await as(outsider);
+    await denied("select public.redeem_project_code($1)", [code]);
+  });
+
+  await as(owner);
+  await test("Trigger schuetzt Importzeit auch bei privilegiertem SQL", async () => {
+    await q("reset role");
+    await denied(
+      "update public.steps set time_min=99 where scenario_id=$1",
+      [doc.id],
+      "23514",
+    );
+    await as(owner);
+  });
+  await test("Owner muss Projektname zum Loeschen bestaetigen", () =>
+    denied("select public.delete_project($1,'falsch')", [p], "P0001"));
+  await q("select public.rotate_project_code($1)", [p]);
+  await as(editor);
+  await test("Code-Rotation entzieht Editor den Zugriff", async () =>
+    assert.equal(
+      (await q("select public.can_access_project($1) ok", [p])).rows[0].ok,
+      false,
+    ));
+  await as(owner);
+  await q("select public.delete_project($1,'Phase 2 Test')", [p]);
+  await test("Projektloeschung entfernt Szenarien vollstaendig", async () =>
+    assert.equal(
+      (
+        await q(
+          "select count(*)::int n from public.scenarios where project_id=$1",
+          [p],
+        )
+      ).rows[0].n,
+      0,
+    ));
+  await q("reset role");
+  await q("set local role anon");
+  await test("Anonyme haben keinen Tabellen-/Funktionszugriff", async () => {
+    await denied("select * from public.projects");
+    await denied("select public.create_project('Anonym')");
+  });
+  await q("rollback");
+  console.log(
+    count +
+      " Datenbanktests bestanden; alle Testdaten und ggf. Testschema zurueckgerollt.",
+  );
+} catch (error) {
+  try {
+    await q("rollback");
+  } catch {}
+  console.error(
+    "DB-Test fehlgeschlagen: " +
+      (error.code ?? error.name) +
+      " " +
+      (error.message ?? "").replace(
+        /postgres(?:ql)?:\/\/\S+/g,
+        "[DB-URL ausgeblendet]",
+      ),
+  );
+  process.exitCode = 1;
+} finally {
+  await client.end();
+}

@@ -17,3 +17,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Berechnungen ohne Zwischenrundung; erst die Ausgabe auf zwei Nachkommastellen runden (P2).
 - Autorisierung immer serverseitig über RLS und geprüfte Datenbankfunktionen. Der Supabase-Secret-/Service-Role-Key kommt nie in diese App.
 - UI-Sprache Deutsch, Zahlen im deutschen Format.
+
+## Zusammenarbeit und Dokumentation
+
+- Codex und Claude arbeiten am selben Projekt; vorhandene Aenderungen des jeweils anderen erhalten. Vor Beginn Git-Status und dokumentierten Stand pruefen.
+- Aenderungen, Pruefergebnisse, offene Punkte und naechste Schritte im Repository dokumentieren, damit beide Assistenten anschliessen koennen. Zugangsdaten nie dokumentieren oder ausgeben.
+- Fuer Cloud-Einrichtung und Verbindungspruefungen ist `docs/CLOUD_SETUP.md` die gemeinsame Uebergabe. `CLAUDE.md` bindet diese Regeln ueber `@AGENTS.md` ein.

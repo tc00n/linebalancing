@@ -1,10 +1,9 @@
 "use client";
+import { useScenarioRepository } from "@/features/projects/use-scenario-repository";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  scenarioRepository,
-  type StoredScenario,
-} from "@/data/scenarioRepository";
+import { ScenarioSaveQueue } from "@/data/scenario-save-queue";
+import { type StoredScenario } from "@/data/scenarioRepository";
 import {
   applyOperation,
   type EditableScenario,
@@ -27,19 +26,24 @@ interface History {
  * Erfolgreich gespeichert gilt erst nach Bestätigung des Speichers (F37).
  */
 export function useScenarioEditor(initial: StoredScenario) {
+  const repository = useScenarioRepository();
+  const [saveQueue] = useState(
+    () => new ScenarioSaveQueue(repository, initial),
+  );
   const [history, setHistory] = useState<History>({
     doc: { input: initial.input, categories: initial.categories },
     past: [],
     future: [],
   });
   const [updatedAt, setUpdatedAt] = useState(initial.updatedAt);
+  const [updatedByLabel, setUpdatedByLabel] = useState(initial.updatedByLabel);
   const [saving, setSaving] = useState({ pending: 0, failed: false });
   const [error, setError] = useState<string | null>(null);
 
   function persist(doc: EditableScenario) {
     const now = new Date().toISOString();
     setSaving((s) => ({ ...s, pending: s.pending + 1 }));
-    scenarioRepository()
+    saveQueue
       .save({
         ...initial,
         input: doc.input,
@@ -47,11 +51,19 @@ export function useScenarioEditor(initial: StoredScenario) {
         updatedAt: now,
       })
       .then(
-        () => {
-          setUpdatedAt(now);
+        (saved) => {
+          setUpdatedAt(saved.updatedAt);
+          setUpdatedByLabel(saved.updatedByLabel);
           setSaving((s) => ({ pending: s.pending - 1, failed: false }));
         },
-        () => setSaving((s) => ({ pending: s.pending - 1, failed: true })),
+        (cause) => {
+          setSaving((s) => ({ pending: s.pending - 1, failed: true }));
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Speichern fehlgeschlagen.",
+          );
+        },
       );
   }
 
@@ -129,6 +141,7 @@ export function useScenarioEditor(initial: StoredScenario) {
     canRedo: history.future.length > 0,
     saveStatus,
     updatedAt,
+    updatedByLabel,
     error,
     clearError: () => setError(null),
   };

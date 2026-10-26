@@ -22,18 +22,21 @@ export interface StoredScenario {
   readonly importedAt: string;
   /** Name des Szenarios, aus dem dieses dupliziert wurde (E20). */
   readonly copiedFrom?: string;
-  /** Letzte Änderung (F38); Bearbeiter folgt mit dem Login in Phase 2. */
+  /** Letzte Änderung (F38), mit Serverversion und Bearbeiter bei Cloud-Szenarien. */
   readonly updatedAt: string;
+  readonly version?: number;
+  readonly updatedBy?: string;
+  readonly updatedByLabel?: string;
   readonly input: ScenarioInput;
   /** Kategorien mit Farben je Szenario (E11). */
   readonly categories: readonly Category[];
 }
 
-/** Schnittstelle, gegen die die Oberfläche arbeitet; die Supabase-Variante folgt in Phase 2. */
+/** Gemeinsame Schnittstelle fuer projektbezogene Cloud- und lokale Browserablage. */
 export interface ScenarioRepository {
   list(): Promise<StoredScenario[]>;
   get(id: string): Promise<StoredScenario | undefined>;
-  save(scenario: StoredScenario): Promise<void>;
+  save(scenario: StoredScenario): Promise<StoredScenario | void>;
   remove(id: string): Promise<void>;
 }
 
@@ -80,6 +83,9 @@ export function duplicateScenario(
   return {
     ...source,
     id: crypto.randomUUID(),
+    version: undefined,
+    updatedBy: undefined,
+    updatedByLabel: undefined,
     name: uniqueName(
       `${source.name} – Kopie`,
       siblings.map((s) => s.name),

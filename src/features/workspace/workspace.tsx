@@ -1,4 +1,5 @@
 "use client";
+import { useScenarioRepository } from "@/features/projects/use-scenario-repository";
 
 import {
   AlertTriangleIcon,
@@ -28,7 +29,6 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   duplicateScenario,
-  scenarioRepository,
   type StoredScenario,
 } from "@/data/scenarioRepository";
 import { evaluateScenario } from "@/domain/calc/evaluate";
@@ -99,6 +99,8 @@ function toQuery(p: Params): string {
  * Bearbeitungszustand des gleichen Szenarios erhalten bleibt.
  */
 export function Workspace() {
+  const repository = useScenarioRepository();
+  const [loadError, setLoadError] = useState("");
   const search = useSearchParams();
   const router = useRouter();
   const query = search.toString();
@@ -110,16 +112,27 @@ export function Workspace() {
 
   useEffect(() => {
     let active = true;
-    scenarioRepository()
+    repository
       .list()
       .then((scenarios) => {
         if (active) setLoaded({ query, scenarios });
-      });
+      })
+      .catch(() =>
+        setLoadError(
+          "Szenario konnte nicht geladen werden. Bitte Projektzugang und Verbindung pr\u00fcfen.",
+        ),
+      );
     return () => {
       active = false;
     };
-  }, [query]);
+  }, [query, repository]);
 
+  if (loadError)
+    return (
+      <p role="alert" className="p-8 text-destructive">
+        {loadError}
+      </p>
+    );
   if (!loaded)
     return <p className="p-8 text-muted-foreground">Lade Szenario …</p>;
 
@@ -136,7 +149,7 @@ export function Workspace() {
           <XCircleIcon />
           <AlertTitle>Szenario nicht gefunden</AlertTitle>
           <AlertDescription>
-            Es ist in diesem Browser nicht gespeichert.{" "}
+            Es ist im aktiven Projekt nicht verfügbar.{" "}
             <Link href="/">Zur Szenarioliste</Link>
           </AlertDescription>
         </Alert>
@@ -213,6 +226,7 @@ function ScenarioWorkspace(props: {
 }) {
   const { editable, params } = props;
   const editor = useScenarioEditor(editable);
+  const repository = useScenarioRepository();
   const compare = params.compare;
   const sameScenario = props.ist.id === props.ziel.id;
 
@@ -271,7 +285,7 @@ function ScenarioWorkspace(props: {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [repository]);
 
   useEffect(() => {
     const onChange = () => {
@@ -334,8 +348,14 @@ function ScenarioWorkspace(props: {
       },
       props.siblings,
     );
-    await scenarioRepository().save(copy);
-    props.navigate({ ziel: copy.id, tab: "ziel" });
+    try {
+      await repository.save(copy);
+      props.navigate({ ziel: copy.id, tab: "ziel" });
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : "Duplizieren fehlgeschlagen.",
+      );
+    }
   }
 
   if (!main.ok || (istEvaluation && !istEvaluation.ok)) {
@@ -575,7 +595,8 @@ function ScenarioWorkspace(props: {
             {editable.copiedFrom
               ? `Kopie von ${editable.copiedFrom}`
               : editable.sourceFilename}{" "}
-            · zuletzt geändert {formatDateTime(editor.updatedAt)}
+            · zuletzt geändert {formatDateTime(editor.updatedAt)}{" "}
+            {editor.updatedByLabel && `von ${editor.updatedByLabel}`}
           </p>
         </div>
         {!fullscreen && (

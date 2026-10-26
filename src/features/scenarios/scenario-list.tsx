@@ -1,4 +1,7 @@
 "use client";
+import { LocalScenarios } from "@/features/projects/local-scenarios";
+import { useProjectSession } from "@/features/projects/project-session";
+import { useScenarioRepository } from "@/features/projects/use-scenario-repository";
 
 import {
   CopyIcon,
@@ -22,7 +25,6 @@ import {
 import { Input } from "@/components/ui/input";
 import {
   duplicateScenario,
-  scenarioRepository,
   uniqueName,
   type StoredScenario,
 } from "@/data/scenarioRepository";
@@ -30,19 +32,29 @@ import { TemplateDownloadButton } from "@/features/import/template-download-butt
 import { formatDateTime } from "@/lib/format";
 
 export function ScenarioList() {
+  const repository = useScenarioRepository();
+  const project = useProjectSession()!;
+  const [loadError, setLoadError] = useState("");
   const [scenarios, setScenarios] = useState<StoredScenario[] | null>(null);
-  const reload = () => scenarioRepository().list().then(setScenarios);
+  const reload = () => repository.list().then(setScenarios);
 
   useEffect(() => {
-    scenarioRepository().list().then(setScenarios);
-  }, []);
+    repository
+      .list()
+      .then(setScenarios)
+      .catch(() =>
+        setLoadError(
+          "Szenarien konnten nicht geladen werden. Bitte Projektzugang und Verbindung pr\u00fcfen.",
+        ),
+      );
+  }, [repository]);
 
   async function remove(scenario: StoredScenario) {
     const confirmed = window.confirm(
       `Szenario „${scenario.name}“ aus diesem Browser löschen? Das lässt sich nicht rückgängig machen.`,
     );
     if (!confirmed) return;
-    await scenarioRepository().remove(scenario.id);
+    await repository.remove(scenario.id);
     await reload();
   }
 
@@ -50,7 +62,7 @@ export function ScenarioList() {
     const siblings = (scenarios ?? []).filter(
       (s) => s.variantId === scenario.variantId,
     );
-    await scenarioRepository().save(duplicateScenario(scenario, siblings));
+    await repository.save(duplicateScenario(scenario, siblings));
     await reload();
   }
 
@@ -60,7 +72,7 @@ export function ScenarioList() {
     );
     const trimmed = name.trim();
     if (!trimmed || trimmed === scenario.name) return;
-    await scenarioRepository().save({
+    await repository.save({
       ...scenario,
       name: uniqueName(
         trimmed,
@@ -71,6 +83,15 @@ export function ScenarioList() {
     await reload();
   }
 
+  async function action(work: () => Promise<void>) {
+    try {
+      await work();
+    } catch (error) {
+      setLoadError(
+        error instanceof Error ? error.message : "Aktion fehlgeschlagen.",
+      );
+    }
+  }
   const variants = groupByVariant(scenarios ?? []);
 
   return (
@@ -79,8 +100,10 @@ export function ScenarioList() {
         <div>
           <h1 className="text-2xl font-semibold">Szenarien</h1>
           <p className="text-muted-foreground">
-            Je Produktvariante beliebig viele Szenarien. Gespeichert wird
-            vorerst nur in diesem Browser.
+            Je Produktvariante beliebig viele Szenarien.{" "}
+            {project.local
+              ? "Lokale Entwicklungsablage."
+              : "Gespeichert im aktiven Projekt."}
           </p>
         </div>
         <div className="flex gap-2">
@@ -92,6 +115,12 @@ export function ScenarioList() {
         </div>
       </div>
 
+      {loadError && (
+        <p role="alert" className="text-destructive">
+          {loadError}
+        </p>
+      )}
+      <LocalScenarios onImported={reload} />
       {scenarios === null ? (
         <p className="text-muted-foreground">Lade …</p>
       ) : scenarios.length === 0 ? (
@@ -124,9 +153,13 @@ export function ScenarioList() {
                 <ScenarioCard
                   key={scenario.id}
                   scenario={scenario}
-                  onRemove={() => remove(scenario)}
-                  onDuplicate={() => duplicate(scenario)}
-                  onRename={(name) => rename(scenario, name)}
+                  onRemove={
+                    project.local
+                      ? () => action(() => remove(scenario))
+                      : undefined
+                  }
+                  onDuplicate={() => action(() => duplicate(scenario))}
+                  onRename={(name) => action(() => rename(scenario, name))}
                 />
               ))}
             </div>
@@ -139,7 +172,7 @@ export function ScenarioList() {
 
 function ScenarioCard(props: {
   scenario: StoredScenario;
-  onRemove: () => void;
+  onRemove?: () => void;
   onDuplicate: () => void;
   onRename: (name: string) => void;
 }) {
@@ -173,7 +206,8 @@ function ScenarioCard(props: {
           {scenario.copiedFrom
             ? `Kopie von ${scenario.copiedFrom}`
             : `aus ${scenario.sourceFilename}`}{" "}
-          · zuletzt geändert {formatDateTime(scenario.updatedAt)}
+          · zuletzt geändert {formatDateTime(scenario.updatedAt)}{" "}
+          {scenario.updatedByLabel && `von ${scenario.updatedByLabel}`}
         </CardDescription>
         <CardAction className="flex gap-0.5">
           <Button
@@ -194,15 +228,17 @@ function ScenarioCard(props: {
           >
             <CopyIcon />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Szenario ${scenario.name} löschen`}
-            title="Löschen"
-            onClick={props.onRemove}
-          >
-            <Trash2Icon />
-          </Button>
+          {props.onRemove && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Szenario ${scenario.name} löschen`}
+              title="Löschen"
+              onClick={props.onRemove}
+            >
+              <Trash2Icon />
+            </Button>
+          )}
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-wrap items-center gap-2">

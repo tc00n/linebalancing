@@ -1,4 +1,5 @@
 "use client";
+import { useScenarioRepository } from "@/features/projects/use-scenario-repository";
 
 import {
   BarChart3Icon,
@@ -12,10 +13,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  scenarioRepository,
-  type StoredScenario,
-} from "@/data/scenarioRepository";
+import { type StoredScenario } from "@/data/scenarioRepository";
 import { evaluateScenario } from "@/domain/calc/evaluate";
 import {
   EMPTY_FILTER,
@@ -32,6 +30,8 @@ import { StepTable } from "./step-table";
 
 /** Eigene Seite der Tabellenansicht je Szenario (F132). */
 export function TableWorkspace() {
+  const repository = useScenarioRepository();
+  const [loadError, setLoadError] = useState("");
   const search = useSearchParams();
   const id = search.get("id");
   // Rückweg zur vorherigen Diagrammansicht (Ist/Ziel/Vergleich).
@@ -44,16 +44,27 @@ export function TableWorkspace() {
   useEffect(() => {
     if (!id) return;
     let active = true;
-    scenarioRepository()
+    repository
       .get(id)
       .then((scenario) => {
         if (active) setLoaded({ id, scenario: scenario ?? null });
-      });
+      })
+      .catch(() =>
+        setLoadError(
+          "Szenario konnte nicht geladen werden. Bitte Projektzugang und Verbindung pr\u00fcfen.",
+        ),
+      );
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, repository]);
 
+  if (loadError)
+    return (
+      <p role="alert" className="p-8 text-destructive">
+        {loadError}
+      </p>
+    );
   if (id && (!loaded || loaded.id !== id)) {
     return <p className="p-8 text-muted-foreground">Lade Szenario …</p>;
   }
@@ -64,7 +75,7 @@ export function TableWorkspace() {
           <XCircleIcon />
           <AlertTitle>Szenario nicht gefunden</AlertTitle>
           <AlertDescription>
-            Es ist in diesem Browser nicht gespeichert.{" "}
+            Es ist im aktiven Projekt nicht verfügbar.{" "}
             <Link href="/">Zur Szenarioliste</Link>
           </AlertDescription>
         </Alert>
@@ -155,7 +166,8 @@ function ScenarioTable(props: { scenario: StoredScenario; back: string }) {
           </div>
           <p className="text-sm text-muted-foreground">
             Variante {props.scenario.variantName} · zuletzt geändert{" "}
-            {formatDateTime(editor.updatedAt)}
+            {formatDateTime(editor.updatedAt)}{" "}
+            {editor.updatedByLabel && `von ${editor.updatedByLabel}`}
           </p>
         </div>
         <Link

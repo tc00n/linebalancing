@@ -36,7 +36,7 @@ export function SaveIndicator({ status }: { status: SaveStatus }) {
     <span
       className="flex items-center gap-1 text-xs font-normal text-muted-foreground"
       role="status"
-      title="Alle Änderungen sind in diesem Browser gespeichert."
+      title="Alle Änderungen wurden erfolgreich gespeichert."
     >
       <CheckCircle2Icon className="size-4 text-chart-3" /> gespeichert
     </span>

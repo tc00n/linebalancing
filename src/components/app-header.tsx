@@ -1,3 +1,4 @@
+import { ProjectControls } from "@/features/projects/project-controls";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -19,7 +20,10 @@ export function AppHeader({ children }: { children?: ReactNode }) {
             Line Balancing
           </span>
         </Link>
-        <div className="ml-auto flex items-center gap-2">{children}</div>
+        <div className="ml-auto flex items-center gap-2">
+          {children}
+          <ProjectControls />
+        </div>
       </div>
     </header>
   );

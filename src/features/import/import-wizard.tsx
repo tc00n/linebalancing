@@ -1,4 +1,6 @@
 "use client";
+import { useHydrated } from "@/lib/use-hydrated";
+import { useScenarioRepository } from "@/features/projects/use-scenario-repository";
 
 import {
   AlertTriangleIcon,
@@ -21,11 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import {
-  scenarioRepository,
-  uniqueName,
-  type StoredScenario,
-} from "@/data/scenarioRepository";
+import { uniqueName, type StoredScenario } from "@/data/scenarioRepository";
 import { buildScenario, nameFromFilename } from "@/domain/import/buildScenario";
 import { cellText, parseGermanNumber } from "@/domain/import/cells";
 import { defaultCategories } from "@/domain/model/categories";
@@ -66,7 +64,9 @@ type Stage =
   | { kind: "loaded"; filename: string; rows: RawRow[] };
 
 export function ImportWizard() {
+  const repository = useScenarioRepository();
   const router = useRouter();
+  const hydrated = useHydrated();
   const fileInputId = useId();
   const [stage, setStage] = useState<Stage>({ kind: "idle" });
   const [name, setName] = useState("");
@@ -74,16 +74,22 @@ export function ImportWizard() {
   const [allowance, setAllowance] = useState("0");
   const [onlyFlagged, setOnlyFlagged] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [variantName, setVariantName] = useState("");
   /** "new" oder die ID einer bestehenden Variante (E20). */
   const [target, setTarget] = useState("new");
   const [variants, setVariants] = useState<VariantInfo[]>([]);
 
   useEffect(() => {
-    scenarioRepository()
+    repository
       .list()
-      .then((all) => setVariants(variantsOf(all)));
-  }, []);
+      .then((all) => setVariants(variantsOf(all)))
+      .catch(() =>
+        setSaveError(
+          "Varianten konnten nicht geladen werden. Bitte Verbindung pr\u00fcfen.",
+        ),
+      );
+  }, [repository]);
 
   const rawRows = stage.kind === "loaded" ? stage.rows : null;
   const validation = useMemo(
@@ -159,23 +165,34 @@ export function ImportWizard() {
       return;
     }
     setSaving(true);
-    const now = new Date().toISOString();
-    const id = crypto.randomUUID();
-    await scenarioRepository().save({
-      id,
-      variantId: selectedVariant?.id ?? crypto.randomUUID(),
-      variantName: selectedVariant?.name ?? variantName.trim(),
-      name: uniqueName(name.trim(), selectedVariant?.scenarioNames ?? []),
-      sourceFilename: stage.filename,
-      importedAt: now,
-      updatedAt: now,
-      input: buildScenario(validation.rows, {
-        taktMin: taktValue,
-        allowancePct: allowanceValue,
-      }),
-      categories: defaultCategories(),
-    });
-    router.push(`/szenario?ist=${id}`);
+    setSaveError("");
+    try {
+      const now = new Date().toISOString();
+      const id = crypto.randomUUID();
+      await repository.save({
+        id,
+        variantId: selectedVariant?.id ?? crypto.randomUUID(),
+        variantName: selectedVariant?.name ?? variantName.trim(),
+        name: uniqueName(name.trim(), selectedVariant?.scenarioNames ?? []),
+        sourceFilename: stage.filename,
+        importedAt: now,
+        updatedAt: now,
+        input: buildScenario(validation.rows, {
+          taktMin: taktValue,
+          allowancePct: allowanceValue,
+        }),
+        categories: defaultCategories(),
+      });
+      router.push(`/szenario?ist=${id}`);
+    } catch (error) {
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : "Import konnte nicht gespeichert werden.",
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -191,6 +208,11 @@ export function ImportWizard() {
         <TemplateDownloadButton />
       </div>
 
+      {saveError && (
+        <p role="alert" className="text-destructive">
+          {saveError}
+        </p>
+      )}
       <Card>
         <CardContent className="flex flex-wrap items-center gap-4">
           <FileSpreadsheetIcon className="size-8 text-nx-steel-dark" />
@@ -201,6 +223,7 @@ export function ImportWizard() {
               <input
                 id={fileInputId}
                 type="file"
+                disabled={!hydrated}
                 accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 className="peer sr-only"
                 onChange={(e) => onFile(e.target.files?.[0])}
