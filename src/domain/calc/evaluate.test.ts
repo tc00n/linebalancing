@@ -69,6 +69,21 @@ describe("Springer (E40, RECHENREGELN 6a)", () => {
     expect(employee(result, "S2/MA2").overTakt).toBe(false);
     expect(station(result, "S1").overTakt).toBe(false);
   });
+
+  it("liefert keine Personalauslastung für eine Station mit nur einer leeren Springer-Spur", () => {
+    // MA1 arbeitet an S1; an S2 hat er nur noch eine Spur ohne Arbeitsgang.
+    const result = evaluateScenario(
+      scenario(
+        [
+          { id: "A", station: "S1", employee: "MA1", time: 3 },
+          { id: "B", station: "S2", employee: null, time: 2 },
+        ],
+        { idleEmployees: ["S2/MA1"], springers: ["MA1"] },
+      ),
+    );
+    expect(station(result, "S2").employeeCount).toBe(0);
+    expect(station(result, "S2").personnelUtilization).toBeNull();
+  });
 });
 
 describe("Golden-Test E7", () => {

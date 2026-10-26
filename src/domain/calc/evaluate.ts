@@ -45,7 +45,7 @@ export interface StationResult {
   readonly height: Minutes;
   /** Stationsbelegung = Höhe / Takt (F107). */
   readonly stationUtilization: number;
-  /** Belegungsbezogene Personalauslastung (F108); null ohne Mitarbeiter. */
+  /** Belegungsbezogene Personalauslastung (F108); null bei Mitarbeiterzahl 0. */
   readonly personnelUtilization: number | null;
   /** F3 */
   readonly overTakt: boolean;
@@ -185,7 +185,8 @@ function utilization(
   headcount: number,
   taktMin: Minutes,
 ): number | null {
-  if (employees.length === 0) return null;
+  // Mitarbeiterzahl 0 auch bei Spuren: nur leere Spuren von Springern (6a).
+  if (employees.length === 0 || headcount === 0) return null;
   return sum(employees.map((e) => e.occupancy)) / (headcount * taktMin);
 }
 
