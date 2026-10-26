@@ -22,7 +22,7 @@ test("Arbeitsgänge in der Tabellenansicht bearbeiten (F132)", async ({
   // Mitarbeiter wechseln: C von Mitarbeiter 1 zu Mitarbeiter 2 → C hat keine Wartezeit mehr.
   await page
     .getByLabel("Mitarbeiter von C")
-    .selectOption({ label: "Mitarbeiter 2" });
+    .selectOption({ label: "Mitarbeiter 2 (T17)" });
   await expect(table.getByRole("row", { name: /^C / })).toContainText(
     "3,00 – 4,50",
   );

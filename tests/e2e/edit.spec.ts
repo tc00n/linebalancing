@@ -51,7 +51,7 @@ test("Arbeitsgänge im Diagramm bearbeiten, rückgängig machen und gespeichert 
   await page.getByRole("button", { name: /^Arbeitsgang A,/ }).click();
   await panel
     .getByLabel("Mitarbeiter")
-    .selectOption({ label: "Mitarbeiter 3" });
+    .selectOption({ label: "Mitarbeiter 3 (T18)" });
   await expect(page.getByLabel("Station T18")).toContainText("2,00");
 
   // Takt ändern (F59) und rückgängig machen (F65).

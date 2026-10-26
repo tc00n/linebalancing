@@ -463,7 +463,7 @@ function StationColumnView(
         <div className="flex gap-[3px] pt-1">
           {column.lanes.map((lane) => {
             const empty = !lane.segments.some((s) => s.kind === "step");
-            const springer = lane.otherStations.length > 0;
+            const elsewhere = lane.otherStations.map((s) => s.label).join(", ");
             return (
               <span
                 key={lane.employee.id}
@@ -474,13 +474,10 @@ function StationColumnView(
                 }`}
                 style={{ width: laneWidth }}
                 title={`${lane.employee.label}: ${formatMinutes(lane.occupancy)} min${
-                  springer
-                    ? ` (Springer, auch an ${lane.otherStations.map((s) => s.label).join(", ")})`
-                    : ""
+                  elsewhere ? ` (auch an ${elsewhere})` : ""
                 }`}
               >
                 {lane.employee.label.replace("Mitarbeiter ", "MA ")}
-                {springer && <span aria-label="Springer">↔</span>}
                 {empty && props.actions && (
                   <button
                     type="button"
@@ -650,7 +647,7 @@ const SegmentView = memo(function SegmentView(props: SegmentProps) {
       <div
         className="absolute inset-x-1 border-x border-dashed border-nx-steel"
         style={style}
-        title={`An anderer Station: ${formatMinutes(minutes)} min (Springer, keine Wartezeit)`}
+        title={`An anderer Station: ${formatMinutes(minutes)} min (keine Wartezeit)`}
       />
     );
   }
