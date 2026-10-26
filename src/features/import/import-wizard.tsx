@@ -24,6 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { scenarioRepository } from "@/data/scenarioRepository";
 import { buildScenario, nameFromFilename } from "@/domain/import/buildScenario";
 import { cellText, parseGermanNumber } from "@/domain/import/cells";
+import { defaultCategories } from "@/domain/model/categories";
 import { COLUMNS, type ColumnKey } from "@/domain/import/template";
 import {
   validateRows,
@@ -117,6 +118,7 @@ export function ImportWizard() {
         taktMin: taktValue,
         allowancePct: allowanceValue,
       }),
+      categories: defaultCategories(),
     });
     router.push(`/szenario?id=${id}`);
   }

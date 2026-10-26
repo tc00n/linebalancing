@@ -1,6 +1,7 @@
 import type { ScenarioResult } from "@/domain/calc/evaluate";
 import type { ScheduledStep } from "@/domain/calc/schedule";
 import type { Issue } from "@/domain/checks/issues";
+import type { Category } from "@/domain/model/categories";
 import type {
   Employee,
   ScenarioInput,
@@ -18,11 +19,14 @@ export interface ScenarioView {
   readonly scheduled: ReadonlyMap<string, ScheduledStep>;
   readonly successors: ReadonlyMap<string, readonly string[]>;
   readonly issuesByStep: ReadonlyMap<string, readonly Issue[]>;
+  readonly categories: readonly Category[];
+  readonly categoryById: ReadonlyMap<string, Category>;
 }
 
 export function createScenarioView(
   input: ScenarioInput,
   result: ScenarioResult,
+  categories: readonly Category[],
 ): ScenarioView {
   const successors = new Map<string, string[]>();
   for (const step of input.steps) {
@@ -48,6 +52,8 @@ export function createScenarioView(
     ),
     successors,
     issuesByStep,
+    categories,
+    categoryById: new Map(categories.map((c) => [c.id, c])),
   };
 }
 

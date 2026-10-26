@@ -65,6 +65,8 @@ export function StepTooltip(props: {
         <dd>{step.predecessorIds.join(", ") || "keine"}</dd>
         <dt className="text-muted-foreground">Reihenfolge</dt>
         <dd className="tabular-nums">{step.sequence}</dd>
+        <dt className="text-muted-foreground">Kategorie</dt>
+        <dd>{view.categoryById.get(step.categoryId ?? "")?.label ?? "–"}</dd>
       </dl>
       {issues.length > 0 && (
         <ul className="mt-2 flex flex-col gap-1 border-t pt-2">

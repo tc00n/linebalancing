@@ -1,28 +1,54 @@
 "use client";
 
-import { AlertTriangleIcon, LockIcon, XIcon } from "lucide-react";
+import { AlertTriangleIcon, LockIcon, PlusIcon, XIcon } from "lucide-react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { parseGermanNumber } from "@/domain/import/cells";
+import { sortStations } from "@/domain/model/stationOrder";
+import type { Operation } from "@/domain/ops/operations";
 import { formatMinutes } from "@/lib/format";
 import { describeIssue, type ScenarioView } from "./scenario-view";
 
+const selectClass =
+  "h-8 w-full rounded-lg border border-input bg-white px-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
+
 /**
  * Detailpanel als Overlay rechts über dem Diagramm (F33, F123, F126).
- * Nicht modal, damit das Diagramm bedienbar bleibt. Vorerst nur lesend;
- * importierte Zeiten bleiben auch später schreibgeschützt (F17, F127).
+ * Nicht modal, damit Drag-and-drop bedienbar bleibt. Editierbar sind
+ * Station, Mitarbeiter, Kategorie, Reihenfolge und Vorgänger (E13, F127);
+ * importierte Zeit und Arbeitsgang-ID bleiben schreibgeschützt (F17, F69).
  */
 export function DetailPanel(props: {
   view: ScenarioView;
   stepId: string;
   onClose: () => void;
   onSelectStep: (stepId: string) => void;
+  onApply: (op: Operation) => string | null;
 }) {
   const { view } = props;
   const step = view.steps.get(props.stepId);
+  const ids = useId();
+  const [predecessorError, setPredecessorError] = useState<string | null>(null);
+  const [newPredecessor, setNewPredecessor] = useState("");
   if (!step) return null;
+
   const scheduled = view.scheduled.get(step.id);
-  const employee = step.employeeId ? view.employees.get(step.employeeId) : null;
   const issues = view.issuesByStep.get(step.id) ?? [];
   const successors = view.successors.get(step.id) ?? [];
+  const stationEmployees = view.input.employees.filter(
+    (e) => e.stationId === step.stationId,
+  );
+
+  function setPredecessors(predecessorIds: string[]) {
+    const error = props.onApply({
+      type: "setPredecessors",
+      stepId: step!.id,
+      predecessorIds,
+    });
+    setPredecessorError(error);
+    if (!error) setNewPredecessor("");
+  }
 
   return (
     <aside
@@ -47,7 +73,7 @@ export function DetailPanel(props: {
       <div className="flex flex-col gap-4 overflow-y-auto p-4 text-sm">
         <p>{step.description}</p>
 
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+        <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2.5">
           <dt className="text-muted-foreground">Zeit</dt>
           <dd className="tabular-nums">
             {formatMinutes(step.timeMin)} min
@@ -56,18 +82,133 @@ export function DetailPanel(props: {
               importiert, schreibgeschützt
             </span>
           </dd>
-          <dt className="text-muted-foreground">Station</dt>
-          <dd>{view.stations.get(step.stationId)!.label}</dd>
-          <dt className="text-muted-foreground">Mitarbeiter</dt>
+
+          <dt>
+            <label htmlFor={`${ids}-station`} className="text-muted-foreground">
+              Station
+            </label>
+          </dt>
           <dd>
-            {employee ? (
-              employee.label
-            ) : (
-              <span className="font-medium text-warning">nicht zugeordnet</span>
-            )}
+            <select
+              id={`${ids}-station`}
+              className={selectClass}
+              value={step.stationId}
+              onChange={(e) =>
+                props.onApply({
+                  type: "moveStep",
+                  stepId: step.id,
+                  stationId: e.target.value,
+                })
+              }
+            >
+              {sortStations(view.input.stations).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
           </dd>
-          <dt className="text-muted-foreground">Reihenfolge</dt>
-          <dd className="tabular-nums">{step.sequence}</dd>
+
+          <dt>
+            <label
+              htmlFor={`${ids}-employee`}
+              className="text-muted-foreground"
+            >
+              Mitarbeiter
+            </label>
+          </dt>
+          <dd>
+            <select
+              id={`${ids}-employee`}
+              className={`${selectClass} ${step.employeeId ? "" : "border-warning text-warning"}`}
+              value={step.employeeId ?? ""}
+              onChange={(e) =>
+                props.onApply({
+                  type: "assignEmployee",
+                  stepId: step.id,
+                  employeeId: e.target.value || null,
+                })
+              }
+            >
+              <option value="">nicht zugeordnet</option>
+              {stationEmployees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.label}
+                </option>
+              ))}
+            </select>
+          </dd>
+
+          <dt>
+            <label
+              htmlFor={`${ids}-category`}
+              className="text-muted-foreground"
+            >
+              Kategorie
+            </label>
+          </dt>
+          <dd className="flex items-center gap-2">
+            <span
+              className="size-4 shrink-0 rounded-sm border"
+              style={{
+                backgroundColor: view.categoryById.get(step.categoryId ?? "")
+                  ?.color,
+              }}
+              aria-hidden
+            />
+            <select
+              id={`${ids}-category`}
+              className={selectClass}
+              value={step.categoryId ?? ""}
+              onChange={(e) =>
+                props.onApply({
+                  type: "setCategory",
+                  stepId: step.id,
+                  categoryId: e.target.value,
+                })
+              }
+            >
+              {view.categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </dd>
+
+          <dt>
+            <label
+              htmlFor={`${ids}-sequence`}
+              className="text-muted-foreground"
+            >
+              Reihenfolge
+            </label>
+          </dt>
+          <dd>
+            <Input
+              id={`${ids}-sequence`}
+              key={`${step.id}-${step.sequence}`}
+              defaultValue={String(step.sequence).replace(".", ",")}
+              inputMode="decimal"
+              className="h-8"
+              onBlur={(e) => {
+                const parsed = parseGermanNumber(e.target.value);
+                if (parsed.ok && parsed.value !== step.sequence) {
+                  props.onApply({
+                    type: "setSequence",
+                    stepId: step.id,
+                    sequence: parsed.value,
+                  });
+                } else if (!parsed.ok) {
+                  e.target.value = String(step.sequence).replace(".", ",");
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+            />
+          </dd>
+
           {scheduled && (
             <>
               <dt className="text-muted-foreground">Start – Ende</dt>
@@ -81,16 +222,99 @@ export function DetailPanel(props: {
               </dd>
             </>
           )}
-          <dt className="text-muted-foreground">Vorgänger</dt>
-          <dd>
-            <StepLinks
-              ids={step.predecessorIds}
-              onSelect={props.onSelectStep}
-            />
+
+          <dt className="self-start pt-1 text-muted-foreground">Vorgänger</dt>
+          <dd className="flex flex-col gap-1.5">
+            <span className="flex flex-wrap gap-1">
+              {step.predecessorIds.length === 0 && (
+                <span className="text-muted-foreground">keine</span>
+              )}
+              {step.predecessorIds.map((id) => (
+                <span
+                  key={id}
+                  className="inline-flex items-center rounded-md bg-secondary text-xs font-medium"
+                >
+                  <button
+                    type="button"
+                    className="px-1.5 py-0.5 hover:underline"
+                    onClick={() => props.onSelectStep(id)}
+                  >
+                    {id}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-r-md px-1 py-0.5 hover:bg-nx-steel"
+                    aria-label={`Vorgänger ${id} entfernen`}
+                    onClick={() =>
+                      setPredecessors(
+                        step.predecessorIds.filter((p) => p !== id),
+                      )
+                    }
+                  >
+                    <XIcon className="size-3" />
+                  </button>
+                </span>
+              ))}
+            </span>
+            <form
+              className="flex gap-1"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const id = newPredecessor.trim();
+                if (id) setPredecessors([...step.predecessorIds, id]);
+              }}
+            >
+              <Input
+                aria-label="Vorgänger hinzufügen"
+                placeholder="Arbeitsgang-ID"
+                list={`${ids}-steps`}
+                value={newPredecessor}
+                onChange={(e) => setNewPredecessor(e.target.value)}
+                className="h-7 text-xs"
+              />
+              <datalist id={`${ids}-steps`}>
+                {view.input.steps
+                  .filter(
+                    (s) =>
+                      s.id !== step.id && !step.predecessorIds.includes(s.id),
+                  )
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.description}
+                    </option>
+                  ))}
+              </datalist>
+              <Button
+                type="submit"
+                size="icon-sm"
+                variant="outline"
+                aria-label="Vorgänger hinzufügen"
+              >
+                <PlusIcon />
+              </Button>
+            </form>
+            {predecessorError && (
+              <p className="text-xs text-destructive" role="alert">
+                {predecessorError}
+              </p>
+            )}
           </dd>
+
           <dt className="text-muted-foreground">Nachfolger</dt>
-          <dd>
-            <StepLinks ids={successors} onSelect={props.onSelectStep} />
+          <dd className="flex flex-wrap gap-1">
+            {successors.length === 0 && (
+              <span className="text-muted-foreground">keine</span>
+            )}
+            {successors.map((id) => (
+              <button
+                key={id}
+                type="button"
+                className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium hover:bg-nx-steel"
+                onClick={() => props.onSelectStep(id)}
+              >
+                {id}
+              </button>
+            ))}
           </dd>
         </dl>
 
@@ -120,27 +344,5 @@ export function DetailPanel(props: {
         </section>
       </div>
     </aside>
-  );
-}
-
-function StepLinks(props: {
-  ids: readonly string[];
-  onSelect: (id: string) => void;
-}) {
-  if (props.ids.length === 0)
-    return <span className="text-muted-foreground">keine</span>;
-  return (
-    <span className="flex flex-wrap gap-1">
-      {props.ids.map((id) => (
-        <button
-          key={id}
-          type="button"
-          className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium hover:bg-nx-steel"
-          onClick={() => props.onSelect(id)}
-        >
-          {id}
-        </button>
-      ))}
-    </span>
   );
 }

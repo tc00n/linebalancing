@@ -1,21 +1,5 @@
-import ExcelJS from "exceljs";
 import { expect, test } from "@playwright/test";
-import { createTemplate } from "@/features/import/workbook";
-
-// Rechenbeispiel E7 an Station T17, dazu Fälle für Warnungen und einen korrigierbaren Fehler.
-async function exampleWorkbook(): Promise<Buffer> {
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(await createTemplate());
-  const sheet = workbook.getWorksheet("Arbeitsgänge")!;
-  [
-    ["A", "T17", "Kabelbaum verlegen", 2, "Mitarbeiter 1", 1, null],
-    ["B", "T17", "Dachhaube montieren", 3, "Mitarbeiter 2", 2, null],
-    ["C", "T17", "Dachhaube verschrauben", "1,5", "Mitarbeiter 1", 3, "B"],
-    ["D", "T18", "Prüfen", "0,755", null, 4, "C"], // gerundet, ohne Mitarbeiter
-    ["E", null, "Etikett kleben", 0.5, null, 5, null], // Station fehlt
-  ].forEach((row) => sheet.addRow(row));
-  return Buffer.from(await workbook.xlsx.writeBuffer());
-}
+import { exampleWorkbook } from "./fixtures";
 
 test("Excel importieren, korrigieren und als Yamazumi anzeigen", async ({
   page,

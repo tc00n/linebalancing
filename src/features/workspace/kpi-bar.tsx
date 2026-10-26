@@ -76,7 +76,11 @@ function Kpi(props: {
   incomplete?: boolean;
 }) {
   return (
-    <div className="rounded-lg border bg-white px-4 py-3 shadow-nx-sm">
+    <div
+      role="group"
+      aria-label={props.label}
+      className="rounded-lg border bg-white px-4 py-3 shadow-nx-sm"
+    >
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         {props.label}
         {props.incomplete && (

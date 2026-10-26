@@ -1,4 +1,9 @@
 import { createStore, del, get, set, values } from "idb-keyval";
+import {
+  DEFAULT_CATEGORY_ID,
+  defaultCategories,
+  type Category,
+} from "@/domain/model/categories";
 import type { ScenarioInput } from "@/domain/model/types";
 
 /**
@@ -12,8 +17,11 @@ export interface StoredScenario {
   readonly name: string;
   readonly sourceFilename: string;
   readonly importedAt: string;
+  /** Letzte Änderung (F38); Bearbeiter folgt mit dem Login in Phase 2. */
   readonly updatedAt: string;
   readonly input: ScenarioInput;
+  /** Kategorien mit Farben je Szenario (E11). */
+  readonly categories: readonly Category[];
 }
 
 /** Schnittstelle, gegen die die Oberfläche arbeitet; die Supabase-Variante folgt in Phase 2. */
@@ -24,14 +32,41 @@ export interface ScenarioRepository {
   remove(id: string): Promise<void>;
 }
 
+/** Ergänzt Felder, die ältere gespeicherte Stände noch nicht hatten. */
+export function withDefaults(stored: StoredScenario): StoredScenario {
+  if (
+    stored.categories?.length &&
+    stored.input.steps.every((s) => s.categoryId)
+  ) {
+    return stored;
+  }
+  return {
+    ...stored,
+    categories: stored.categories?.length
+      ? stored.categories
+      : defaultCategories(),
+    input: {
+      ...stored.input,
+      steps: stored.input.steps.map((s) =>
+        s.categoryId ? s : { ...s, categoryId: DEFAULT_CATEGORY_ID },
+      ),
+    },
+  };
+}
+
 export function createBrowserRepository(): ScenarioRepository {
   const store = createStore("neonex-linebalancing", "scenarios");
   return {
     async list() {
       const all = await values<StoredScenario>(store);
-      return all.sort((a, b) => b.importedAt.localeCompare(a.importedAt));
+      return all
+        .map(withDefaults)
+        .sort((a, b) => b.importedAt.localeCompare(a.importedAt));
     },
-    get: (id) => get<StoredScenario>(id, store),
+    async get(id) {
+      const stored = await get<StoredScenario>(id, store);
+      return stored && withDefaults(stored);
+    },
     save: (scenario) => set(scenario.id, scenario, store),
     remove: (id) => del(id, store),
   };

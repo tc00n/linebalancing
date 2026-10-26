@@ -2,7 +2,7 @@
 
 Webanwendung für Line Balancing mit interaktivem Yamazumi-Diagramm. Erster Einsatz: Projekt Eura Mobil, Workshop Arbeitsvorbereitung.
 
-**Status:** Rechenkern (Phase 1), Excel-Import (Phase 3) und Yamazumi lesend (Phase 4) sind umgesetzt. Szenarien werden vorerst nur im Browser gespeichert; Datenbank und Login (Phase 2) folgen. Noch keine Bearbeitung im Diagramm (Phase 5).
+**Status:** Rechenkern (Phase 1), Excel-Import (Phase 3), Yamazumi (Phase 4) und Bearbeiten im Diagramm (Phase 5 ohne Szenariosperre) sind umgesetzt. Szenarien werden vorerst nur im Browser gespeichert; Datenbank und Login (Phase 2) folgen.
 
 ## Dokumentation
 

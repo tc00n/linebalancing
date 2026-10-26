@@ -1,3 +1,4 @@
+import { DEFAULT_CATEGORY_ID } from "../model/categories";
 import type { Employee, ScenarioInput, Station, Step } from "../model/types";
 import { assertValidScenario } from "../model/validate";
 import type { ParsedRow } from "./validateRows";
@@ -40,6 +41,7 @@ export function buildScenario(
       stationId,
       employeeId,
       predecessorIds: [...row.predecessorIds],
+      categoryId: DEFAULT_CATEGORY_ID, // E11
     };
   });
 

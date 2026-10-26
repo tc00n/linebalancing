@@ -29,6 +29,8 @@ export interface Step {
   readonly employeeId: string | null;
   /** Arbeitsgang-IDs der Vorgänger (F54). */
   readonly predecessorIds: readonly string[];
+  /** Kategorie (F27, F97); ohne Einfluss auf die Berechnung. */
+  readonly categoryId?: string;
 }
 
 export interface ScenarioInput {
