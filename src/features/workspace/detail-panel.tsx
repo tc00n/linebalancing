@@ -205,13 +205,15 @@ export function DetailPanel(props: {
               disabled={readOnly}
               onBlur={(e) => {
                 const parsed = parseGermanNumber(e.target.value);
-                if (parsed.ok && parsed.value !== step.sequence) {
-                  apply({
-                    type: "setSequence",
-                    stepId: step.id,
-                    sequence: parsed.value,
-                  });
-                } else if (!parsed.ok) {
+                const rejected =
+                  !parsed.ok ||
+                  (parsed.value !== step.sequence &&
+                    apply({
+                      type: "setSequence",
+                      stepId: step.id,
+                      sequence: parsed.value,
+                    }) !== null);
+                if (rejected) {
                   e.target.value = String(step.sequence).replace(".", ",");
                 }
               }}

@@ -274,6 +274,30 @@ try {
       "23505",
     );
   });
+  await test("Reihenfolge mit Dezimalstellen gespeichert, negative und NaN abgelehnt", async () => {
+    const version = (
+      await q("select version from public.scenarios where id=$1", [doc.id])
+    ).rows[0].version;
+    const between = structuredClone(doc);
+    between.input.steps[0].sequence = 2.5;
+    const saved = (
+      await q("select public.save_scenario($1,$2,$3) doc", [
+        p,
+        between,
+        version,
+      ])
+    ).rows[0].doc;
+    assert.equal(saved.input.steps[0].sequence, 2.5);
+    for (const sequence of [-1, "NaN"]) {
+      const invalid = structuredClone(between);
+      invalid.input.steps[0].sequence = sequence;
+      await denied(
+        "select public.save_scenario($1,$2,$3)",
+        [p, invalid, saved.version],
+        "23514",
+      );
+    }
+  });
   await as(editor, otherSid);
   await test("Neue Anmeldung erfordert Code erneut", async () =>
     assert.equal(

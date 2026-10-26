@@ -165,6 +165,7 @@ export function applyOperation(
         return fail(`Arbeitsgang ${op.stepId} existiert nicht.`);
       if (!Number.isFinite(op.sequence))
         return fail("Reihenfolge muss eine Zahl sein.");
+      if (op.sequence < 0) return fail("Reihenfolge darf nicht negativ sein.");
       return updateStep(op.stepId, (s) => ({ ...s, sequence: op.sequence }));
     }
 

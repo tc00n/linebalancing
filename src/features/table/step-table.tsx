@@ -343,15 +343,15 @@ function SequenceCell(props: {
       className="h-7 w-20 tabular-nums"
       onBlur={(e) => {
         const parsed = parseGermanNumber(e.target.value);
-        if (parsed.ok && parsed.value !== props.step.sequence) {
-          props.onApply({
-            type: "setSequence",
-            stepId: props.step.id,
-            sequence: parsed.value,
-          });
-        } else if (!parsed.ok) {
-          e.target.value = shown;
-        }
+        const rejected =
+          !parsed.ok ||
+          (parsed.value !== props.step.sequence &&
+            props.onApply({
+              type: "setSequence",
+              stepId: props.step.id,
+              sequence: parsed.value,
+            }) !== null);
+        if (rejected) e.target.value = shown;
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter") e.currentTarget.blur();

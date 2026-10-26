@@ -156,6 +156,14 @@ describe("Operationen (Phase 5)", () => {
         .sequence,
     ).toBe(99);
     expect(
+      step(ok({ type: "setSequence", stepId: "A", sequence: 2.5 }), "A")
+        .sequence,
+    ).toBe(2.5);
+    expect(apply({ type: "setSequence", stepId: "A", sequence: -1 })).toEqual({
+      ok: false,
+      error: "Reihenfolge darf nicht negativ sein.",
+    });
+    expect(
       step(ok({ type: "setCategory", stepId: "A", categoryId: "waiting" }), "A")
         .categoryId,
     ).toBe("waiting");
