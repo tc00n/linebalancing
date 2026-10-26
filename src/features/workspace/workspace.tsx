@@ -8,6 +8,7 @@ import {
   Maximize2Icon,
   Minimize2Icon,
   Redo2Icon,
+  TableIcon,
   Undo2Icon,
   XCircleIcon,
   XIcon,
@@ -162,7 +163,10 @@ export function Workspace() {
 
   return (
     <ScenarioWorkspace
-      key={editable.id}
+      // Next.js hält verlassene Seiten versteckt im Speicher. Ist der gespeicherte Stand neuer
+      // (z. B. nach Änderungen in der Tabelle), wird der Bearbeitungszustand neu aufgebaut,
+      // damit kein veralteter Stand angezeigt oder gespeichert wird.
+      key={`${editable.id}:${editable.updatedAt}`}
       editable={editable}
       ist={ist}
       ziel={ziel}
@@ -562,9 +566,19 @@ function ScenarioWorkspace(props: {
           </p>
         </div>
         {!fullscreen && (
-          <Link href="/" className={buttonVariants({ variant: "outline" })}>
-            Szenarien
-          </Link>
+          <div className="flex gap-2">
+            {/* F132: Tabellenansicht des bearbeiteten Szenarios; Rückweg zur aktuellen Ansicht. */}
+            <Link
+              href={`/szenario/tabelle?id=${editable.id}&von=${encodeURIComponent(toQuery(params))}`}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <TableIcon data-icon="inline-start" />
+              Tabelle
+            </Link>
+            <Link href="/" className={buttonVariants({ variant: "outline" })}>
+              Szenarien
+            </Link>
+          </div>
         )}
       </div>
 
