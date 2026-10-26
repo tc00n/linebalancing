@@ -233,4 +233,6 @@ F4/F9/F16/F43 (Verschiebungsvorschläge), F35 PDF-Bericht, komplexe Ressourcenab
 
 ## 7 · Nächster Schritt nach Freigabe
 
-Stand 26.10.2026: Phase 0 und Phase 1 (Rechenkern) sind abgeschlossen; E1–E7, E14 und E34 sind entschieden, siehe [`RECHENREGELN.md`](RECHENREGELN.md). Nächster Schritt: Phase 2 (Datenbank, Auth, RLS). Dafür vorher E25 (mehrere Projekte je Nutzer) und E28 (Rate-Limit der Code-Einlösung) klären.
+Stand 26.10.2026: Phase 0 und Phase 1 (Rechenkern) sind abgeschlossen; E1–E7, E14 und E34 sind entschieden, siehe [`RECHENREGELN.md`](RECHENREGELN.md).
+
+**Geänderte Reihenfolge (Entscheidung 26.10.2026):** Die App wird zunächst nur von einer Person genutzt. Deshalb folgen jetzt **Phase 3 (Import) und Phase 4 (Yamazumi lesend) ohne Datenbank**; Szenarien werden bis dahin nur im Browser des Geräts gespeichert (IndexedDB). Danach folgt Phase 2 mit einem Supabase-Cloud-Projekt in Frankfurt als Entwicklungsdatenbank (Docker ist nicht verfügbar). Die Browser-Speicherung wird dann abgelöst. Der Datenzugriff wird hinter einer Schnittstelle gekapselt, damit der Wechsel ohne Umbau der Oberfläche möglich ist.
