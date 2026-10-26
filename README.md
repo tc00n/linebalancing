@@ -12,6 +12,10 @@ Webanwendung für Line Balancing mit interaktivem Yamazumi-Diagramm. Erster Eins
 | [docs/ENTWICKLUNGSPLAN.md](docs/ENTWICKLUNGSPLAN.md)           | Freigegebener Entwicklungsplan mit Phasen und Anforderungszuordnung                  |
 | [docs/OFFENE_ENTSCHEIDUNGEN.md](docs/OFFENE_ENTSCHEIDUNGEN.md) | Fachliche und technische Fragen, die vor der Umsetzung zu klären sind                |
 
+## Personalplanung
+
+Die Referenzdatei wird projektbezogen auf der Seite Personalplanung eingebunden. Produktiver Stations-/Kostenstellenabgleich bei 70 Minuten, Brutto und Bestand separat. Details, Quellenhinweise und Rechenregeln: [docs/PERSONALPLANUNG.md](docs/PERSONALPLANUNG.md).
+
 ## Technik
 
 Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · shadcn/ui · Supabase (Auth, Postgres, RLS) · Vercel (Region `fra1`)

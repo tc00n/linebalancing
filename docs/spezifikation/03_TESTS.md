@@ -71,3 +71,14 @@
 - [ ] Zuschlagsbasis (Wartezeit eingeschlossen oder ausgeschlossen) freigeben.
 - [ ] Erwartete Zahlenwerte für mindestens einen Ablauf mit zwei Mitarbeitern und einer Vorgängerabhängigkeit festlegen.
 - [ ] Wiederherstellung einer Szenariosperre nach Browserabsturz klären.
+
+
+## Personalplanung (F133)
+
+- [ ] Originalplanung ist im Projekt auswählbar; produktive 70-Minuten-Besetzung und Brutto sind getrennt.
+- [ ] Teilbesetzungen und Nullwerte bleiben erhalten; unbekannte Werte werden nicht als Null interpretiert.
+- [ ] Stationsabgleich und Kostenstellenabgleich vergleichen identische, klar ausgewiesene Umfänge.
+- [ ] Nicht zugeordnete Arbeitsgänge und fehlende/mehrdeutige Planstationen sind sichtbar.
+- [ ] Brutto-Fehlmenge nutzt den Bestand laut Datei; abweichende Excel-Summen werden angezeigt.
+- [ ] Szenariotakt, importierte Zeiten und Zuordnungen werden durch den Abgleich nicht verändert.
+- [ ] Referenzplanung ist projektgeschützt und nach Neuladen verfügbar.

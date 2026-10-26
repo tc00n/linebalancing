@@ -8,6 +8,7 @@ test("Produktionsseiten verlangen Anmeldung, auch mit gesetztem Dev-Flag", async
     "/szenario?ist=00000000-0000-4000-8000-000000000000",
     "/szenario/tabelle?id=00000000-0000-4000-8000-000000000000",
     "/projects",
+    "/personalplanung",
   ]) {
     await page.goto(path);
     await expect(page).toHaveURL(/\/login/);

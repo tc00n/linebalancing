@@ -379,6 +379,7 @@ export function ImportWizard() {
                   <Input
                     inputMode="decimal"
                     value={allowance}
+                    onFocus={(e) => e.currentTarget.select()}
                     onChange={(e) => setAllowance(e.target.value)}
                   />
                 </Field>

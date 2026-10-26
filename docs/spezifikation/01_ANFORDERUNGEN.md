@@ -722,3 +722,10 @@ Getroffen im Rahmen der Entwicklung. Präzisieren P1, P3 und die offenen Punkte 
 | ID | Verbindliche Entscheidung | Umsetzungshinweis |
 |---|---|---|
 | F132 | **Tabellenansicht mit Bearbeitung** als eigene Seite je Szenario; gehört zum MVP und folgt direkt auf Phase 8. | Eine Zeile je Arbeitsgang. Editierbar wie im Detailpanel (E13): Station, Mitarbeiter, Kategorie, Reihenfolge, Vorgänger; Arbeitsgang-ID, Zeit und Beschreibung schreibgeschützt (F17, F69). Es gelten dieselben Regeln wie im Diagramm (Stationswechsel entfernt den Mitarbeiter nach F61, Vorgängerkreise werden abgelehnt nach E3) sowie automatisches Speichern und Rückgängig/Wiederholen (F25, F26). |
+
+
+## 36 · Personalplanung (26.10.2026)
+
+| ID | Verbindliche Entscheidung | Umsetzungshinweis |
+|---|---|---|
+| F133 | Die Personalplanung aus „Personalplanung 1.1.xlsx“ projektbezogen einbinden und die für 70 Minuten vorgesehenen produktiven Mitarbeiterzahlen je Station und Kostenstelle mit dem Szenario abgleichen. Bruttobedarf und vorhandenes Personal je Kostenstelle separat anzeigen (E38). | Teilbesetzungen erhalten; Zuordnung über Stationsbezeichnungen. Gleichen Stationsumfang vergleichen und fehlende/mehrdeutige Zuordnungen ausweisen. Arbeitsinhalt/70 nur als theoretische Personaluntergrenze, aktuelle Stationshöhe separat. Keine automatische Änderung an Arbeitszeiten, Mitarbeiterzuordnungen oder Szenariotakt. Quellenfehler sichtbar machen. Einzelheiten und Abnahmebefunde: docs/PERSONALPLANUNG.md. |

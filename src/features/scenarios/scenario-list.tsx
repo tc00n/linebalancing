@@ -107,6 +107,12 @@ export function ScenarioList() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Link
+            href="/personalplanung"
+            className={buttonVariants({ variant: "outline" })}
+          >
+            Personalplanung
+          </Link>
           <TemplateDownloadButton />
           <Link href="/import" className={buttonVariants()}>
             <UploadIcon data-icon="inline-start" />

@@ -109,6 +109,18 @@ export function StepTable(props: {
   );
 
   const stations = sortStations(view.input.stations);
+  const groups: { id: string; label: string | null; steps: Step[] }[] = [];
+  for (const step of rows) {
+    const id = sort.key === "station" ? step.stationId : "all";
+    const previous = groups[groups.length - 1];
+    if (previous?.id === id) previous.steps.push(step);
+    else
+      groups.push({
+        id,
+        label: sort.key === "station" ? stationLabel(step) : null,
+        steps: [step],
+      });
+  }
 
   return (
     <div className="overflow-auto rounded-lg border bg-white shadow-nx-sm">
@@ -134,150 +146,181 @@ export function StepTable(props: {
             </th>
           </tr>
         </thead>
-        <tbody>
-          {rows.map((step) => {
-            const scheduled = view.scheduled.get(step.id);
-            const issues = view.issuesByStep.get(step.id) ?? [];
-            const stationEmployees = view.input.employees.filter(
-              (e) => e.stationId === step.stationId,
-            );
-            return (
-              <tr
-                key={step.id}
-                className={`border-t align-middle ${
-                  step.employeeId
-                    ? ""
-                    : "bg-warning/5 shadow-[inset_3px_0_0_var(--warning)]"
-                }`}
-              >
+        {groups.map((group, groupIndex) => (
+          <tbody
+            key={group.id}
+            aria-label={group.label ? "Station " + group.label : undefined}
+            className={
+              group.label && groupIndex % 2 === 0
+                ? "bg-secondary/20"
+                : undefined
+            }
+          >
+            {group.label && (
+              <tr className="border-y border-nx-blue/15 bg-nx-blue/5">
                 <th
-                  scope="row"
-                  className="px-2 py-1 text-left font-medium whitespace-nowrap"
+                  scope="rowgroup"
+                  colSpan={11}
+                  className="px-3 py-3 text-left"
                 >
-                  {step.id}
+                  <div className="flex items-center gap-3">
+                    <span className="rounded-md bg-nx-blue px-2.5 py-1 font-semibold text-white">
+                      Station {group.label}
+                    </span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {group.steps.length}{" "}
+                      {group.steps.length === 1
+                        ? "Arbeitsgang"
+                        : "Arbeitsgänge"}
+                    </span>
+                  </div>
                 </th>
-                <td
-                  className="max-w-80 min-w-48 px-2 py-1"
-                  title={step.description}
-                >
-                  <span className="line-clamp-2">{step.description}</span>
-                </td>
-                <td className="px-2 py-1 text-right whitespace-nowrap tabular-nums">
-                  <span
-                    className="inline-flex items-center gap-1"
-                    title="Importiert, schreibgeschützt"
-                  >
-                    {formatMinutes(step.timeMin)}
-                    <LockIcon
-                      className="size-3 text-muted-foreground"
-                      aria-hidden
-                    />
-                  </span>
-                </td>
-                <td className="px-2 py-1">
-                  <select
-                    aria-label={`Station von ${step.id}`}
-                    className={cellSelect}
-                    value={step.stationId}
-                    onChange={(e) =>
-                      props.onApply({
-                        type: "moveStep",
-                        stepId: step.id,
-                        stationId: e.target.value,
-                      })
-                    }
-                  >
-                    {stations.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-2 py-1">
-                  <select
-                    aria-label={`Mitarbeiter von ${step.id}`}
-                    className={`${cellSelect} ${step.employeeId ? "" : "border-warning text-warning"}`}
-                    value={step.employeeId ?? ""}
-                    onChange={(e) =>
-                      props.onApply({
-                        type: "assignEmployee",
-                        stepId: step.id,
-                        employeeId: e.target.value || null,
-                      })
-                    }
-                  >
-                    <option value="">nicht zugeordnet</option>
-                    {stationEmployees.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {e.label}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-2 py-1">
-                  <select
-                    aria-label={`Kategorie von ${step.id}`}
-                    className={cellSelect}
-                    value={step.categoryId ?? ""}
-                    onChange={(e) =>
-                      props.onApply({
-                        type: "setCategory",
-                        stepId: step.id,
-                        categoryId: e.target.value,
-                      })
-                    }
-                  >
-                    {view.categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-2 py-1">
-                  <SequenceCell step={step} onApply={props.onApply} />
-                </td>
-                <td className="px-2 py-1">
-                  <PredecessorCell step={step} onApply={props.onApply} />
-                </td>
-                <td className="px-2 py-1 text-right whitespace-nowrap tabular-nums">
-                  {scheduled
-                    ? `${formatMinutes(scheduled.start)} – ${formatMinutes(scheduled.end)}`
-                    : "–"}
-                </td>
-                <td className="px-2 py-1 text-right tabular-nums">
-                  {scheduled && scheduled.waitBefore > 0
-                    ? formatMinutes(scheduled.waitBefore)
-                    : ""}
-                </td>
-                <td className="px-2 py-1">
-                  {issues.length > 0 && (
-                    <ul className="flex flex-col gap-0.5 text-xs">
-                      {issues.map((issue, i) => (
-                        <li
-                          key={i}
-                          className={`flex gap-1 ${
-                            issue.severity === "violation"
-                              ? "text-destructive"
-                              : "text-warning"
-                          }`}
-                        >
-                          {issue.severity === "violation" ? (
-                            <XCircleIcon className="mt-0.5 size-3 shrink-0" />
-                          ) : (
-                            <AlertTriangleIcon className="mt-0.5 size-3 shrink-0" />
-                          )}
-                          {describeIssue(issue, view)}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </td>
               </tr>
-            );
-          })}
-        </tbody>
+            )}
+            {group.steps.map((step) => {
+              const scheduled = view.scheduled.get(step.id);
+              const issues = view.issuesByStep.get(step.id) ?? [];
+              const stationEmployees = view.input.employees.filter(
+                (e) => e.stationId === step.stationId,
+              );
+              return (
+                <tr
+                  key={step.id}
+                  className={`border-t align-middle ${
+                    step.employeeId
+                      ? ""
+                      : "bg-warning/5 shadow-[inset_3px_0_0_var(--warning)]"
+                  }`}
+                >
+                  <th
+                    scope="row"
+                    className="px-2 py-1 text-left font-medium whitespace-nowrap"
+                  >
+                    {step.id}
+                  </th>
+                  <td
+                    className="max-w-80 min-w-48 px-2 py-1"
+                    title={step.description}
+                  >
+                    <span className="line-clamp-2">{step.description}</span>
+                  </td>
+                  <td className="px-2 py-1 text-right whitespace-nowrap tabular-nums">
+                    <span
+                      className="inline-flex items-center gap-1"
+                      title="Importiert, schreibgeschützt"
+                    >
+                      {formatMinutes(step.timeMin)}
+                      <LockIcon
+                        className="size-3 text-muted-foreground"
+                        aria-hidden
+                      />
+                    </span>
+                  </td>
+                  <td className="px-2 py-1">
+                    <select
+                      aria-label={`Station von ${step.id}`}
+                      className={cellSelect}
+                      value={step.stationId}
+                      onChange={(e) =>
+                        props.onApply({
+                          type: "moveStep",
+                          stepId: step.id,
+                          stationId: e.target.value,
+                        })
+                      }
+                    >
+                      {stations.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-2 py-1">
+                    <select
+                      aria-label={`Mitarbeiter von ${step.id}`}
+                      className={`${cellSelect} ${step.employeeId ? "" : "border-warning text-warning"}`}
+                      value={step.employeeId ?? ""}
+                      onChange={(e) =>
+                        props.onApply({
+                          type: "assignEmployee",
+                          stepId: step.id,
+                          employeeId: e.target.value || null,
+                        })
+                      }
+                    >
+                      <option value="">nicht zugeordnet</option>
+                      {stationEmployees.map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-2 py-1">
+                    <select
+                      aria-label={`Kategorie von ${step.id}`}
+                      className={cellSelect}
+                      value={step.categoryId ?? ""}
+                      onChange={(e) =>
+                        props.onApply({
+                          type: "setCategory",
+                          stepId: step.id,
+                          categoryId: e.target.value,
+                        })
+                      }
+                    >
+                      {view.categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-2 py-1">
+                    <SequenceCell step={step} onApply={props.onApply} />
+                  </td>
+                  <td className="px-2 py-1">
+                    <PredecessorCell step={step} onApply={props.onApply} />
+                  </td>
+                  <td className="px-2 py-1 text-right whitespace-nowrap tabular-nums">
+                    {scheduled
+                      ? `${formatMinutes(scheduled.start)} – ${formatMinutes(scheduled.end)}`
+                      : "–"}
+                  </td>
+                  <td className="px-2 py-1 text-right tabular-nums">
+                    {scheduled && scheduled.waitBefore > 0
+                      ? formatMinutes(scheduled.waitBefore)
+                      : ""}
+                  </td>
+                  <td className="px-2 py-1">
+                    {issues.length > 0 && (
+                      <ul className="flex flex-col gap-0.5 text-xs">
+                        {issues.map((issue, i) => (
+                          <li
+                            key={i}
+                            className={`flex gap-1 ${
+                              issue.severity === "violation"
+                                ? "text-destructive"
+                                : "text-warning"
+                            }`}
+                          >
+                            {issue.severity === "violation" ? (
+                              <XCircleIcon className="mt-0.5 size-3 shrink-0" />
+                            ) : (
+                              <AlertTriangleIcon className="mt-0.5 size-3 shrink-0" />
+                            )}
+                            {describeIssue(issue, view)}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        ))}
       </table>
       {rows.length === 0 && (
         <p className="p-4 text-sm text-muted-foreground">

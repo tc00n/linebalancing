@@ -58,6 +58,7 @@ import { KpiBar } from "./kpi-bar";
 import { FilterBar } from "./filter-bar";
 import { KpiComparison } from "./kpi-comparison";
 import { useViewSettings } from "./use-view-settings";
+import { InitialChartFit } from "./initial-chart-fit";
 import { ScenarioBar, type Side } from "./scenario-bar";
 import { createScenarioView, type ScenarioView } from "./scenario-view";
 import { useScenarioEditor } from "./use-scenario-editor";
@@ -419,12 +420,11 @@ function ScenarioWorkspace(props: {
   function fitToWindow() {
     const area = chartAreaRef.current;
     if (!area) return;
-    const charts = compare ? 2 : 1;
-    const gap = compare && area.clientWidth >= 1280 ? 16 : 0;
-    const perChart =
-      compare && area.clientWidth >= 1280
-        ? (area.clientWidth - gap) / charts
-        : area.clientWidth;
+    const sideBySide =
+      compare && window.matchMedia("(min-width: 1280px)").matches;
+    const perChart = sideBySide
+      ? (area.clientWidth - 16) / 2
+      : area.clientWidth;
     // Achse 64 px, Innenabstand 32 px, Rahmen 2 px.
     const available = perChart - 64 - 32 - 2;
     const columnsForWidth = compare
@@ -461,8 +461,11 @@ function ScenarioWorkspace(props: {
       : axisMaximum(mainColumns, view.input.taktMin);
     const top = area.getBoundingClientRect().top;
     // Platz für Fußzeile, Legende und Abstand unterhalb des Diagramms.
-    const availableHeight =
-      window.innerHeight - top - (mode === "employee" ? 140 : 120);
+    // Auch bei vielen Bedienelementen auf kleinen Fenstern lesbare Balken behalten.
+    const availableHeight = Math.max(
+      240,
+      window.innerHeight - top - (mode === "employee" ? 140 : 120),
+    );
     setPxPerMinute(
       clamp(
         Math.floor(((availableHeight - 28) / (maximum * 1.04)) * 100) / 100,
@@ -601,6 +604,12 @@ function ScenarioWorkspace(props: {
         </div>
         {!fullscreen && (
           <div className="flex gap-2">
+            <Link
+              href={"/personalplanung?szenario=" + editable.id}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              Personalabgleich
+            </Link>
             {/* F132: Tabellenansicht des bearbeiteten Szenarios; Rückweg zur aktuellen Ansicht. */}
             <Link
               href={`/szenario/tabelle?id=${editable.id}&von=${encodeURIComponent(toQuery(params))}`}
@@ -827,6 +836,7 @@ function ScenarioWorkspace(props: {
       )}
 
       <div ref={chartAreaRef} className="flex flex-col gap-4">
+        <InitialChartFit areaRef={chartAreaRef} onFit={fitToWindow} />
         {comparison ? (
           <div className="grid gap-4 xl:grid-cols-2">
             <section aria-label="Ist" className="flex min-w-0 flex-col gap-1.5">

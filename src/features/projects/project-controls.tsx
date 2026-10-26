@@ -14,6 +14,12 @@ export function ProjectControls() {
   return (
     <>
       <span className="hidden text-sm sm:inline">{project.name}</span>
+      <Link
+        href="/personalplanung"
+        className={buttonVariants({ variant: "ghost" })}
+      >
+        Personalplanung
+      </Link>
       <Link href="/projects" className={buttonVariants({ variant: "ghost" })}>
         Projekte
       </Link>

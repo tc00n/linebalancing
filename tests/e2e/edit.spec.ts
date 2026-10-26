@@ -41,11 +41,14 @@ test("Arbeitsgänge im Diagramm bearbeiten, rückgängig machen und gespeichert 
     fullPage: true,
   });
 
+  // Nach dem Einpassen liegt T18 unter dem rechten Overlay: zuerst schliessen.
+  await page.keyboard.press("Escape");
   // T18 hat keinen Mitarbeiter: anlegen (E12) und zuweisen (F100).
   // Die Nummer läuft über die Linie; T17 hat bereits Mitarbeiter 1 und 2.
   await page
     .getByRole("button", { name: "Mitarbeiter an T18 hinzufügen" })
     .click();
+  await page.getByRole("button", { name: /^Arbeitsgang A,/ }).click();
   await panel
     .getByLabel("Mitarbeiter")
     .selectOption({ label: "Mitarbeiter 3" });

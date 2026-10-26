@@ -9,7 +9,11 @@ test("Arbeitsgänge in der Tabellenansicht bearbeiten (F132)", async ({
   await expect(page).toHaveURL(/\/szenario\/tabelle\?id=/);
 
   const table = page.getByRole("table", { name: "Arbeitsgänge" });
-  await expect(table.getByRole("row")).toHaveCount(6); // Kopfzeile + 5 Arbeitsgänge
+  await expect(table.getByRole("row")).toHaveCount(8); // Kopfzeile + 2 Stationszeilen + 5 Arbeitsgänge
+  await page.screenshot({
+    path: testInfo.outputPath("00-stationen.png"),
+    fullPage: true,
+  });
   // ID, Beschreibung und Zeit sind keine Eingabefelder (F17, F69).
   await expect(
     table.getByRole("row", { name: /^A / }).getByRole("textbox"),
@@ -49,7 +53,7 @@ test("Arbeitsgänge in der Tabellenansicht bearbeiten (F132)", async ({
     .getByLabel("Arbeitsgang suchen")
     .filter({ visible: true })
     .fill("dachhaube");
-  await expect(table.getByRole("row")).toHaveCount(3);
+  await expect(table.getByRole("row")).toHaveCount(4); // Kopfzeile + Station + 2 Treffer
   await page.screenshot({
     path: testInfo.outputPath("01-tabelle.png"),
     fullPage: true,

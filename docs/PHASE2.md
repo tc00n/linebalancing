@@ -77,3 +77,7 @@ Beide Datenbankkorrekturen stehen in `supabase/migrations/202610260002_review_fi
 CI war seit Phase 0 rot: `tsc` lief vor dem Build ohne die generierten Next.js-Typen (`LayoutProps`). `typecheck` ruft jetzt zuerst `next typegen` auf. Erster vollständig grüner CI-Lauf (check, e2e, database) mit Commit `21d31e7`. GitHub-CLI ist installiert und angemeldet.
 
 Zur Kenntnis ohne Korrektur: Nach jedem Speicherfehler (auch Netzwerkaussetzer) ruht das Autosave bis zum Neuladen, ungespeicherte Änderungen gehen dabei verloren (Phase 6). `scenarios.updated_by` und `projects.owner_id` verweisen ohne `on delete` auf `auth.users`; Nutzer mit Änderungen sind damit nicht löschbar (E26).
+
+## Nachtrag Personalplanung (26.10.2026)
+
+Die zuvor als ausstehend bezeichnete Review-Migration …0002 ist inzwischen in Frankfurt als angewendet verifiziert. Ebenso ist Migration …0003 (Personalplanung) angewendet. Die Referenz aus Personalplanung 1.1.xlsx wurde in das vorhandene Projekt EURA Mobil importiert; kein Nutzer wurde imitiert. Aktuelle Details und Prüfungen: [PERSONALPLANUNG.md](PERSONALPLANUNG.md).

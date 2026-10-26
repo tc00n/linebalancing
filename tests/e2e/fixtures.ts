@@ -26,6 +26,7 @@ export async function importExample(
   options: { allowance?: string } = {},
 ) {
   await page.goto("/import");
+  await expect(page.getByLabel("Excel-Datei (.xlsx)")).toBeEnabled();
   await page.getByLabel("Excel-Datei (.xlsx)").setInputFiles({
     name: "Beispiel XT.xlsx",
     mimeType: XLSX_MIME,

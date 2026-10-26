@@ -292,6 +292,7 @@ try {
       "categories",
       "steps",
       "step_predecessors",
+      "staffing_plans",
     ];
     const privateTables = [
       "staff_domains",
@@ -405,6 +406,118 @@ try {
       ).rows[0].n,
       0,
     ));
+  await as(owner);
+  const staffingProject = (
+    await q("select public.create_project('Personalplanung Test') id")
+  ).rows[0].id;
+  const staffingCode = (
+    await q("select public.get_project_code($1) code", [staffingProject])
+  ).rows[0].code;
+  const staffing = {
+    filename: "Test.xlsx",
+    taktMin: 70,
+    grossFactor: 1.2,
+    rows: [
+      {
+        sourceRow: 3,
+        area: "Linie",
+        teamSpeaker: "DE",
+        costCenter: "353",
+        station: "T17",
+        support: false,
+        productive: 0.5,
+        gross: 0.6,
+      },
+    ],
+    actuals: [{ costCenter: "353", actual: 12, sourceGross: 0.6 }],
+    warnings: [],
+  };
+  const sourceHash = "a".repeat(64);
+  let staffingId;
+  await test("Personalplanung importieren und gleiche Datei idempotent behandeln", async () => {
+    staffingId = (
+      await q("select public.import_staffing_plan($1,$2,$3) id", [
+        staffingProject,
+        staffing,
+        sourceHash,
+      ])
+    ).rows[0].id;
+    assert.equal(
+      (
+        await q("select public.import_staffing_plan($1,$2,$3) id", [
+          staffingProject,
+          staffing,
+          sourceHash,
+        ])
+      ).rows[0].id,
+      staffingId,
+    );
+  });
+  await test("Ungueltige Personalplanung serverseitig abweisen", async () => {
+    await denied(
+      "select public.import_staffing_plan($1,$2,$3)",
+      [staffingProject, { ...staffing, taktMin: 90 }, "b".repeat(64)],
+      "23514",
+    );
+    await denied(
+      "select public.import_staffing_plan($1,$2,$3)",
+      [
+        staffingProject,
+        { ...staffing, rows: [{ ...staffing.rows[0], productive: -1 }] },
+        "b".repeat(64),
+      ],
+      "23514",
+    );
+  });
+  await as(editor);
+  await q("select public.redeem_project_code($1)", [staffingCode]);
+  await test("Editor sieht Planung nur in freigegebener Sitzung und kann sie nicht direkt aendern", async () => {
+    assert.equal(
+      (
+        await q(
+          "select count(*)::int n from public.staffing_plans where id=$1",
+          [staffingId],
+        )
+      ).rows[0].n,
+      1,
+    );
+    await denied("update public.staffing_plans set document=$1 where id=$2", [
+      staffing,
+      staffingId,
+    ]);
+    await denied("delete from public.staffing_plans where id=$1", [staffingId]);
+  });
+  await as(editor, otherSid);
+  await test("Neue Sitzung und fremde Nutzer sehen keine Personalplanung", async () => {
+    assert.equal(
+      (
+        await q(
+          "select count(*)::int n from public.staffing_plans where id=$1",
+          [staffingId],
+        )
+      ).rows[0].n,
+      0,
+    );
+    await denied("select public.import_staffing_plan($1,$2,$3)", [
+      staffingProject,
+      staffing,
+      sourceHash,
+    ]);
+    await as(outsider);
+    assert.equal(
+      (
+        await q(
+          "select count(*)::int n from public.staffing_plans where id=$1",
+          [staffingId],
+        )
+      ).rows[0].n,
+      0,
+    );
+  });
+  await as(owner);
+  await q("select public.delete_project($1,'Personalplanung Test')", [
+    staffingProject,
+  ]);
   await q("reset role");
   await q("set local role anon");
   await test("Anonyme haben keinen Tabellen-/Funktionszugriff", async () => {

@@ -3,7 +3,8 @@ import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { test, expect, type BrowserContext } from "@playwright/test";
-import { importExample } from "./fixtures";
+import { importExample, XLSX_MIME } from "./fixtures";
+import { staffingWorkbook } from "./staffing-fixture";
 process.loadEnvFile(".env.local");
 test.describe.configure({ mode: "serial" });
 const owner = randomUUID(),
@@ -180,4 +181,45 @@ test("Editor muss Code einloesen und nach neuer Anmeldung erneut eingeben", asyn
   await expect(page).toHaveURL(/\/login$/);
   await page.goto("/");
   await expect(page).toHaveURL(/\/login$/);
+});
+
+test("Personalplanung im Cloud-Projekt speichern und wiederfinden", async ({
+  page,
+  context,
+}) => {
+  await useLogin(context, ownerAuth);
+  await page.goto("/projects");
+  const project = page
+    .locator("section")
+    .filter({ hasText: "Phase 2 Browser-Test " + owner });
+  await project.getByRole("button", { name: "Öffnen", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Szenarien", exact: true }),
+  ).toBeVisible();
+  const { data, error } = await ownerAuth.client.rpc(
+    "list_scenario_documents",
+    { p_project_id: projectId },
+  );
+  expect(error).toBeNull();
+  await page.goto("/personalplanung?szenario=" + data[0].id);
+  await expect(page.getByLabel("Personalplanung (.xlsx)")).toBeEnabled();
+  await page.getByLabel("Personalplanung (.xlsx)").setInputFiles({
+    name: "Personalplanung Test.xlsx",
+    mimeType: XLSX_MIME,
+    buffer: await staffingWorkbook(),
+  });
+  await page
+    .getByRole("button", { name: "Personalplanung im Projekt speichern" })
+    .click();
+  const table = page.getByRole("table", {
+    name: "Produktiver Personalabgleich",
+  });
+  await expect(table.getByRole("row").filter({ hasText: "T17" })).toContainText(
+    "3,00",
+  );
+  await page.reload();
+  await expect(table).toContainText("T17");
+  await expect(
+    page.getByRole("table", { name: "Bruttopersonal und Bestand" }),
+  ).toContainText("Excel-Summe weicht");
 });

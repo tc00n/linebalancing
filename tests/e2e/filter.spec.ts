@@ -41,6 +41,9 @@ test("Suchen, filtern, an Fenster anpassen und Vollbild", async ({
 
   // Backlog/F98: an Fenster anpassen verbreitert die Spuren; Einstellung bleibt je Gerät (E16).
   const width = page.getByRole("slider", { name: "Breite" });
+  // Nach dem automatischen Einpassen bewusst schmaler stellen.
+  await width.focus();
+  await width.press("Home");
   const before = Number(await width.getAttribute("aria-valuenow"));
   await page.getByRole("button", { name: "An Fenster anpassen" }).click();
   await expect
