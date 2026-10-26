@@ -96,7 +96,7 @@ function ScenarioWorkspace({ scenario }: { scenario: StoredScenario }) {
           Math.round(
             440 / axisMaximum(evaluation.columns, scenario.input.taktMin),
           ),
-          4,
+          1,
           300,
         )
       : 40,
@@ -217,7 +217,7 @@ function ScenarioWorkspace({ scenario }: { scenario: StoredScenario }) {
         <ScaleSlider
           label="Zeitskala"
           value={pxPerMinute}
-          min={4}
+          min={1}
           max={300}
           onChange={setPxPerMinute}
         />

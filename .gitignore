@@ -49,7 +49,7 @@ next-env.d.ts
 /blob-report/
 /playwright/.cache/
 
-# Produktionsdaten sind vertraulich und gehören nie ins Repo (Testdaten werden in den Tests erzeugt)
+# Produktionsdaten sind vertraulich und gehÃ¶ren nie ins Repo (Testdaten werden in den Tests erzeugt)
 *.xlsx
 *.xlsm
 *.xls

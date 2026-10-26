@@ -288,11 +288,22 @@ function StationColumnView(
         >
           {column.station.label}
         </span>
-        <span className="text-[11px] whitespace-nowrap text-muted-foreground">
+        {/* Zwei Zeilen, damit schmale Stationen nicht in die Nachbarspalte laufen. */}
+        <span className="text-[11px] text-muted-foreground">
           {column.lanes.length} MA
-          {column.lanes.length > 0 &&
-            ` · ${formatPercent(column.stationUtilization)}`}
         </span>
+        {column.lanes.length > 0 && (
+          <span
+            className={`text-[11px] whitespace-nowrap tabular-nums ${
+              column.overTakt
+                ? "font-semibold text-destructive"
+                : "text-muted-foreground"
+            }`}
+            title="Stationsbelegung: Stationshöhe / Takt"
+          >
+            {formatPercent(column.stationUtilization)}
+          </span>
+        )}
       </footer>
     </section>
   );
