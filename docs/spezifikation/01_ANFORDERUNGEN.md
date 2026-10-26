@@ -714,3 +714,5 @@ Getroffen im Rahmen der Entwicklung. Präzisieren P1, P3 und die offenen Punkte 
 | E6a | Mitarbeiter ohne zugeordnete Tätigkeit zählen bei Mitarbeiterzahl und im Nenner der Personalauslastung (F108) mit. | Verbindlich |
 | E6b | Gesamtarbeitsinhalt = Summe der importierten Zeiten aller zugeordneten Schritte, ohne Zuschlag. | Verbindlich |
 | E7 | Das Rechenbeispiel in `docs/OFFENE_ENTSCHEIDUNGEN.md` ist der verbindliche Sollwert für die Abnahme der Berechnung. | Verbindlich |
+| E14 | Stationen werden natürlich sortiert („Station 2“ vor „Station 10“, Groß-/Kleinschreibung ohne Einfluss). Konkretisiert F32 und gilt auch als Flussreihenfolge nach E1b. | Verbindlich |
+| E34 | Ergebnisse werden kaufmännisch auf zwei Nachkommastellen gerundet (konkretisiert P2). | Verbindlich |

@@ -233,4 +233,4 @@ F4/F9/F16/F43 (Verschiebungsvorschläge), F35 PDF-Bericht, komplexe Ressourcenab
 
 ## 7 · Nächster Schritt nach Freigabe
 
-Phase 0 ist abgeschlossen, E1–E7 sind entschieden (26.10.2026), siehe [`RECHENREGELN.md`](RECHENREGELN.md). Nächster Schritt: Phase 1 (Rechenkern). Vorher noch E14 (Stationssortierung) und E34 (Rundungsart) klären, da beide in die Berechnung eingehen.
+Stand 26.10.2026: Phase 0 und Phase 1 (Rechenkern) sind abgeschlossen; E1–E7, E14 und E34 sind entschieden, siehe [`RECHENREGELN.md`](RECHENREGELN.md). Nächster Schritt: Phase 2 (Datenbank, Auth, RLS). Dafür vorher E25 (mehrere Projekte je Nutzer) und E28 (Rate-Limit der Code-Einlösung) klären.

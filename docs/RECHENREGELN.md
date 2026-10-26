@@ -1,12 +1,17 @@
 # Rechenregeln
 
-**Stand:** 26.10.2026 · Verbindliche Grundlage für den Rechenkern (`src/domain/calc/`). Quellen: 01_ANFORDERUNGEN (F/P-Nummern) und die Entscheidungen E1–E7 in [`OFFENE_ENTSCHEIDUNGEN.md`](OFFENE_ENTSCHEIDUNGEN.md). Noch offen und hier nicht geregelt: E8 (Filter), E14 (Stationssortierung), E34 (Rundungsart).
+**Stand:** 26.10.2026 · Verbindliche Grundlage für den Rechenkern (`src/domain/calc/`). Quellen: 01_ANFORDERUNGEN (F/P-Nummern) und die Entscheidungen E1–E7, E14 und E34 in [`OFFENE_ENTSCHEIDUNGEN.md`](OFFENE_ENTSCHEIDUNGEN.md). Noch offen und hier nicht geregelt: E8 (Filter).
 
 ## 1 · Einheiten und Genauigkeit
 
 - Alle Zeiten in Minuten (F73).
 - Importierte Zeiten sind unveränderlich (F17). Der Rechenkern liest sie nur.
-- Zwischenwerte werden nicht gerundet. Erst die Ausgabe wird auf zwei Nachkommastellen gerundet (P2).
+- Zwischenwerte werden nicht gerundet. Erst die Ausgabe wird auf zwei Nachkommastellen gerundet (P2), und zwar kaufmännisch: ab 5 vom Betrag her aufrunden (E34). Gleitkommafehler dürfen das Ergebnis nicht verfälschen (101,875 % ergibt 101,88 %).
+- Vergleiche von Zeitpunkten (z. B. Gleichstand bei der Listenplanung, Überschreitung des Takts) erfolgen mit einer Toleranz von 10⁻⁹ min, damit Gleitkommafehler keine Reihenfolge oder Warnung verändern.
+
+## 1a · Stationsreihenfolge
+
+Stationen werden natürlich sortiert (E14): deutsche Collation, Zahlen numerisch, Groß-/Kleinschreibung ohne Einfluss („Station 2“ vor „Station 10“). Diese Reihenfolge gilt für die Anzeige (F32) und als Flussreihenfolge für die Verletzungsprüfung (E1b).
 
 ## 2 · Berechnungsmenge
 
@@ -67,12 +72,12 @@ Die Personalauslastung enthält Wartezeit und Zuschlag; im UI ist sie als belegu
 
 Keine Prüfung blockiert eine Änderung in der App (F8/F15). Jede Verletzung erscheint in der Konfliktübersicht, und das Szenario gilt als konfliktbehaftet.
 
-| Prüfung                                                                                                                                                                                 | Ergebnis                                                                | Quelle       |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------ |
-| Vorgänger liegt an einer Station, die in der Flussreihenfolge **nach** der Station des Nachfolgers kommt. Flussreihenfolge = alphabetische Stationsreihenfolge (Sortierregel nach E14). | Verletzung                                                              | F62, E1b     |
-| Vorgänger ist nicht zugeordnet                                                                                                                                                          | Warnung „Startzeit unsicher – Vorgänger nicht zugeordnet“ am Nachfolger | E4           |
-| Schritt ist nicht zugeordnet                                                                                                                                                            | Warnzustand, Ausschluss aus der Berechnung                              | F61/F67/F109 |
-| Vorgängerkreis                                                                                                                                                                          | beim Import blockierend; in der App nicht speicherbar                   | F87, E3      |
+| Prüfung                                                                                                                                                                                       | Ergebnis                                                                | Quelle       |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------ |
+| Vorgänger liegt an einer Station, die in der Flussreihenfolge (Abschnitt 1a) **nach** der Station des Nachfolgers kommt.                                                                      | Verletzung                                                              | F62, E1b     |
+| Zugeordneter Schritt hat einen nicht zugeordneten Vorgänger **derselben Station**. Vorgänger anderer Stationen beeinflussen den Start nach E1a nicht und lösen diese Warnung daher nicht aus. | Warnung „Startzeit unsicher – Vorgänger nicht zugeordnet“ am Nachfolger | E4, E1a      |
+| Schritt ist nicht zugeordnet                                                                                                                                                                  | Warnzustand, Ausschluss aus der Berechnung                              | F61/F67/F109 |
+| Vorgängerkreis                                                                                                                                                                                | beim Import blockierend; in der App nicht speicherbar                   | F87, E3      |
 
 Vorgänger an derselben Station werden durch die Ablaufplanung immer eingehalten.
 

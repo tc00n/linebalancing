@@ -2,7 +2,7 @@
 
 Webanwendung für Line Balancing mit interaktivem Yamazumi-Diagramm. Erster Einsatz: Projekt Eura Mobil, Workshop Arbeitsvorbereitung.
 
-**Status:** Phase 0 (Fundament). Noch keine Fachfunktionen.
+**Status:** Phase 1 abgeschlossen: Rechenkern in `src/domain/` nach [docs/RECHENREGELN.md](docs/RECHENREGELN.md). Noch keine Oberfläche und keine Datenbank.
 
 ## Dokumentation
 
