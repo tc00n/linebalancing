@@ -14,6 +14,7 @@ test("Mitarbeiter übernimmt Arbeitsgänge an einer weiteren Station (E40)", asy
     "nicht zugeordnet",
     "Mitarbeiter 1 (T17)",
     "Mitarbeiter 2 (T17)",
+    "+ Mitarbeiter 3 hinzufügen",
   ]);
   // D an T18 übernimmt Mitarbeiter 2. Er ist an T17 bis 3,00 beschäftigt,
   // daher beginnt D erst danach, ohne dass das als Wartezeit zählt.

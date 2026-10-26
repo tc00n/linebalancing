@@ -1,7 +1,18 @@
 import { sortStations } from "@/domain/model/stationOrder";
 import { personOf, type Employee, type Station } from "@/domain/model/types";
+import { nextEmployee, type Operation } from "@/domain/ops/operations";
 
 const labelCollator = new Intl.Collator("de", { numeric: true });
+
+/** Wert des Eintrags „+ Mitarbeiter N hinzufügen“; kollidiert mit keiner Spur-ID. */
+const NEW_EMPLOYEE = "\u0000neu";
+
+/** Änderung zur Auswahl in der Mitarbeiterliste eines Arbeitsgangs. */
+export function employeeOperation(stepId: string, value: string): Operation {
+  return value === NEW_EMPLOYEE
+    ? { type: "assignNewEmployee", stepId }
+    : { type: "assignEmployee", stepId, employeeId: value || null };
+}
 
 /**
  * Optionen der Mitarbeiterauswahl eines Arbeitsgangs (F100, F134): alle
@@ -36,6 +47,9 @@ export function EmployeeOptions(props: {
           {lane.label} ({stations})
         </option>
       ))}
+      <option value={NEW_EMPLOYEE}>
+        + {nextEmployee(props.employees, props.stationId).label} hinzufügen
+      </option>
     </>
   );
 }

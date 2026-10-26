@@ -22,7 +22,10 @@ import {
   type ScenarioView,
 } from "@/features/workspace/scenario-view";
 import { formatMinutes } from "@/lib/format";
-import { EmployeeOptions } from "@/features/workspace/employee-options";
+import {
+  EmployeeOptions,
+  employeeOperation,
+} from "@/features/workspace/employee-options";
 
 type SortKey =
   | "id"
@@ -240,11 +243,9 @@ export function StepTable(props: {
                       className={`${cellSelect} ${step.employeeId ? "" : "border-warning text-warning"}`}
                       value={step.employeeId ?? ""}
                       onChange={(e) =>
-                        props.onApply({
-                          type: "assignEmployee",
-                          stepId: step.id,
-                          employeeId: e.target.value || null,
-                        })
+                        props.onApply(
+                          employeeOperation(step.id, e.target.value),
+                        )
                       }
                     >
                       <option value="">nicht zugeordnet</option>

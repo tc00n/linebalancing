@@ -144,6 +144,21 @@ describe("Operationen (Phase 5)", () => {
     });
   });
 
+  it("legt aus der Mitarbeiterauswahl einen neuen Mitarbeiter an und weist ihn zu (E12, F100)", () => {
+    const added = ok({ type: "assignNewEmployee", stepId: "C" });
+    expect(added.input.employees.at(-1)).toEqual({
+      id: "S2/Mitarbeiter 3",
+      stationId: "S2",
+      label: "Mitarbeiter 3",
+    });
+    expect(step(added, "C").employeeId).toBe("S2/Mitarbeiter 3");
+    expect(() => assertValidScenario(added.input)).not.toThrow();
+    expect(apply({ type: "assignNewEmployee", stepId: "X" })).toEqual({
+      ok: false,
+      error: "Arbeitsgang X existiert nicht.",
+    });
+  });
+
   it("prüft Takt, Zuschlag, Reihenfolge, Kategorie und Farbe", () => {
     expect(ok({ type: "setTakt", taktMin: 3.5 }).input.taktMin).toBe(3.5);
     expect(apply({ type: "setTakt", taktMin: 0 }).ok).toBe(false);
@@ -226,6 +241,10 @@ describe("Invarianten über beliebige Operationsfolgen", () => {
       fc.record({
         type: fc.constant("addEmployee" as const),
         stationId: pick(stations, "-"),
+      }),
+      fc.record({
+        type: fc.constant("assignNewEmployee" as const),
+        stepId: pick(steps, "-"),
       }),
       fc.record({
         type: fc.constant("removeEmployee" as const),

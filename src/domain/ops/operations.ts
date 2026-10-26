@@ -46,6 +46,8 @@ export type Operation =
   | { readonly type: "setTakt"; readonly taktMin: number }
   | { readonly type: "setAllowance"; readonly allowancePct: number }
   | { readonly type: "addEmployee"; readonly stationId: string }
+  /** Neuer Mitarbeiter an der Station des Arbeitsgangs, direkt zugewiesen (E12, F100). */
+  | { readonly type: "assignNewEmployee"; readonly stepId: string }
   | { readonly type: "removeEmployee"; readonly employeeId: string }
   | {
       readonly type: "setCategoryColor";
@@ -189,6 +191,18 @@ export function applyOperation(
       return withInput({ employees: [...input.employees, employee] });
     }
 
+    case "assignNewEmployee": {
+      const step = needStep(op.stepId);
+      if (!step) return fail(`Arbeitsgang ${op.stepId} existiert nicht.`);
+      const employee = nextEmployee(input.employees, step.stationId);
+      return withInput({
+        employees: [...input.employees, employee],
+        steps: input.steps.map((s) =>
+          s.id === op.stepId ? { ...s, employeeId: employee.id } : s,
+        ),
+      });
+    }
+
     case "removeEmployee": {
       if (!input.employees.some((e) => e.id === op.employeeId)) {
         return fail("Mitarbeiter existiert nicht.");
@@ -246,7 +260,7 @@ function springerLane(
  * Nächster „Mitarbeiter N“ an einer Station (F68, E12). Die Nummer läuft über
  * die ganze Linie, damit jede Person eindeutig benannt ist (26.10.2026).
  */
-function nextEmployee(
+export function nextEmployee(
   employees: readonly Employee[],
   stationId: string,
 ): Employee {

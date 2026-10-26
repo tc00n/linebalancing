@@ -8,7 +8,7 @@ import { parseGermanNumber } from "@/domain/import/cells";
 import { sortStations } from "@/domain/model/stationOrder";
 import type { Operation } from "@/domain/ops/operations";
 import { formatMinutes } from "@/lib/format";
-import { EmployeeOptions } from "./employee-options";
+import { EmployeeOptions, employeeOperation } from "./employee-options";
 import { describeIssue, type ScenarioView } from "./scenario-view";
 
 const selectClass =
@@ -133,11 +133,7 @@ export function DetailPanel(props: {
               value={step.employeeId ?? ""}
               disabled={readOnly}
               onChange={(e) =>
-                apply({
-                  type: "assignEmployee",
-                  stepId: step.id,
-                  employeeId: e.target.value || null,
-                })
+                apply(employeeOperation(step.id, e.target.value))
               }
             >
               <option value="">nicht zugeordnet</option>
