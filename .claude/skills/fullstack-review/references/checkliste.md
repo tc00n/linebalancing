@@ -44,7 +44,7 @@ Jeder Abschnitt nennt **wo** du suchst, **was** du prüfst und **bekannte Fehler
 - Regeln der Spezifikation genau so in SQL? Beispiel: Ohne Code dürfen Firmenadressen nur **eigene** Projekte als Owner öffnen (01_ANFORDERUNGEN). Jede Ausnahme in `can_access_project` gegen die Spezifikation halten.
 - Rekursive Abfragen (`with recursive`) auf Laufzeit prüfen: Pfadaufzählung mit `union all` und Pfad-Arrays wächst exponentiell. Mit erzeugten Daten **lesend** messen (`generate_series`, `begin read only`, `set local statement_timeout`). Supabase bricht Anfragen von `authenticated` nach rund 8 s ab.
 - Unveränderlichkeit (F17) per Trigger **und** RPC; Versionsschutz beim Speichern (40001).
-- Migrationsvorschau: Liegen Migrationen im Repo, die live fehlen? Hängt Code davon ab? Dann Befund mit Hinweis, dass der Nutzer `npm.cmd run db:migrate` ausführen muss.
+- Migrationsvorschau: Liegen Migrationen im Repo, die live fehlen? Hängt Code davon ab? Dann Befund; Änderungen nennen und anbieten, nach Bestätigung des Nutzers `npm.cmd run db:migrate` auszuführen.
 - Datenbanktests decken neue Funktionen und Ausnahmen ab (Rollenmatrix Owner/Editor/Außenstehender/anonym).
 
 **Bekannte Fehlerarten:** exponentielle Kreisprüfung (behoben in `…0002`); `is_staff()` gewährte Zugriff ohne Code auf fremde Projekte (behoben); neue Spalte, die `write_scenario` nicht speichert (Personen-ID, behoben in `…0004`).

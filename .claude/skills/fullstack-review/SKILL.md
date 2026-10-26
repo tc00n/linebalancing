@@ -12,7 +12,7 @@ Der Nutzer ist fachlich (Arbeitsvorbereitung/Projektleitung), kein Entwickler. B
 ## Grundregeln
 
 - **Erst prüfen, dann fragen, dann ändern.** Ohne Freigabe des Nutzers keinen Code, keine Doku und keine Daten ändern – außer dem Prüfbericht selbst.
-- **Nichts Unumkehrbares.** Keine Migration live anwenden (`db:migrate`), nicht pushen, kein Deployment, kein `e2e:cloud` (legt echte Testkonten an), keine Schreibzugriffe auf die Cloud-Datenbank. Lesende Abfragen in einer `begin read only`-Transaktion sind erlaubt; `db:test:remote` ist erlaubt, weil es vollständig zurückrollt.
+- **Nichts Unumkehrbares.** Keine Migration live anwenden (`db:migrate`) ohne ausdrückliche Bestätigung (siehe Schritt 6), nicht pushen, kein Deployment, kein `e2e:cloud` (legt echte Testkonten an), keine Schreibzugriffe auf die Cloud-Datenbank. Lesende Abfragen in einer `begin read only`-Transaktion sind erlaubt; `db:test:remote` ist erlaubt, weil es vollständig zurückrollt.
 - **Fremde Arbeit schützen.** Codex arbeitet parallel. Nicht committete Änderungen anderer werden nicht angefasst, nicht formatiert, nicht mitcommittet. Prettier/Lint mit `--write` nur auf eigene Dateien.
 - **Zugangsdaten nie ausgeben**, auch nicht in Fehlermeldungen oder im Bericht (`.env.local`, DB-URL, Keys).
 - **Spezifikation ist verbindlich** (`docs/spezifikation/`, `docs/RECHENREGELN.md`, Entscheidungen in `docs/OFFENE_ENTSCHEIDUNGEN.md`). Abweichungen vom Code sind Befunde; offene Entscheidungen sind keine Fehler, sondern Hinweise.
@@ -102,6 +102,6 @@ Im Chat: kurze Zusammenfassung, Befunde als nummerierte Liste (Kennung, Titel, F
 ### 6. Beheben (nur freigegebene Befunde)
 
 - Je Befund: zuerst ein Test, der den Fehler zeigt, dann die Korrektur, dann Gegenprobe (Test schlägt ohne Korrektur fehl).
-- Datenbank: neue Migration (nie eine angewendete ändern), Funktionsrümpfe aus der geltenden Fassung per Skript übernehmen und nur die betroffenen Zeilen ändern, Datenbanktest ergänzen, `db:test:remote` (Rollback) ausführen. Live anwenden muss der Nutzer selbst (`npm.cmd run db:migrate`) – das sagen.
+- Datenbank: neue Migration (nie eine angewendete ändern), Funktionsrümpfe aus der geltenden Fassung per Skript übernehmen und nur die betroffenen Zeilen ändern, Datenbanktest ergänzen, `db:test:remote` (Rollback) ausführen. Live anwenden: dem Nutzer die Änderungen der Migration in Werkstattsprache nennen (was ändert sich, was passiert mit bestehenden Daten) und fragen, ob migriert werden soll. Erst nach ausdrücklicher Bestätigung für genau diese Migration `npm.cmd run db:migrate` ausführen, danach Migrationsvorschau („Datenbank aktuell“) und `db:test:remote` gegen den Live-Stand prüfen und `ENTWICKLUNGSPLAN.md` nachziehen (Regel des Nutzers vom 26.10.2026).
 - Danach die betroffenen Prüfungen erneut ausführen, Befund im Bericht als behoben markieren, Doku nachziehen (`ENTWICKLUNGSPLAN.md`, ggf. `OFFENE_ENTSCHEIDUNGEN.md`).
 - Commits klein und thematisch, nur eigene Dateien. Push und CI-Kontrolle (`gh run list`, `gh run watch`) nur, wenn der Nutzer Commits/Push in dieser Sitzung freigegeben hat.
