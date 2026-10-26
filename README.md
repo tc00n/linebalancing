@@ -41,3 +41,13 @@ Das Repo liegt bewusst nicht in OneDrive: Der Sync von `node_modules` und `.next
 | `npm run db:test`      | Datenbank- und RLS-Tests (pgTAP, ab Phase 2)               |
 
 Die CI unter `.github/workflows/ci.yml` führt alle Prüfungen außer `db:test` bei jedem Push aus.
+
+## Zeitaufnahme in Importdatei umwandeln
+
+Einmaliger Konverter für Zeitaufnahmen im Format „Übersicht Zeitaufnahmen“ (Entscheidung E24):
+
+```bash
+npx tsx scripts/zeitaufnahme/cli.ts "<Zeitaufnahme>.xlsx" "<Importdatei>.xlsx"
+```
+
+Gelesen wird das Diagrammblatt (∑t je Arbeitsablauf). Die Importdatei enthält zusätzlich ein Blatt „Konvertierungsprotokoll“ mit Festlegungen und Lücken. Excel-Dateien sind vertraulich und per `.gitignore` vom Repo ausgeschlossen.
