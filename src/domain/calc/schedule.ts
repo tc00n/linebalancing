@@ -1,5 +1,11 @@
+import { sortStations } from "../model/stationOrder";
 import { compareSteps } from "../model/stepOrder";
-import type { Minutes, ScenarioInput, Step } from "../model/types";
+import {
+  personOf,
+  type Minutes,
+  type ScenarioInput,
+  type Step,
+} from "../model/types";
 import { exceeds, isBefore, nearlyEqual } from "./tolerance";
 
 export interface ScheduledStep {
@@ -13,30 +19,35 @@ export interface ScheduledStep {
 }
 
 /**
- * Ablaufplanung aller zugeordneten Schritte (docs/RECHENREGELN.md, Abschnitt 3).
+ * Ablaufplanung aller zugeordneten Schritte (docs/RECHENREGELN.md, Abschnitte 3 und 6a).
+ * Jede Station ist ein eigener Taktzyklus ab 0 (E1a); geplant wird gemeinsam über
+ * alle Stationen, weil ein Springer (E40) linienweit nur eine Tätigkeit zugleich
+ * ausführt. Ohne Springer ist das Ergebnis identisch mit der Planung je Station.
  * Erwartet eine gültige Eingabe (assertValidScenario), insbesondere ohne Vorgängerkreise.
- * Ergebnis je Station in Planungsreihenfolge, d. h. nach nicht fallendem Start.
+ * Ergebnis in Planungsreihenfolge, d. h. je Mitarbeiter nach nicht fallendem Start.
  */
 export function scheduleScenario(input: ScenarioInput): ScheduledStep[] {
-  const byStation = new Map<string, Step[]>();
-  for (const step of [...input.steps].sort(compareSteps)) {
-    if (step.employeeId === null) continue; // F109: nicht zugeordnet → nicht eingeplant
-    const group = byStation.get(step.stationId) ?? [];
-    group.push(step);
-    byStation.set(step.stationId, group);
-  }
-  return [...byStation.values()].flatMap(scheduleStation);
-}
-
-/** Listenplanung einer Station als eigener Taktzyklus ab 0 (E1a, E3, E5). */
-function scheduleStation(steps: readonly Step[]): ScheduledStep[] {
+  // F109: nicht zugeordnete Schritte werden nicht eingeplant.
+  const steps = input.steps
+    .filter((s) => s.employeeId !== null)
+    .sort(compareSteps);
+  const byId = new Map(steps.map((s) => [s.id, s]));
   // Zeitlich wirksam sind nur zugeordnete Vorgänger derselben Station (E1a, E4).
-  const inStation = new Set(steps.map((s) => s.id));
   const timingPredecessors = new Map(
-    steps.map((s) => [s.id, s.predecessorIds.filter((p) => inStation.has(p))]),
+    steps.map((s) => [
+      s.id,
+      s.predecessorIds.filter((p) => byId.get(p)?.stationId === s.stationId),
+    ]),
   );
+  const person = new Map(input.employees.map((e) => [e.id, personOf(e)]));
+  const rank = new Map(sortStations(input.stations).map((s, i) => [s.id, i]));
+  // E3, ergänzt um die Flussreihenfolge für Gleichstand zwischen Stationen (6a).
+  const tieBreak = (a: Step, b: Step) =>
+    a.sequence - b.sequence ||
+    rank.get(a.stationId)! - rank.get(b.stationId)! ||
+    compareSteps(a, b);
 
-  const employeeFree = new Map<string, Minutes>();
+  const personFree = new Map<string, Minutes>();
   const done = new Map<string, ScheduledStep>();
   const pending = new Set(steps);
   const result: ScheduledStep[] = [];
@@ -48,13 +59,13 @@ function scheduleStation(steps: readonly Step[]): ScheduledStep[] {
       const predecessors = timingPredecessors.get(step.id)!;
       if (!predecessors.every((p) => done.has(p))) continue;
       const start = Math.max(
-        employeeFree.get(step.employeeId!) ?? 0,
+        personFree.get(person.get(step.employeeId!)!) ?? 0,
         ...predecessors.map((p) => done.get(p)!.end),
       );
       if (
         !best ||
         isBefore(start, best.start) ||
-        (nearlyEqual(start, best.start) && compareSteps(step, best.step) < 0) // E3
+        (nearlyEqual(start, best.start) && tieBreak(step, best.step) < 0)
       ) {
         best = { step, start };
       }
@@ -67,7 +78,8 @@ function scheduleStation(steps: readonly Step[]): ScheduledStep[] {
     }
 
     const { step, start } = best;
-    const free = employeeFree.get(step.employeeId!) ?? 0;
+    const who = person.get(step.employeeId!)!;
+    const free = personFree.get(who) ?? 0;
     const scheduled: ScheduledStep = {
       stepId: step.id,
       stationId: step.stationId,
@@ -76,7 +88,7 @@ function scheduleStation(steps: readonly Step[]): ScheduledStep[] {
       end: start + step.timeMin,
       waitBefore: exceeds(start, free) ? start - free : 0,
     };
-    employeeFree.set(step.employeeId!, scheduled.end);
+    personFree.set(who, scheduled.end);
     done.set(step.id, scheduled);
     pending.delete(step);
     result.push(scheduled);

@@ -51,7 +51,7 @@ describe("Operationen (Phase 5)", () => {
     ).toEqual({ ok: true, scenario: s });
   });
 
-  it("weist nur Mitarbeiter derselben Station zu (F100)", () => {
+  it("weist Mitarbeiter zu, auch von anderen Stationen als Springer (F100, E40)", () => {
     expect(
       step(
         ok({ type: "assignEmployee", stepId: "A", employeeId: "S1/MA2" }),
@@ -59,15 +59,33 @@ describe("Operationen (Phase 5)", () => {
       ).employeeId,
     ).toBe("S1/MA2");
     expect(
-      apply({ type: "assignEmployee", stepId: "A", employeeId: "S2/MA1" }),
-    ).toEqual({
-      ok: false,
-      error: "Der Mitarbeiter gehört zu einer anderen Station.",
-    });
-    expect(
       step(ok({ type: "assignEmployee", stepId: "A", employeeId: null }), "A")
         .employeeId,
     ).toBeNull();
+
+    // S2/MA1 übernimmt A an S1: neue Spur derselben Person. Die ID weicht aus,
+    // weil S1 im Bestand vor E40 bereits einen eigenen „MA1“ hat.
+    const springer = ok({
+      type: "assignEmployee",
+      stepId: "A",
+      employeeId: "S2/MA1",
+    });
+    expect(step(springer, "A").employeeId).toBe("S1/MA1 (2)");
+    expect(springer.input.employees.at(-1)).toEqual({
+      id: "S1/MA1 (2)",
+      stationId: "S1",
+      label: "MA1",
+      personId: "S2/MA1",
+    });
+    expect(() => assertValidScenario(springer.input)).not.toThrow();
+
+    // Eine vorhandene Spur derselben Person wird wiederverwendet.
+    const again = ok(
+      { type: "assignEmployee", stepId: "B", employeeId: "S2/MA1" },
+      springer,
+    );
+    expect(step(again, "B").employeeId).toBe("S1/MA1 (2)");
+    expect(again.input.employees).toHaveLength(4);
   });
 
   it("verhindert Vorgängerkreise (E3) und ungültige Vorgänger", () => {

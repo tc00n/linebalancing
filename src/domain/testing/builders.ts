@@ -21,15 +21,25 @@ export function scenario(
     idleEmployees?: string[];
     /** Zusätzliche Stationen ohne Schritte. */
     emptyStations?: string[];
+    /**
+     * Springer (E40): Mitarbeiterbezeichnungen, deren Spuren an allen Stationen
+     * dieselbe Person sind, z. B. ["MA1"] → "S1/MA1" und "S2/MA1" = Person "MA1".
+     */
+    springers?: string[];
   } = {},
 ): ScenarioInput {
   const stations = new Map<string, Station>();
   const employees = new Map<string, Employee>();
   const addStation = (id: string) => stations.set(id, { id, label: id });
   const addEmployee = (id: string) => {
-    const stationId = id.split("/")[0];
+    const [stationId, label] = id.split("/");
     addStation(stationId);
-    employees.set(id, { id, stationId, label: id.split("/")[1] });
+    employees.set(id, {
+      id,
+      stationId,
+      label,
+      ...(options.springers?.includes(label) ? { personId: label } : {}),
+    });
   };
 
   const steps: Step[] = specs.map((spec, index) => {

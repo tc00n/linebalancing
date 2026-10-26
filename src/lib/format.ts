@@ -25,6 +25,11 @@ export function formatAxis(value: number): string {
   return axis.format(roundHalfUp(value));
 }
 
+/** Mitarbeiterzahl; Springer anteilig (E40), z. B. „2“ oder „1,4“. */
+export function formatHeadcount(value: number): string {
+  return axis.format(roundHalfUp(value));
+}
+
 export function formatDateTime(iso: string): string {
   return new Intl.DateTimeFormat("de-DE", {
     dateStyle: "medium",

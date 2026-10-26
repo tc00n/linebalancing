@@ -9,11 +9,22 @@ export interface Station {
   readonly label: string;
 }
 
-/** Mitarbeiter gehören zu genau einer Station („Mitarbeiter 1“ …, F68). */
+/**
+ * Spur eines Mitarbeiters an einer Station („Mitarbeiter 1“ …, F68). Ein
+ * Springer hat an jeder Einsatzstation eine eigene Spur; alle Spuren derselben
+ * Person tragen dieselbe `personId` (E40, docs/RECHENREGELN.md 6a).
+ */
 export interface Employee {
   readonly id: string;
   readonly stationId: string;
   readonly label: string;
+  /** Fehlt bei Szenarien vor E40: Dann ist jede Spur eine eigene Person. */
+  readonly personId?: string;
+}
+
+/** Person hinter einer Spur (E40). */
+export function personOf(employee: Pick<Employee, "id" | "personId">): string {
+  return employee.personId ?? employee.id;
 }
 
 export interface Step {

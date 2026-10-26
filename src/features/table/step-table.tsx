@@ -22,6 +22,7 @@ import {
   type ScenarioView,
 } from "@/features/workspace/scenario-view";
 import { formatMinutes } from "@/lib/format";
+import { EmployeeOptions } from "@/features/workspace/employee-options";
 
 type SortKey =
   | "id"
@@ -180,9 +181,6 @@ export function StepTable(props: {
             {group.steps.map((step) => {
               const scheduled = view.scheduled.get(step.id);
               const issues = view.issuesByStep.get(step.id) ?? [];
-              const stationEmployees = view.input.employees.filter(
-                (e) => e.stationId === step.stationId,
-              );
               return (
                 <tr
                   key={step.id}
@@ -250,11 +248,11 @@ export function StepTable(props: {
                       }
                     >
                       <option value="">nicht zugeordnet</option>
-                      {stationEmployees.map((e) => (
-                        <option key={e.id} value={e.id}>
-                          {e.label}
-                        </option>
-                      ))}
+                      <EmployeeOptions
+                        employees={view.input.employees}
+                        stations={view.input.stations}
+                        stationId={step.stationId}
+                      />
                     </select>
                   </td>
                   <td className="px-2 py-1">

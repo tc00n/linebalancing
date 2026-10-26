@@ -8,6 +8,7 @@ import { parseGermanNumber } from "@/domain/import/cells";
 import { sortStations } from "@/domain/model/stationOrder";
 import type { Operation } from "@/domain/ops/operations";
 import { formatMinutes } from "@/lib/format";
+import { EmployeeOptions } from "./employee-options";
 import { describeIssue, type ScenarioView } from "./scenario-view";
 
 const selectClass =
@@ -42,9 +43,6 @@ export function DetailPanel(props: {
   const scheduled = view.scheduled.get(step.id);
   const issues = view.issuesByStep.get(step.id) ?? [];
   const successors = view.successors.get(step.id) ?? [];
-  const stationEmployees = view.input.employees.filter(
-    (e) => e.stationId === step.stationId,
-  );
 
   function setPredecessors(predecessorIds: string[]) {
     const error = apply({
@@ -143,11 +141,11 @@ export function DetailPanel(props: {
               }
             >
               <option value="">nicht zugeordnet</option>
-              {stationEmployees.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.label}
-                </option>
-              ))}
+              <EmployeeOptions
+                employees={view.input.employees}
+                stations={view.input.stations}
+                stationId={step.stationId}
+              />
             </select>
           </dd>
 

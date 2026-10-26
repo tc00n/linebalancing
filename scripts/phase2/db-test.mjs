@@ -238,6 +238,42 @@ try {
     await q("set local statement_timeout to default");
     assert.ok(Date.now() - started < 5000, "Kreispruefung zu langsam");
   });
+  await test("Springer: Spuren derselben Person werden gespeichert und geprueft (E40)", async () => {
+    const springer = structuredClone(doc);
+    springer.input.employees = [
+      { ...doc.input.employees[0], personId: "person:Mitarbeiter 1" },
+      {
+        id: "e1-s2",
+        stationId: "s2",
+        label: "Mitarbeiter 1",
+        personId: "person:Mitarbeiter 1",
+      },
+    ];
+    const saved = (
+      await q("select public.save_scenario($1,$2,2) doc", [p, springer])
+    ).rows[0].doc;
+    assert.deepEqual(
+      saved.input.employees.map((e) => [e.id, e.stationId, e.personId]),
+      [
+        ["e1", "s1", "person:Mitarbeiter 1"],
+        ["e1-s2", "s2", "person:Mitarbeiter 1"],
+      ],
+    );
+    const relabeled = structuredClone(springer);
+    relabeled.input.employees[1].label = "Mitarbeiter 2";
+    await denied(
+      "select public.save_scenario($1,$2,$3)",
+      [p, relabeled, saved.version],
+      "23514",
+    );
+    const twice = structuredClone(springer);
+    twice.input.employees[1].stationId = "s1";
+    await denied(
+      "select public.save_scenario($1,$2,$3)",
+      [p, twice, saved.version],
+      "23505",
+    );
+  });
   await as(editor, otherSid);
   await test("Neue Anmeldung erfordert Code erneut", async () =>
     assert.equal(

@@ -76,6 +76,21 @@ export const scenarioArbitrary: fc.Arbitrary<ScenarioInput> = fc
     },
   );
 
+/**
+ * Wie `scenarioArbitrary`, aber in etwa der Hälfte der Fälle ist dieselbe
+ * Bezeichnung an mehreren Stationen dieselbe Person (Springer, E40).
+ */
+export const springerScenarioArbitrary: fc.Arbitrary<ScenarioInput> = fc
+  .tuple(scenarioArbitrary, fc.boolean())
+  .map(([input, shared]) =>
+    shared
+      ? {
+          ...input,
+          employees: input.employees.map((e) => ({ ...e, personId: e.label })),
+        }
+      : input,
+  );
+
 /** Friert ein Objekt rekursiv ein, damit jede Veränderung im Strict Mode wirft. */
 export function deepFreeze<T>(value: T): T {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {

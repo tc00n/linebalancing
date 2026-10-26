@@ -1,4 +1,5 @@
 import type { ScenarioResult } from "@/domain/calc/evaluate";
+import { exceeds } from "@/domain/calc/tolerance";
 import { compareSteps } from "@/domain/model/stepOrder";
 import type {
   Employee,
@@ -24,6 +25,8 @@ export type Segment =
       readonly to: number;
     }
   | { readonly kind: "allowance"; readonly from: number; readonly to: number }
+  /** Springer arbeitet in dieser Zeit an einer anderen Station; keine Wartezeit (E40). */
+  | { readonly kind: "absence"; readonly from: number; readonly to: number }
   | {
       readonly kind: "unassigned";
       readonly stepId: string;
@@ -36,12 +39,18 @@ export interface Lane {
   /** Zeitlich korrekt: parallele Tätigkeiten anderer Lanes liegen auf gleicher Höhe (F70). */
   readonly segments: readonly Segment[];
   readonly occupancy: number;
+  /** Oberkante der Spur; bei Springern wegen Abwesenheit höher als die Belegung. */
+  readonly top: number;
   readonly overTakt: boolean;
+  /** Weitere Einsatzstationen derselben Person (Springer, E40). */
+  readonly otherStations: readonly Station[];
 }
 
 export interface StationColumn {
   readonly station: Station;
   readonly lanes: readonly Lane[];
+  /** Mitarbeiterzahl, Springer anteilig (E40). */
+  readonly employeeCount: number;
   /** Nicht zugeordnete Schritte, gestapelt; nicht Teil der Stationshöhe (F67, E10). */
   readonly unassigned: readonly Segment[];
   readonly height: number;
@@ -137,7 +146,13 @@ export function applyFilter(
             lane.employee.label,
             "step",
           );
-          return { ...lane, segments, occupancy: total, overTakt: false };
+          return {
+            ...lane,
+            segments,
+            occupancy: total,
+            top: total,
+            overTakt: false,
+          };
         });
       const unassigned = restack(
         column.unassigned,
@@ -175,12 +190,20 @@ export function buildColumns(
       .filter((e) => e.stationId === stationResult.stationId)
       .map((employeeResult) => {
         const segments: Segment[] = [];
+        // Ende der vorigen Tätigkeit dieser Spur; Lücken davor sind Abwesenheit (E40).
+        let cursor = 0;
+        let absent = false;
         for (const s of employeeResult.steps) {
+          const waitFrom = s.start - s.waitBefore;
+          if (exceeds(waitFrom, cursor)) {
+            absent = true;
+            segments.push({ kind: "absence", from: cursor, to: waitFrom });
+          }
           if (s.waitBefore > 0) {
             segments.push({
               kind: "wait",
               beforeStepId: s.stepId,
-              from: s.start - s.waitBefore,
+              from: waitFrom,
               to: s.start,
             });
           }
@@ -190,20 +213,35 @@ export function buildColumns(
             from: s.start,
             to: s.end,
           });
+          cursor = s.end;
         }
+        // Ohne Abwesenheit liegt das Ende genau bei produktiv + Wartezeit.
+        const end = absent
+          ? cursor
+          : employeeResult.productive + employeeResult.wait;
         if (employeeResult.allowance > 0) {
-          const top = employeeResult.productive + employeeResult.wait;
           segments.push({
             kind: "allowance",
-            from: top,
-            to: top + employeeResult.allowance,
+            from: end,
+            to: end + employeeResult.allowance,
           });
         }
+        const employee = employees.get(employeeResult.employeeId)!;
         return {
-          employee: employees.get(employeeResult.employeeId)!,
+          employee,
           segments,
           occupancy: employeeResult.occupancy,
+          top: absent
+            ? end + employeeResult.allowance
+            : employeeResult.occupancy,
           overTakt: employeeResult.overTakt,
+          otherStations: result.employees
+            .filter(
+              (e) =>
+                e.personId === employeeResult.personId &&
+                e.employeeId !== employeeResult.employeeId,
+            )
+            .map((e) => stations.get(e.stationId)!),
         };
       });
 
@@ -224,6 +262,7 @@ export function buildColumns(
     return {
       station: stations.get(stationResult.stationId)!,
       lanes,
+      employeeCount: stationResult.employeeCount,
       unassigned,
       height: stationResult.height,
       stationUtilization: stationResult.stationUtilization,
@@ -232,12 +271,16 @@ export function buildColumns(
   });
 }
 
-/** Höchster darzustellender Wert: Takt, Stationshöhen und Stapel nicht zugeordneter Schritte. */
+/** Höchster darzustellender Wert: Takt, Stationshöhen, Spuren und Stapel nicht zugeordneter Schritte. */
 export function axisMaximum(
   columns: readonly StationColumn[],
   taktMin: number,
 ): number {
-  const tops = columns.flatMap((c) => [c.height, c.unassigned.at(-1)?.to ?? 0]);
+  const tops = columns.flatMap((c) => [
+    c.height,
+    c.unassigned.at(-1)?.to ?? 0,
+    ...c.lanes.map((l) => l.top),
+  ]);
   return Math.max(taktMin, ...tops);
 }
 

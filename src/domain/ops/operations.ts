@@ -1,6 +1,11 @@
 import { findCycles } from "../checks/cycles";
 import type { Category } from "../model/categories";
-import type { Employee, ScenarioInput, Step } from "../model/types";
+import {
+  personOf,
+  type Employee,
+  type ScenarioInput,
+  type Step,
+} from "../model/types";
 
 /** Bearbeitbarer Stand eines Szenarios. */
 export interface EditableScenario {
@@ -88,17 +93,31 @@ export function applyOperation(
     case "assignEmployee": {
       const step = needStep(op.stepId);
       if (!step) return fail(`Arbeitsgang ${op.stepId} existiert nicht.`);
-      if (op.employeeId !== null) {
-        const employee = input.employees.find((e) => e.id === op.employeeId);
-        if (!employee) return fail("Mitarbeiter existiert nicht.");
-        if (employee.stationId !== step.stationId) {
-          return fail("Der Mitarbeiter gehört zu einer anderen Station.");
-        }
+      if (op.employeeId === null) {
+        return updateStep(op.stepId, (s) => ({ ...s, employeeId: null }));
       }
-      return updateStep(op.stepId, (s) => ({
-        ...s,
-        employeeId: op.employeeId,
-      }));
+      const employee = input.employees.find((e) => e.id === op.employeeId);
+      if (!employee) return fail("Mitarbeiter existiert nicht.");
+      if (employee.stationId === step.stationId) {
+        return updateStep(op.stepId, (s) => ({
+          ...s,
+          employeeId: employee.id,
+        }));
+      }
+      // E40: Mitarbeiter einer anderen Station arbeitet hier als Springer.
+      const person = personOf(employee);
+      const lane =
+        input.employees.find(
+          (e) => personOf(e) === person && e.stationId === step.stationId,
+        ) ?? springerLane(input.employees, employee, step.stationId);
+      return withInput({
+        employees: input.employees.includes(lane)
+          ? input.employees
+          : [...input.employees, lane],
+        steps: input.steps.map((s) =>
+          s.id === op.stepId ? { ...s, employeeId: lane.id } : s,
+        ),
+      });
     }
 
     case "setCategory": {
@@ -202,6 +221,24 @@ export function applyOperation(
       };
     }
   }
+}
+
+/** Neue Spur einer Person an einer weiteren Station (E40). */
+function springerLane(
+  employees: readonly Employee[],
+  source: Employee,
+  stationId: string,
+): Employee {
+  const ids = new Set(employees.map((e) => e.id));
+  const base = `${stationId}/${source.label}`;
+  let id = base;
+  for (let n = 2; ids.has(id); n++) id = `${base} (${n})`;
+  return {
+    id,
+    stationId,
+    label: source.label,
+    personId: personOf(source),
+  };
 }
 
 /**

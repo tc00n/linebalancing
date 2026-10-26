@@ -24,7 +24,12 @@ import {
 import { textColorFor } from "@/domain/model/categories";
 import { violationsAfterMove } from "@/domain/ops/movePreview";
 import type { ScenarioView } from "@/features/workspace/scenario-view";
-import { formatAxis, formatMinutes, formatPercent } from "@/lib/format";
+import {
+  formatAxis,
+  formatHeadcount,
+  formatMinutes,
+  formatPercent,
+} from "@/lib/format";
 import {
   axisMaximum,
   axisTicks,
@@ -458,6 +463,7 @@ function StationColumnView(
         <div className="flex gap-[3px] pt-1">
           {column.lanes.map((lane) => {
             const empty = !lane.segments.some((s) => s.kind === "step");
+            const springer = lane.otherStations.length > 0;
             return (
               <span
                 key={lane.employee.id}
@@ -467,9 +473,14 @@ function StationColumnView(
                     : "text-muted-foreground"
                 }`}
                 style={{ width: laneWidth }}
-                title={`${lane.employee.label}: ${formatMinutes(lane.occupancy)} min`}
+                title={`${lane.employee.label}: ${formatMinutes(lane.occupancy)} min${
+                  springer
+                    ? ` (Springer, auch an ${lane.otherStations.map((s) => s.label).join(", ")})`
+                    : ""
+                }`}
               >
                 {lane.employee.label.replace("Mitarbeiter ", "MA ")}
+                {springer && <span aria-label="Springer">↔</span>}
                 {empty && props.actions && (
                   <button
                     type="button"
@@ -502,7 +513,7 @@ function StationColumnView(
         </span>
         {/* Zwei Zeilen, damit schmale Stationen nicht in die Nachbarspalte laufen. */}
         <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
-          {column.lanes.length} MA
+          {formatHeadcount(column.employeeCount)} MA
           {props.actions && (
             <button
               type="button"
@@ -576,13 +587,13 @@ function LaneView(
           onHover={props.onHover}
         />
       ))}
-      {lane.overTakt && (
+      {lane.overTakt && lane.top > takt && (
         // Teil oberhalb des Takts rot markieren (F106).
         <div
           className="pointer-events-none absolute inset-x-0 z-10 border-x-2 border-t-2 border-(--yz-over) bg-(--yz-over)/15"
           style={{
             bottom: takt * props.pxPerMinute,
-            height: (lane.occupancy - takt) * props.pxPerMinute,
+            height: (lane.top - takt) * props.pxPerMinute,
           }}
           aria-hidden
         />
@@ -631,6 +642,15 @@ const SegmentView = memo(function SegmentView(props: SegmentProps) {
             "repeating-linear-gradient(135deg, var(--yz-wait) 0 4px, var(--yz-wait-stripe) 4px 5px)",
         }}
         title={`Wartezeit ${formatMinutes(minutes)} min vor ${segment.beforeStepId}`}
+      />
+    );
+  }
+  if (segment.kind === "absence") {
+    return (
+      <div
+        className="absolute inset-x-1 border-x border-dashed border-nx-steel"
+        style={style}
+        title={`An anderer Station: ${formatMinutes(minutes)} min (Springer, keine Wartezeit)`}
       />
     );
   }

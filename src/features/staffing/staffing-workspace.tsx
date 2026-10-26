@@ -13,7 +13,7 @@ import { compareStaffing } from "@/domain/staffing/compare";
 import type { StaffingPlan } from "@/domain/staffing/model";
 import { useProjectSession } from "@/features/projects/project-session";
 import { useScenarioRepository } from "@/features/projects/use-scenario-repository";
-import { formatMinutes, formatDateTime } from "@/lib/format";
+import { formatMinutes, formatDateTime, formatHeadcount } from "@/lib/format";
 import { useHydrated } from "@/lib/use-hydrated";
 import { readStaffingWorkbook } from "./workbook";
 const number = (value: number | null) =>
@@ -335,7 +335,9 @@ export function StaffingWorkspace() {
                           </td>
                           <td className={cell}>{number(s.workloadFte)}</td>
                           <td className={cell}>{delta(s.deltaFte)}</td>
-                          <td className={cell}>{s.employeeCount}</td>
+                          <td className={cell}>
+                            {formatHeadcount(s.employeeCount)}
+                          </td>
                           <td
                             className={
                               cell +

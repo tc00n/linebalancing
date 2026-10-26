@@ -23,6 +23,7 @@ export function buildScenario(
     const stationId = `station:${row.station}`;
     stations.set(stationId, { id: stationId, label: row.station });
 
+    // E40: Dieselbe Bezeichnung an mehreren Stationen ist dieselbe Person (Springer).
     let employeeId: string | null = null;
     if (row.employee) {
       employeeId = `${stationId}/${row.employee}`;
@@ -30,6 +31,7 @@ export function buildScenario(
         id: employeeId,
         stationId,
         label: row.employee,
+        personId: `person:${row.employee}`,
       });
     }
 

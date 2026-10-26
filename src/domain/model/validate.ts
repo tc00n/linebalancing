@@ -1,5 +1,5 @@
 import { findCycles } from "../checks/cycles";
-import type { ScenarioInput } from "./types";
+import { personOf, type ScenarioInput } from "./types";
 
 /**
  * Verletzte Invarianten der Eingabe. Import (F79–F87) und Datenbank stellen
@@ -32,12 +32,30 @@ export function assertValidScenario(input: ScenarioInput): void {
     input.employees.map((e) => [e.id, e.stationId]),
   );
 
+  // E40: Spuren derselben Person tragen dieselbe Bezeichnung, höchstens eine je Station.
+  const personLabel = new Map<string, string>();
+  const personStations = new Set<string>();
   for (const employee of input.employees) {
     if (!stationIds.has(employee.stationId)) {
       problems.push(
         `Mitarbeiter ${employee.id}: unbekannte Station ${employee.stationId}.`,
       );
     }
+    const person = personOf(employee);
+    const label = personLabel.get(person);
+    if (label !== undefined && label !== employee.label) {
+      problems.push(
+        `Mitarbeiter ${employee.id}: Bezeichnung „${employee.label}“ weicht von „${label}“ derselben Person ab.`,
+      );
+    }
+    personLabel.set(person, label ?? employee.label);
+    const key = `${person}\u0000${employee.stationId}`;
+    if (personStations.has(key)) {
+      problems.push(
+        `Mitarbeiter ${employee.id}: Person hat an Station ${employee.stationId} bereits eine Spur.`,
+      );
+    }
+    personStations.add(key);
   }
 
   for (const step of input.steps) {

@@ -23,6 +23,54 @@ const goldenSteps = [
   { id: "C", station: "S1", employee: "MA1", time: 1.5, predecessors: ["B"] },
 ];
 
+describe("Springer (E40, RECHENREGELN 6a)", () => {
+  // MA1 arbeitet an S1 und S2, MA2 nur an S2.
+  const springer = (takt: number) =>
+    evaluateScenario(
+      scenario(
+        [
+          { id: "A", station: "S1", employee: "MA1", time: 3 },
+          { id: "B", station: "S2", employee: "MA1", time: 2 },
+          { id: "C", station: "S2", employee: "MA2", time: 4 },
+        ],
+        { takt, springers: ["MA1"] },
+      ),
+    );
+
+  it("plant die Arbeitsgänge eines Springers nacheinander über beide Stationen", () => {
+    const result = springer(6);
+    expect(timeline(result, "S1/MA1")).toEqual([["A", 0, 3, 0]]);
+    // B wartet nicht: MA1 ist bis 3 an S1 beschäftigt, das ist keine Wartezeit.
+    expect(timeline(result, "S2/MA1")).toEqual([["B", 3, 5, 0]]);
+    expect(timeline(result, "S2/MA2")).toEqual([["C", 0, 4, 0]]);
+  });
+
+  it("zählt den Springer anteilig je Station und einmal im Szenario", () => {
+    const result = springer(6);
+    expect(employee(result, "S1/MA1").share).toBeCloseTo(0.6, 12);
+    expect(employee(result, "S2/MA1").share).toBeCloseTo(0.4, 12);
+    expect(station(result, "S1").employeeCount).toBeCloseTo(0.6, 12);
+    expect(station(result, "S2").employeeCount).toBeCloseTo(1.4, 12);
+    expect(result.kpis.employeeCount).toBe(2);
+    // Stationshöhe nur aus der Arbeit an der Station.
+    expect(station(result, "S1").height).toBe(3);
+    expect(station(result, "S2").height).toBe(4);
+    expect(result.kpis.personnelUtilization).toBeCloseTo(9 / 12, 12);
+    expect(station(result, "S2").personnelUtilization).toBeCloseTo(
+      6 / (1.4 * 6),
+      12,
+    );
+  });
+
+  it("prüft die Überlast eines Springers an seiner Gesamtbelegung (F106)", () => {
+    const result = springer(4);
+    expect(employee(result, "S1/MA1").overTakt).toBe(true);
+    expect(employee(result, "S2/MA1").overTakt).toBe(true);
+    expect(employee(result, "S2/MA2").overTakt).toBe(false);
+    expect(station(result, "S1").overTakt).toBe(false);
+  });
+});
+
 describe("Golden-Test E7", () => {
   it("ohne Zuschlag", () => {
     const result = evaluateScenario(scenario(goldenSteps, { takt: 4 }));

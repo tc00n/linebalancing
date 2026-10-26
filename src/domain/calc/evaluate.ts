@@ -1,7 +1,7 @@
 import { findIssues, type Issue } from "../checks/issues";
 import { sortStations } from "../model/stationOrder";
 import { compareSteps } from "../model/stepOrder";
-import type { Minutes, ScenarioInput } from "../model/types";
+import { personOf, type Minutes, type ScenarioInput } from "../model/types";
 import { assertValidScenario } from "../model/validate";
 import { scheduleScenario, type ScheduledStep } from "./schedule";
 import { exceeds } from "./tolerance";
@@ -11,9 +11,12 @@ import { exceeds } from "./tolerance";
 
 const labelCollator = new Intl.Collator("de", { numeric: true });
 
+/** Ergebnis einer Spur, d. h. eines Mitarbeiters an einer Station (E40). */
 export interface EmployeeResult {
   readonly employeeId: string;
   readonly stationId: string;
+  /** Person hinter der Spur; mehrere Spuren derselben Person = Springer. */
+  readonly personId: string;
   /** Eingeplante Schritte in zeitlicher Reihenfolge (F70). */
   readonly steps: readonly ScheduledStep[];
   /** Summe der importierten Zeiten (Abschnitt 4). */
@@ -21,15 +24,22 @@ export interface EmployeeResult {
   /** Zuschlag nur auf die produktive Zeit (E2/P1). */
   readonly allowance: Minutes;
   readonly wait: Minutes;
-  /** produktiv + Zuschlag + Wartezeit. */
+  /** Spurbelegung: produktiv + Zuschlag + Wartezeit. */
   readonly occupancy: Minutes;
-  /** F106 */
+  /** Gesamtbelegung der Person über alle ihre Spuren (6a). */
+  readonly personOccupancy: Minutes;
+  /** Anteil der Person an dieser Station für die Mitarbeiterzahl (6a). */
+  readonly share: number;
+  /** F106, bezogen auf die Gesamtbelegung der Person. */
   readonly overTakt: boolean;
 }
 
 export interface StationResult {
   readonly stationId: string;
-  /** Alle Mitarbeiter der Station, auch ohne Tätigkeit (E6a). */
+  /**
+   * Alle Mitarbeiter der Station, auch ohne Tätigkeit (E6a); Springer anteilig
+   * nach Belegung (6a), daher nicht immer ganzzahlig.
+   */
   readonly employeeCount: number;
   /** Größte Belegung eines Mitarbeiters (F90). */
   readonly height: Minutes;
@@ -45,6 +55,7 @@ export interface StationResult {
 
 export interface ScenarioKpis {
   readonly taktMin: Minutes;
+  /** Zahl der Personen; ein Springer zählt einmal (6a). */
   readonly employeeCount: number;
   /** F108 über alle Mitarbeiter des Szenarios; null ohne Mitarbeiter. */
   readonly personnelUtilization: number | null;
@@ -85,21 +96,41 @@ export function evaluateScenario(input: ScenarioInput): ScenarioResult {
   const stepTime = new Map(input.steps.map((s) => [s.id, s.timeMin]));
   const allowanceFactor = input.allowancePct / 100;
 
-  const employees: EmployeeResult[] = orderedEmployees.map((employee) => {
+  const lanes = orderedEmployees.map((employee) => {
     const steps = scheduled.filter((s) => s.employeeId === employee.id);
     const productive = sum(steps.map((s) => stepTime.get(s.stepId)!));
     const wait = sum(steps.map((s) => s.waitBefore));
     const allowance = productive * allowanceFactor;
-    const occupancy = productive + allowance + wait;
     return {
       employeeId: employee.id,
       stationId: employee.stationId,
+      personId: personOf(employee),
       steps,
       productive,
       allowance,
       wait,
-      occupancy,
-      overTakt: exceeds(occupancy, input.taktMin),
+      occupancy: productive + allowance + wait,
+    };
+  });
+  const personTotal = new Map<string, { occupancy: Minutes; lanes: number }>();
+  for (const lane of lanes) {
+    const total = personTotal.get(lane.personId) ?? { occupancy: 0, lanes: 0 };
+    personTotal.set(lane.personId, {
+      occupancy: total.occupancy + lane.occupancy,
+      lanes: total.lanes + 1,
+    });
+  }
+  const employees: EmployeeResult[] = lanes.map((lane) => {
+    const total = personTotal.get(lane.personId)!;
+    return {
+      ...lane,
+      personOccupancy: total.occupancy,
+      // Ohne jede Belegung verteilt sich die Person gleichmäßig auf ihre Spuren.
+      share:
+        total.occupancy > 0
+          ? lane.occupancy / total.occupancy
+          : 1 / total.lanes,
+      overTakt: exceeds(total.occupancy, input.taktMin),
     };
   });
 
@@ -109,12 +140,13 @@ export function evaluateScenario(input: ScenarioInput): ScenarioResult {
     const unassigned = orderedSteps.filter(
       (s) => s.stationId === station.id && s.employeeId === null,
     );
+    const headcount = sum(own.map((e) => e.share));
     return {
       stationId: station.id,
-      employeeCount: own.length,
+      employeeCount: headcount,
       height,
       stationUtilization: height / input.taktMin,
-      personnelUtilization: utilization(own, input.taktMin),
+      personnelUtilization: utilization(own, headcount, input.taktMin),
       overTakt: exceeds(height, input.taktMin),
       unassignedStepIds: unassigned.map((s) => s.id),
       unassignedWorkContent: sum(unassigned.map((s) => s.timeMin)),
@@ -130,8 +162,12 @@ export function evaluateScenario(input: ScenarioInput): ScenarioResult {
     issues,
     kpis: {
       taktMin: input.taktMin,
-      employeeCount: employees.length,
-      personnelUtilization: utilization(employees, input.taktMin),
+      employeeCount: personTotal.size,
+      personnelUtilization: utilization(
+        employees,
+        personTotal.size,
+        input.taktMin,
+      ),
       totalWorkContent: sum(
         orderedSteps.filter((s) => s.employeeId !== null).map((s) => s.timeMin),
       ),
@@ -146,10 +182,11 @@ export function evaluateScenario(input: ScenarioInput): ScenarioResult {
 /** F108: Summe Belegung / (Mitarbeiterzahl × Takt). */
 function utilization(
   employees: readonly EmployeeResult[],
+  headcount: number,
   taktMin: Minutes,
 ): number | null {
   if (employees.length === 0) return null;
-  return sum(employees.map((e) => e.occupancy)) / (employees.length * taktMin);
+  return sum(employees.map((e) => e.occupancy)) / (headcount * taktMin);
 }
 
 function sum(values: readonly number[]): number {

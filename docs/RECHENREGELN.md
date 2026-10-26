@@ -1,6 +1,6 @@
 # Rechenregeln
 
-**Stand:** 26.10.2026 · Verbindliche Grundlage für den Rechenkern (`src/domain/calc/`). Quellen: 01_ANFORDERUNGEN (F/P-Nummern) und die Entscheidungen E1–E7, E14 und E34 in [`OFFENE_ENTSCHEIDUNGEN.md`](OFFENE_ENTSCHEIDUNGEN.md). Springer (E40) siehe Abschnitt 6a; E40 und F134 werden in OFFENE_ENTSCHEIDUNGEN und 01_ANFORDERUNGEN nachgetragen. Noch offen und hier nicht geregelt: E8 (Filter).
+**Stand:** 26.10.2026 · Verbindliche Grundlage für den Rechenkern (`src/domain/calc/`). Quellen: 01_ANFORDERUNGEN (F/P-Nummern) und die Entscheidungen E1–E7, E14 und E34 in [`OFFENE_ENTSCHEIDUNGEN.md`](OFFENE_ENTSCHEIDUNGEN.md). Springer (E40, F134) siehe Abschnitt 6a. Noch offen und hier nicht geregelt: E8 (Filter).
 
 ## 1 · Einheiten und Genauigkeit
 
@@ -81,7 +81,7 @@ Keine Prüfung blockiert eine Änderung in der App (F8/F15). Jede Verletzung ers
 
 Vorgänger an derselben Station werden durch die Ablaufplanung immer eingehalten.
 
-## 6a · Springer (E40, F134) – beschlossen, noch nicht umgesetzt
+## 6a · Springer (E40, F134)
 
 Entscheidung des Nutzers vom 26.10.2026: Ein Mitarbeiter kann an mehreren Stationen arbeiten. Diese Regeln ändern die Abschnitte 3–5 und F61, F68, F75, F100, F105 und F108 wie folgt. Ohne Springer müssen alle Ergebnisse unverändert bleiben.
 
