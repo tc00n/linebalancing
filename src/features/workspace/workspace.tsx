@@ -179,6 +179,13 @@ export function Workspace() {
 
 const LABEL_KEYS = ["id", "description", "duration"] as const;
 
+// Reglergrenzen (F98): Breite reicht für wenige Stationen auf großen Bildschirmen,
+// Zeitskala auch für Stationen mit mehreren hundert Minuten.
+const MIN_LANE_WIDTH = 14;
+const MAX_LANE_WIDTH = 1200;
+const MIN_SCALE = 0.5;
+const MAX_SCALE = 300;
+
 type Evaluation =
   | { ok: true; view: ScenarioView; columns: StationColumn[] }
   | { ok: false; message: string };
@@ -235,9 +242,11 @@ function ScenarioWorkspace(props: {
   } = useViewSettings(editable.id, () =>
     main.ok
       ? clamp(
-          Math.round(440 / axisMaximum(main.columns, editor.doc.input.taktMin)),
-          1,
-          300,
+          Math.round(
+            (440 / axisMaximum(main.columns, editor.doc.input.taktMin)) * 100,
+          ) / 100,
+          MIN_SCALE,
+          MAX_SCALE,
         )
       : 40,
   );
@@ -419,7 +428,7 @@ function ScenarioWorkspace(props: {
       return total + missing + 24 * Math.max(0, slotCount - 1);
     };
     let low = 14;
-    let high = 400;
+    let high = MAX_LANE_WIDTH;
     while (low < high) {
       const mid = Math.ceil((low + high) / 2);
       if (needed(mid) <= available) low = mid;
@@ -435,7 +444,11 @@ function ScenarioWorkspace(props: {
     const availableHeight =
       window.innerHeight - top - (mode === "employee" ? 140 : 120);
     setPxPerMinute(
-      clamp(Math.floor((availableHeight - 28) / (maximum * 1.04)), 1, 300),
+      clamp(
+        Math.floor(((availableHeight - 28) / (maximum * 1.04)) * 100) / 100,
+        MIN_SCALE,
+        MAX_SCALE,
+      ),
     );
   }
 
@@ -716,15 +729,18 @@ function ScenarioWorkspace(props: {
           <ScaleSlider
             label="Breite"
             value={laneWidth}
-            min={14}
-            max={400}
+            min={MIN_LANE_WIDTH}
+            max={MAX_LANE_WIDTH}
+            unit="px"
             onChange={setLaneWidth}
           />
           <ScaleSlider
             label="Zeitskala"
             value={pxPerMinute}
-            min={1}
-            max={300}
+            min={MIN_SCALE}
+            max={MAX_SCALE}
+            decimals={2}
+            unit="px/min"
             onChange={setPxPerMinute}
           />
 

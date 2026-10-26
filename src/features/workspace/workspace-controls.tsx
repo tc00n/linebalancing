@@ -78,28 +78,57 @@ export function NumberSetting(props: {
   );
 }
 
+const SLIDER_STEPS = 1000;
+
+/**
+ * Logarithmischer Regler: gleiche Bewegung = gleiche prozentuale Änderung.
+ * Linear sprang die Zeitskala bei großen Zeiten (sinnvoll: 1–4 px/min von 1–300)
+ * schon bei kleinster Bewegung um 50 % und mehr (Backlog, F98).
+ */
 export function ScaleSlider(props: {
   label: string;
   value: number;
   min: number;
   max: number;
+  /** Nachkommastellen des Werts; 0 = ganze Pixel. */
+  decimals?: number;
+  unit: string;
   onChange: (value: number) => void;
 }) {
+  const ratio = Math.log(props.max / props.min);
+  const clamped = Math.min(props.max, Math.max(props.min, props.value));
+  const position = Math.round(
+    (Math.log(clamped / props.min) / ratio) * SLIDER_STEPS,
+  );
+  const factor = 10 ** (props.decimals ?? 0);
+  const fromPosition = (p: number) =>
+    Math.round(props.min * Math.exp((p / SLIDER_STEPS) * ratio) * factor) /
+    factor;
+
   return (
     <label className="flex items-center gap-2 text-sm">
       <span className="text-muted-foreground">{props.label}</span>
       {/* Feste Breite außen: der Slider selbst ist auf 100 % seines Containers gesetzt. */}
-      <div className="w-28">
+      <div className="w-40">
         <Slider
-          min={props.min}
-          max={props.max}
-          value={[props.value]}
+          min={0}
+          max={SLIDER_STEPS}
+          value={[position]}
           onValueChange={(value) =>
-            props.onChange(Array.isArray(value) ? value[0] : value)
+            props.onChange(
+              fromPosition(Array.isArray(value) ? value[0] : value),
+            )
           }
           aria-label={props.label}
+          aria-valuetext={`${props.value} ${props.unit}`}
         />
       </div>
+      <span className="w-20 text-xs text-muted-foreground tabular-nums">
+        {props.value.toLocaleString("de-DE", {
+          maximumFractionDigits: props.decimals ?? 0,
+        })}{" "}
+        {props.unit}
+      </span>
     </label>
   );
 }
