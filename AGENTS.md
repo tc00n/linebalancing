@@ -23,3 +23,4 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Codex und Claude arbeiten am selben Projekt; vorhandene Aenderungen des jeweils anderen erhalten. Vor Beginn Git-Status und dokumentierten Stand pruefen.
 - Aenderungen, Pruefergebnisse, offene Punkte und naechste Schritte im Repository dokumentieren, damit beide Assistenten anschliessen koennen. Zugangsdaten nie dokumentieren oder ausgeben.
 - Fuer Cloud-Einrichtung und Verbindungspruefungen ist `docs/CLOUD_SETUP.md` die gemeinsame Uebergabe. `CLAUDE.md` bindet diese Regeln ueber `@AGENTS.md` ein.
+- Gesamtprüfung des Projekts: `.claude/skills/fullstack-review/` (Ablauf in `SKILL.md`, Prüfpunkte in `references/checkliste.md`, automatische Prüfungen mit `node .claude/skills/fullstack-review/scripts/run-checks.mjs`). Berichte liegen unter `docs/reviews/`.
