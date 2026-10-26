@@ -1,6 +1,6 @@
 # Rechenregeln
 
-**Stand:** 26.10.2026 · Verbindliche Grundlage für den Rechenkern (`src/domain/calc/`). Quellen: 01_ANFORDERUNGEN (F/P-Nummern) und die Entscheidungen E1–E7, E14 und E34 in [`OFFENE_ENTSCHEIDUNGEN.md`](OFFENE_ENTSCHEIDUNGEN.md). Noch offen und hier nicht geregelt: E8 (Filter).
+**Stand:** 26.10.2026 · Verbindliche Grundlage für den Rechenkern (`src/domain/calc/`). Quellen: 01_ANFORDERUNGEN (F/P-Nummern) und die Entscheidungen E1–E7, E14 und E34 in [`OFFENE_ENTSCHEIDUNGEN.md`](OFFENE_ENTSCHEIDUNGEN.md). Springer (E40) siehe Abschnitt 6a; E40 und F134 werden in OFFENE_ENTSCHEIDUNGEN und 01_ANFORDERUNGEN nachgetragen. Noch offen und hier nicht geregelt: E8 (Filter).
 
 ## 1 · Einheiten und Genauigkeit
 
@@ -80,6 +80,33 @@ Keine Prüfung blockiert eine Änderung in der App (F8/F15). Jede Verletzung ers
 | Vorgängerkreis                                                                                                                                                                                | beim Import blockierend; in der App nicht speicherbar                   | F87, E3      |
 
 Vorgänger an derselben Station werden durch die Ablaufplanung immer eingehalten.
+
+## 6a · Springer (E40, F134) – beschlossen, noch nicht umgesetzt
+
+Entscheidung des Nutzers vom 26.10.2026: Ein Mitarbeiter kann an mehreren Stationen arbeiten. Diese Regeln ändern die Abschnitte 3–5 und F61, F68, F75, F100, F105 und F108 wie folgt. Ohne Springer müssen alle Ergebnisse unverändert bleiben.
+
+**Modell**
+
+- Ein Mitarbeiter gehört zur Linie und hat eine oder mehrere **Einsatzstationen**. Je Einsatzstation hat er im Diagramm eine eigene **Spur** mit seinen Arbeitsgängen dieser Station.
+- Bezeichnungen „Mitarbeiter N“ sind linienweit eindeutig (Durchnummerierung vom 26.10.2026). Im Import bedeutet dieselbe Bezeichnung an mehreren Stationen dieselbe Person.
+- Ein Arbeitsgang kann jedem Mitarbeiter der Linie zugewiesen werden. Ist dessen Station noch keine Einsatzstation, entsteht dort eine Spur.
+- Eine Spur lässt sich nur entfernen, wenn an dieser Station keine Arbeitsgänge des Mitarbeiters liegen (analog E12).
+- Verschieben auf eine andere Station entfernt den Mitarbeiter weiterhin (F61 unverändert).
+
+**Ablaufplanung (ersetzt die Einschränkung „je Station unabhängig“ in Abschnitt 3)**
+
+- Jede Station bleibt ein Taktzyklus ab 0 (E1a), zeitlich wirksame Vorgänger bleiben auf dieselbe Station beschränkt.
+- Die Listenplanung läuft gemeinsam über alle Stationen. Ein Mitarbeiter ist **linienweit** belegt: Frühester Start = max(Zeitpunkt, an dem der Mitarbeiter an irgendeiner Station frei ist; Ende der zeitlich wirksamen Vorgänger). Er führt nie zwei Tätigkeiten gleichzeitig aus, auch nicht an verschiedenen Stationen.
+- Auswahl unter allen bereiten Schritten aller Stationen: frühester möglicher Start, dann kleinere `Reihenfolge`, dann Station in Flussreihenfolge (Abschnitt 1a), dann Arbeitsgang-ID.
+- Keine Wegezeit zwischen Stationen. Wege lassen sich als eigener Arbeitsgang abbilden.
+
+**Wartezeit, Belegung, Kennzahlen**
+
+- Wartezeit eines Schritts = Start − Zeitpunkt, an dem sein Mitarbeiter frei wurde, gleich an welcher Station. Die Zeit, in der ein Springer an einer anderen Station arbeitet, ist an dieser Station keine Wartezeit; das Diagramm zeigt sie als Abwesenheit.
+- **Spurbelegung** = produktive Zeit der Spur + Zuschlag darauf + Wartezeiten vor den Schritten der Spur. **Gesamtbelegung** eines Mitarbeiters = Summe seiner Spurbelegungen. Überlastung (F106) gilt für die Gesamtbelegung > Takt.
+- Stationshöhe (F90) = größte Spurbelegung der Station.
+- Mitarbeiterzahl einer Station (F105) = Summe der **Anteile**: Anteil einer Spur = Spurbelegung / Gesamtbelegung. Ohne jede Belegung verteilt sich ein Mitarbeiter gleichmäßig auf seine Einsatzstationen. Mitarbeiterzahl des Szenarios = Zahl der Personen.
+- Personalauslastung der Station (F108) = Summe der Spurbelegungen / (Mitarbeiterzahl der Station × Takt). Szenariowert unverändert.
 
 ## 7 · Verbindlicher Testfall
 
