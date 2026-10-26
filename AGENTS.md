@@ -11,7 +11,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## Projektregeln
 
 - Verbindlich ist `docs/spezifikation/`. Plan: `docs/ENTWICKLUNGSPLAN.md`. Offene Punkte: `docs/OFFENE_ENTSCHEIDUNGEN.md`.
-- Keine fachlichen Anforderungen erfinden. Offene Entscheidungen (E1–E33) nicht eigenmächtig umsetzen, sondern nachfragen.
+- Keine fachlichen Anforderungen erfinden. Offene Entscheidungen (E-Nummern in `docs/OFFENE_ENTSCHEIDUNGEN.md`) nicht eigenmächtig umsetzen, sondern nachfragen.
 - Importierte Arbeitszeiten sind unveränderlich (F17). Durchsetzung in der Datenbank, nicht nur im UI.
 - Rechenlogik lebt rein in `src/domain/` (kein React, kein Supabase) und wird testgetrieben entwickelt.
 - Berechnungen ohne Zwischenrundung; erst die Ausgabe auf zwei Nachkommastellen runden (P2).
