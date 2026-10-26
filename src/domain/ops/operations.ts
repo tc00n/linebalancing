@@ -204,13 +204,17 @@ export function applyOperation(
   }
 }
 
-/** Nächster freier „Mitarbeiter N“ einer Station (F68, E12). */
+/**
+ * Nächster „Mitarbeiter N“ an einer Station (F68, E12). Die Nummer läuft über
+ * die ganze Linie, damit jede Person eindeutig benannt ist (26.10.2026).
+ */
 function nextEmployee(
   employees: readonly Employee[],
   stationId: string,
 ): Employee {
-  const own = employees.filter((e) => e.stationId === stationId);
-  const numbers = own.map((e) => Number(/(\d+)\s*$/.exec(e.label)?.[1] ?? 0));
+  const numbers = employees.map((e) =>
+    Number(/(\d+)\s*$/.exec(e.label)?.[1] ?? 0),
+  );
   let n = Math.max(0, ...numbers) + 1;
   const ids = new Set(employees.map((e) => e.id));
   while (ids.has(`${stationId}/Mitarbeiter ${n}`)) n++;

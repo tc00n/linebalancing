@@ -120,7 +120,7 @@ const GUIDE_ROWS: [string, string, string, string][] = [
   [
     "Mitarbeiter",
     "nein",
-    "„Mitarbeiter 1“, „Mitarbeiter 2“ … je Station. Leer = noch nicht zugeordnet (Warnung).",
+    "„Mitarbeiter 1“, „Mitarbeiter 2“ … Die Zuordnung gilt je Arbeitsgang; die Nummer läuft über die ganze Linie (z. B. T17 → Mitarbeiter 1, T18 → Mitarbeiter 2). Leer = noch nicht zugeordnet (Warnung).",
     "Mitarbeiter 1",
   ],
   [

@@ -111,6 +111,14 @@ describe("Operationen (Phase 5)", () => {
       ok({ type: "removeEmployee", employeeId: "S1/Mitarbeiter 3" }, added)
         .input.employees,
     ).toHaveLength(3);
+    // Nummer läuft über die Linie: S2 erhält nicht erneut „Mitarbeiter 2“.
+    expect(
+      ok({ type: "addEmployee", stationId: "S2" }).input.employees.at(-1),
+    ).toEqual({
+      id: "S2/Mitarbeiter 3",
+      stationId: "S2",
+      label: "Mitarbeiter 3",
+    });
     expect(apply({ type: "removeEmployee", employeeId: "S1/MA1" })).toEqual({
       ok: false,
       error:

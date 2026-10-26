@@ -6,7 +6,8 @@ import { normalizeCell } from "@/features/import/workbook";
  * Einmaliger Konverter für Zeitaufnahmen im Format „Übersicht Zeitaufnahmen“
  * (E24, F131). Quelle ist das Diagrammblatt mit einer Zeile je Arbeitsablauf
  * und ∑t = Summe über alle Mitarbeiter der Station. Festlegungen vom 26.10.2026:
- * - Zeit = ∑t, alle Schritte einer Station auf „Mitarbeiter 1“ dieser Station.
+ * - Zeit = ∑t, alle Schritte einer Station auf einen Mitarbeiter; die Nummer läuft
+ *   über die Linie (erste Station „Mitarbeiter 1“, zweite „Mitarbeiter 2“ …).
  * - Zeilen ohne ∑t werden mit leerer Zeit übernommen (Import blockiert bis zur Nachpflege).
  * - Reihenfolge = Zeilenreihenfolge je Station; Vorgänger bleiben leer (keine erfundenen Abhängigkeiten).
  */
@@ -56,6 +57,7 @@ export function convertDiagramSheet(sheet: Worksheet): Conversion {
   const rows: ConvertedRow[] = [];
   const usedIds = new Set<string>();
   const sequence = new Map<string, number>();
+  const employeeOf = new Map<string, string>();
   let blockSum = 0;
   let blockStation = "";
 
@@ -97,6 +99,8 @@ export function convertDiagramSheet(sheet: Worksheet): Conversion {
     const id = uniqueId(stepId(station, aa, r), usedIds);
     const position = (sequence.get(station) ?? 0) + 10;
     sequence.set(station, position);
+    if (!employeeOf.has(station))
+      employeeOf.set(station, `Mitarbeiter ${employeeOf.size + 1}`);
 
     if (time === null) {
       notes.push(
@@ -115,7 +119,7 @@ export function convertDiagramSheet(sheet: Worksheet): Conversion {
         station,
         description,
         time,
-        employee: "Mitarbeiter 1",
+        employee: employeeOf.get(station)!,
         sequence: position,
         predecessors: null,
       },
@@ -202,7 +206,7 @@ export function fillTemplate(
     "",
     "Festlegungen:",
     "- Zeit_min = ∑t des Diagrammblatts = Summe der Ø-Zeiten aller Mitarbeiter je Arbeitsablauf, inkl. Verteilzeit (mit Vt). Zuschlag beim Import 0 %.",
-    "- Alle Arbeitsgänge einer Station sind „Mitarbeiter 1“ dieser Station zugeordnet. Stationshöhe = Summe ∑t; Mitarbeiterzahl und Auslastung sind damit nicht aussagekräftig.",
+    "- Alle Arbeitsgänge einer Station sind einem Mitarbeiter zugeordnet, durchnummeriert über die Linie (erste Station „Mitarbeiter 1“, zweite „Mitarbeiter 2“ …). Stationshöhe = Summe ∑t; die Aufteilung auf mehrere Mitarbeiter je Station erfolgt in der App.",
     "- Reihenfolge = Zeilenreihenfolge je Station. Vorgänger-IDs leer: die Quelle enthält keine Abhängigkeiten, es werden keine erfunden.",
     "- Arbeitsgang-ID = Station + AA-Nummer (z. B. T19-AA010A).",
     "",

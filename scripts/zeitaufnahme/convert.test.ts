@@ -69,7 +69,7 @@ describe("Zeitaufnahme-Konverter (E24)", () => {
     expect(sheet.name).toBe("XY 100 - T1-T2 Diagramm");
   });
 
-  it("übernimmt je Arbeitsablauf ∑t, Mitarbeiter 1 und die Zeilenreihenfolge", () => {
+  it("übernimmt je Arbeitsablauf ∑t, einen Mitarbeiter je Station und die Zeilenreihenfolge", () => {
     expect(conversion.rows.map((r) => r.values)).toEqual([
       {
         id: "T1-AA485",
@@ -112,7 +112,7 @@ describe("Zeitaufnahme-Konverter (E24)", () => {
         station: "T2",
         description: "Ohne AA",
         time: 2,
-        employee: "Mitarbeiter 1",
+        employee: "Mitarbeiter 2",
         sequence: 10,
         predecessors: null,
       },
@@ -121,7 +121,7 @@ describe("Zeitaufnahme-Konverter (E24)", () => {
         station: "T2",
         description: "Begleitpapiere",
         time: 0.5,
-        employee: "Mitarbeiter 1",
+        employee: "Mitarbeiter 2",
         sequence: 20,
         predecessors: null,
       },
