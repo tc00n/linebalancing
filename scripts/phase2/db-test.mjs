@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import assert from "node:assert/strict";
 import pg from "pg";
 if (existsSync(".env.local")) process.loadEnvFile(".env.local");
@@ -17,7 +17,8 @@ const client = new pg.Client({
 });
 const owner = "10000000-0000-4000-8000-000000000001",
   editor = "10000000-0000-4000-8000-000000000002",
-  outsider = "10000000-0000-4000-8000-000000000003";
+  outsider = "10000000-0000-4000-8000-000000000003",
+  staffEditor = "10000000-0000-4000-8000-000000000004";
 const sid = "20000000-0000-4000-8000-000000000001",
   otherSid = "20000000-0000-4000-8000-000000000002";
 let count = 0;
@@ -49,16 +50,25 @@ async function denied(sql, args = [], code = "42501") {
 try {
   await client.connect();
   await q("begin");
-  const existing = await q(
-    "select to_regclass('public.projects') is not null present",
-  );
-  if (!existing.rows[0].present)
+  // Ausstehende Migrationen in der Testtransaktion einspielen, damit sie vor `db:migrate` geprueft sind.
+  const tracked = (
     await q(
-      readFileSync("supabase/migrations/202610260001_phase2.sql", "utf8"),
-    );
+      "select to_regclass('supabase_migrations.schema_migrations') is not null t",
+    )
+  ).rows[0].t;
+  const applied = new Set(
+    tracked
+      ? (
+          await q("select version from supabase_migrations.schema_migrations")
+        ).rows.map((r) => r.version)
+      : [],
+  );
+  for (const file of readdirSync("supabase/migrations").sort())
+    if (file.endsWith(".sql") && !applied.has(file.split("_")[0]))
+      await q(readFileSync("supabase/migrations/" + file, "utf8"));
   await q(
-    "insert into auth.users(id,email,email_confirmed_at) values($1,'phase2-owner@neonex.de',now()),($2,'phase2-editor@example.org',now()),($3,'phase2-outsider@example.org',now())",
-    [owner, editor, outsider],
+    "insert into auth.users(id,email,email_confirmed_at) values($1,'phase2-owner@neonex.de',now()),($2,'phase2-editor@example.org',now()),($3,'phase2-outsider@example.org',now()),($4,'phase2-staff-editor@neonex.de',now())",
+    [owner, editor, outsider, staffEditor],
   );
   await as(owner);
   const p = (await q("select public.create_project('Phase 2 Test') id")).rows[0]
@@ -195,6 +205,39 @@ try {
     changed.input.steps[0].employeeId = "e1";
     await denied("select public.save_scenario($1,$2,2)", [p, changed], "23503");
   });
+  await test("Vernetzte Vorgaenger werden zuegig geprueft", async () => {
+    // Je Schritt zwei Vorgaenger: Die fruehere Pfadsuche brauchte hierfuer exponentiell lange.
+    const net = {
+      ...structuredClone(doc),
+      id: "30000000-0000-4000-8000-000000000002",
+      variantId: "40000000-0000-4000-8000-000000000002",
+      variantName: "Netz",
+    };
+    net.input.steps = Array.from({ length: 200 }, (_, i) => ({
+      id: "N" + i,
+      description: "Netz " + i,
+      timeMin: 1,
+      sequence: i,
+      stationId: "s1",
+      employeeId: null,
+      categoryId: "value_adding",
+      predecessorIds: i < 2 ? [] : ["N" + (i - 1), "N" + (i - 2)],
+    }));
+    await q("set local statement_timeout='10s'");
+    const started = Date.now();
+    const saved = (
+      await q("select public.import_scenario($1,$2) doc", [p, net])
+    ).rows[0].doc;
+    const cyclic = structuredClone(net);
+    cyclic.input.steps[0].predecessorIds = ["N199"];
+    await denied(
+      "select public.save_scenario($1,$2,$3)",
+      [p, cyclic, saved.version],
+      "23514",
+    );
+    await q("set local statement_timeout to default");
+    assert.ok(Date.now() - started < 5000, "Kreispruefung zu langsam");
+  });
   await as(editor, otherSid);
   await test("Neue Anmeldung erfordert Code erneut", async () =>
     assert.equal(
@@ -203,6 +246,14 @@ try {
     ));
   await test("Neue Sitzung sieht keine Szenarien", () =>
     denied("select public.list_scenario_documents($1)", [p]));
+  await as(staffEditor);
+  await q("select public.redeem_project_code($1)", [code]);
+  await as(staffEditor, otherSid);
+  await test("Firmenadresse braucht in fremdem Projekt den Code je Sitzung", async () =>
+    assert.equal(
+      (await q("select public.can_access_project($1) ok", [p])).rows[0].ok,
+      false,
+    ));
   await as(outsider);
   await test("Fremdes Projekt bleibt isoliert", async () => {
     assert.equal(

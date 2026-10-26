@@ -60,3 +60,18 @@ Szenariosperre mit Lease/Heartbeat (Phase 5/E27) ist nicht vorweggenommen. Versi
 ## Rückmeldung aus dem ersten manuellen Test (26.10.2026)
 
 Nutzer meldet nach der Einrichtung: „scheint zu funktionieren“. Erster manueller Funktionseindruck positiv. Welche Anmelde-, Postfach- und Projektabläufe dabei einzeln geprüft wurden, wurde nicht näher beschrieben; eine vollständige fachliche Abnahme ist damit nicht dokumentiert. Die oben genannten offenen Folgearbeiten bleiben bestehen.
+
+## Review durch Claude (26.10.2026)
+
+Phase 2 wurde als Commit `0aa5449` gesichert und gepusht. Befunde und Korrekturen:
+
+- **Kreisprüfung exponentiell.** Die rekursive Pfadsuche in `write_scenario` brauchte bei 30 Schritten mit je zwei Vorgängern 14 s, bei 40 Schritten über 20 s (gemessen rein lesend auf Frankfurt). Supabase bricht Anfragen von `authenticated` nach rund 8 s ab; vernetzte Szenarien wären weder importier- noch speicherbar gewesen. Neu: Erreichbarkeit über `union` (höchstens n² Paare), 200 Schritte mit je zwei Vorgängern deutlich unter 1 s.
+- **Firmenadressen ohne Code in fremden Projekten.** `can_access_project` ließ Staff jedes Projekt, dem sie einmal per Code beigetreten waren, ohne erneuten Code öffnen. Laut 01_ANFORDERUNGEN gilt das nur für eigene Projekte als Owner. `or public.is_staff()` entfernt; Owner sind über ihre Rolle abgedeckt.
+- **Codefeld im Login wirkungslos.** Der Magic-Link öffnet meist einen neuen Tab; der tablokal gespeicherte Code fehlte dort. Das Feld wurde entfernt; bei erkannter Einladung erscheint ein Hinweis. Der Code wird nach der Anmeldung auf der Projektseite eingegeben (im selben Tab vorbelegt).
+- Zeichenfehler „Lade Projekte ?“ behoben.
+
+Beide Datenbankkorrekturen stehen in `supabase/migrations/202610260002_review_fixes.sql`. `db-test.mjs` spielt ausstehende Migrationen jetzt in der Testtransaktion ein, sodass sie vor `db:migrate` geprüft werden. Zwei neue Tests (vernetzte Vorgänger, Codepflicht für Staff-Editoren): 30 Datenbanktests bestanden; Gegenprobe ohne `…0002` scheitert erwartungsgemäß mit Zeitüberschreitung. Lint, TypeScript, Format, 106 Unit-Tests, Produktionsbuild und 5 Auth-Browsertests bestanden.
+
+**Offen:** `…0002` ist noch **nicht** auf Frankfurt angewendet (`npm run db:migrate`). Bis dahin gelten live die beiden alten Funktionen.
+
+Zur Kenntnis ohne Korrektur: Nach jedem Speicherfehler (auch Netzwerkaussetzer) ruht das Autosave bis zum Neuladen, ungespeicherte Änderungen gehen dabei verloren (Phase 6). `scenarios.updated_by` und `projects.owner_id` verweisen ohne `on delete` auf `auth.users`; Nutzer mit Änderungen sind damit nicht löschbar (E26).

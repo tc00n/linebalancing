@@ -26,7 +26,7 @@ export default function ProjectsPage() {
     <>
       <AppHeader />
       <main className="flex-1">
-        <Suspense fallback={<p className="p-8">Lade Projekte ?</p>}>
+        <Suspense fallback={<p className="p-8">Lade Projekte …</p>}>
           <Projects />
         </Suspense>
       </main>

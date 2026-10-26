@@ -5,16 +5,16 @@ import { browserClient } from "@/data/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { safeNext } from "./safe-next";
-const CODE_KEY = "neonex-pending-project-code";
 export function LoginForm() {
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
+  const [invited, setInvited] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    // Der Code bleibt im Tab; der Magic-Link oeffnet meist einen neuen Tab, daher erst nach der Anmeldung abfragen.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- tablokalen Einladungsstatus nach SSR einmalig hydrieren
-    setCode(consumeInvitation());
+    setInvited(consumeInvitation() !== "");
     if (new URLSearchParams(location.search).has("fehler"))
       setMessage(
         "Der Link ist abgelaufen oder wurde in einem anderen Browser geöffnet. Bitte einen neuen Link anfordern.",
@@ -25,9 +25,6 @@ export function LoginForm() {
     setBusy(true);
     setMessage("");
     try {
-      if (code.trim())
-        sessionStorage.setItem(CODE_KEY, code.trim().toUpperCase());
-      else sessionStorage.removeItem(CODE_KEY);
       const next = safeNext(new URLSearchParams(location.search).get("next"));
       const callback = new URL("/auth/callback", location.origin);
       callback.searchParams.set("next", next);
@@ -54,10 +51,16 @@ export function LoginForm() {
     >
       <h1 className="text-2xl font-semibold">Anmelden</h1>
       <p>
-        Du erhältst einen Anmeldelink per E-Mail. Mitglieder benötigen
-        zusätzlich den Projektcode. NEONEX-Firmenadressen können eigene Projekte
-        ohne Code öffnen.
+        Du erhältst einen Anmeldelink per E-Mail. Mitglieder geben nach der
+        Anmeldung den Projektcode ein. NEONEX-Firmenadressen können eigene
+        Projekte ohne Code öffnen.
       </p>
+      {invited && (
+        <p className="rounded-lg border p-3 text-sm">
+          Einladung erkannt. Melde dich an und öffne danach den Einladungslink
+          erneut oder gib den Projektcode auf der Projektseite ein.
+        </p>
+      )}
       <label className="grid gap-2">
         E-Mail-Adresse
         <Input
@@ -66,15 +69,6 @@ export function LoginForm() {
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-        />
-      </label>
-      <label className="grid gap-2">
-        Projektcode (für Mitglieder)
-        <Input
-          autoComplete="off"
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          placeholder="XXXXX-XXXXX"
         />
       </label>
       <Button disabled={busy} type="submit">

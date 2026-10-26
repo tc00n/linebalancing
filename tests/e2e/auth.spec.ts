@@ -14,14 +14,17 @@ test("Produktionsseiten verlangen Anmeldung, auch mit gesetztem Dev-Flag", async
     await expect(page.getByRole("heading", { name: "Anmelden" })).toBeVisible();
   }
 });
-test("Einladungsfragment wird vorbelegt und aus URL entfernt", async ({
+test("Einladungsfragment wird im Tab gemerkt und aus URL entfernt", async ({
   page,
 }) => {
   await page.goto("/#/join/ABCDE-12345");
   await expect(page).toHaveURL(/\/login$/);
-  await expect(
-    page.getByLabel("Projektcode (f\u00fcr Mitglieder)"),
-  ).toHaveValue("ABCDE-12345");
+  await expect(page.getByText("Einladung erkannt")).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem("neonex-pending-project-code"),
+    ),
+  ).toBe("ABCDE-12345");
   expect(new URL(page.url()).hash).toBe("");
 });
 test("PKCE-Callback ohne Code und externe Ziele oeffnen keine fremde Seite", async ({
