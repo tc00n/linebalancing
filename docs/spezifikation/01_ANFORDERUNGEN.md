@@ -698,3 +698,19 @@ Die vorhandene Datei enthält mehrfach leere Arbeitsgang-IDs, wiederholt gruppie
 - **F23/F118:** Die allgemeine Bearbeitbarkeit eines Ist-Datenstandes bleibt bestehen, aber **in der Vergleichsansicht** darf nur das Ziel bearbeitet werden.
 
 **Bearbeitungsstand:** 27 Basisanforderungen, F1–F131 und sechs Ergänzungsentscheidungen P1–P6. Die 158 bisherigen Anforderungen bleiben unverändert; P1–P6 sind gesonderte Beschlüsse.
+
+## 34 · Rechenregeln E1–E7 (26.10.2026)
+
+Getroffen im Rahmen der Entwicklung. Präzisieren P1, P3 und die offenen Punkte zu F56/F62/F90/F101/F108. Vollständige Regeln: `docs/RECHENREGELN.md`.
+
+| ID | Entscheidung | Status |
+|---|---|---|
+| E1a | Stationsübergreifende Vorgänger erzeugen **keine** Wartezeit. Jede Station wird als eigener Taktzyklus ab 0 eingeplant; nur Vorgänger in derselben Station erzeugen Wartezeit. | Verbindlich |
+| E1b | Die alphabetische Stationsreihenfolge gilt als Flussreihenfolge für die Verletzungsprüfung nach F62. Ein Vorgänger an einer später einsortierten Station ist eine Verletzung. | Verbindlich |
+| E2 | Der Zuschlag gemäß P1 wird **nur auf die produktive Zeit** je Mitarbeiter angewendet, nicht auf Wartezeit, und verschiebt keine Startzeiten. | Verbindlich |
+| E3 | Ein Mitarbeiter arbeitet nach **automatischer Listenplanung**: jeweils die früheste ausführbare Tätigkeit, `Reihenfolge` nur bei Gleichstand. | Verbindlich |
+| E4 | Ein nicht zugeordneter Vorgänger wird zeitlich ignoriert; der Nachfolger erhält die Warnung „Startzeit unsicher“. | Verbindlich |
+| E5 | Start = max(Mitarbeiter frei, Ende aller zugeordneten Vorgänger derselben Station); Beginn bei 0; Wartezeit = Lücke vor einer Tätigkeit; Leerlauf nach der letzten Tätigkeit ist keine Wartezeit. | Verbindlich |
+| E6a | Mitarbeiter ohne zugeordnete Tätigkeit zählen bei Mitarbeiterzahl und im Nenner der Personalauslastung (F108) mit. | Verbindlich |
+| E6b | Gesamtarbeitsinhalt = Summe der importierten Zeiten aller zugeordneten Schritte, ohne Zuschlag. | Verbindlich |
+| E7 | Das Rechenbeispiel in `docs/OFFENE_ENTSCHEIDUNGEN.md` ist der verbindliche Sollwert für die Abnahme der Berechnung. | Verbindlich |
