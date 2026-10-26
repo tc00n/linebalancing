@@ -4,6 +4,7 @@ import {
   defaultCategories,
   type Category,
 } from "@/domain/model/categories";
+import { withUniqueEmployeeLabels } from "@/domain/model/employees";
 import type { ScenarioInput } from "@/domain/model/types";
 
 /**
@@ -40,9 +41,15 @@ export interface ScenarioRepository {
   remove(id: string): Promise<void>;
 }
 
-/** Ergänzt Felder, die ältere gespeicherte Stände noch nicht hatten. */
+/**
+ * Ergänzt Felder, die ältere gespeicherte Stände noch nicht hatten, und
+ * macht Mitarbeiterbezeichnungen linienweit eindeutig (E40). Gespeichert
+ * wird das mit der nächsten Änderung.
+ */
 export function withDefaults(stored: StoredScenario): StoredScenario {
+  const input = withUniqueEmployeeLabels(stored.input);
   if (
+    input === stored.input &&
     stored.variantId &&
     stored.categories?.length &&
     stored.input.steps.every((s) => s.categoryId)
@@ -56,8 +63,8 @@ export function withDefaults(stored: StoredScenario): StoredScenario {
       ? stored.categories
       : defaultCategories(),
     input: {
-      ...stored.input,
-      steps: stored.input.steps.map((s) =>
+      ...input,
+      steps: input.steps.map((s) =>
         s.categoryId ? s : { ...s, categoryId: DEFAULT_CATEGORY_ID },
       ),
     },
