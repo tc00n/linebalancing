@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Albert_Sans, Inter, JetBrains_Mono } from "next/font/google";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
-// Platzhalter-Schriften bis zum NEONEX Corporate Design (E30).
-const fontSans = Geist({
-  variable: "--font-sans",
+// Markenschriften für digitale Produkte (NEONEX Design System):
+// Inter für die Oberfläche, Albert Sans als Ersatz für Soleil, JetBrains Mono für Zahlen.
+const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
+const albertSans = Albert_Sans({
+  variable: "--font-albert-sans",
   subsets: ["latin"],
 });
-
-const fontMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
 });
 
@@ -22,9 +24,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="de"
-      className={`${fontSans.variable} ${fontMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${albertSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        <TooltipProvider>{children}</TooltipProvider>
+      </body>
     </html>
   );
 }

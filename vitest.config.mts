@@ -5,7 +5,9 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   test: {
-    environment: "jsdom",
+    // Rechen- und Importlogik braucht kein DOM; Komponententests setzen
+    // bei Bedarf `// @vitest-environment jsdom` im Kopf der Datei.
+    environment: "node",
     include: ["src/**/*.test.{ts,tsx}", "tests/unit/**/*.test.{ts,tsx}"],
   },
 });
