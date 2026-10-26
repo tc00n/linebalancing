@@ -42,12 +42,13 @@ test("Arbeitsgänge im Diagramm bearbeiten, rückgängig machen und gespeichert 
   });
 
   // T18 hat keinen Mitarbeiter: anlegen (E12) und zuweisen (F100).
+  // Die Nummer läuft über die Linie; T17 hat bereits Mitarbeiter 1 und 2.
   await page
     .getByRole("button", { name: "Mitarbeiter an T18 hinzufügen" })
     .click();
   await panel
     .getByLabel("Mitarbeiter")
-    .selectOption({ label: "Mitarbeiter 1" });
+    .selectOption({ label: "Mitarbeiter 3" });
   await expect(page.getByLabel("Station T18")).toContainText("2,00");
 
   // Takt ändern (F59) und rückgängig machen (F65).
