@@ -716,3 +716,9 @@ Getroffen im Rahmen der Entwicklung. Präzisieren P1, P3 und die offenen Punkte 
 | E7 | Das Rechenbeispiel in `docs/OFFENE_ENTSCHEIDUNGEN.md` ist der verbindliche Sollwert für die Abnahme der Berechnung. | Verbindlich |
 | E14 | Stationen werden natürlich sortiert („Station 2“ vor „Station 10“, Groß-/Kleinschreibung ohne Einfluss). Konkretisiert F32 und gilt auch als Flussreihenfolge nach E1b. | Verbindlich |
 | E34 | Ergebnisse werden kaufmännisch auf zwei Nachkommastellen gerundet (konkretisiert P2). | Verbindlich |
+
+## 35 · Ergänzende Anforderungen (26.10.2026)
+
+| ID | Verbindliche Entscheidung | Umsetzungshinweis |
+|---|---|---|
+| F132 | **Tabellenansicht mit Bearbeitung** als eigene Seite je Szenario; gehört zum MVP und folgt direkt auf Phase 8. | Eine Zeile je Arbeitsgang. Editierbar wie im Detailpanel (E13): Station, Mitarbeiter, Kategorie, Reihenfolge, Vorgänger; Arbeitsgang-ID, Zeit und Beschreibung schreibgeschützt (F17, F69). Es gelten dieselben Regeln wie im Diagramm (Stationswechsel entfernt den Mitarbeiter nach F61, Vorgängerkreise werden abgelehnt nach E3) sowie automatisches Speichern und Rückgängig/Wiederholen (F25, F26). |

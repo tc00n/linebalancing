@@ -32,6 +32,13 @@
 - [ ] Ein Klick öffnet ein rechtes Overlay-Detailpanel; Originalzeiten bleiben schreibgeschützt.
 - [ ] Diagramm ist auf Laptop, Desktop und Workshop-Bildschirm bedienbar.
 
+## Tabellenansicht (F132, ergänzt 26.10.2026)
+
+- [ ] Eigene Seite je Szenario mit einer Zeile je Arbeitsgang.
+- [ ] Station, Mitarbeiter, Kategorie, Reihenfolge und Vorgänger sind in der Zeile änderbar; ID, Zeit und Beschreibung schreibgeschützt.
+- [ ] Stationswechsel entfernt den Mitarbeiter; Vorgängerkreise werden abgelehnt.
+- [ ] Änderungen werden automatisch gespeichert und sind rückgängig zu machen; Diagramm zeigt denselben Stand.
+
 ## Szenarien und Vergleich
 
 - [ ] Mehrere Szenarien sind anlegbar und bleiben getrennt; Ist/Ziel-Dropdowns erlauben auch gleiche Auswahl.
