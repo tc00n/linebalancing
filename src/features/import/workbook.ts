@@ -120,13 +120,13 @@ const GUIDE_ROWS: [string, string, string, string][] = [
   [
     "Mitarbeiter",
     "nein",
-    "„Mitarbeiter 1“, „Mitarbeiter 2“ … Die Zuordnung gilt je Arbeitsgang; die Nummer läuft über die ganze Linie (z. B. T17 → Mitarbeiter 1, T18 → Mitarbeiter 2). Leer = noch nicht zugeordnet (Warnung).",
+    "„Mitarbeiter 1“, „Mitarbeiter 2“ … Die Zuordnung gilt je Arbeitsgang; die Nummer läuft über die ganze Linie (z. B. T17 → Mitarbeiter 1, T18 → Mitarbeiter 2). Dieselbe Bezeichnung an mehreren Stationen ist dieselbe Person; ihre Arbeitsgänge werden nacheinander eingeplant. Leer = noch nicht zugeordnet (Warnung).",
     "Mitarbeiter 1",
   ],
   [
     "Reihenfolge",
     "ja",
-    "Zahl. Entscheidet bei gleichem frühestem Start über die Abarbeitung.",
+    "Zahl ab 0, auch mit Komma (z. B. 2,5 zum Einschieben). Entscheidet bei gleichem frühestem Start über die Abarbeitung.",
     "10",
   ],
   [

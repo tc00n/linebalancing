@@ -1,4 +1,5 @@
 import { findCycles } from "../checks/cycles";
+import { compareStationLabels } from "../model/stationOrder";
 import {
   cellText,
   isBlank,
@@ -91,6 +92,7 @@ export function validateRows(rawRows: readonly RawRow[]): ValidationResult {
       }
 
       const sequence = parseGermanNumber(values.sequence);
+      const negative = sequence.ok && sequence.value < 0;
       if (!sequence.ok) {
         error(
           rowNumber,
@@ -99,6 +101,8 @@ export function validateRows(rawRows: readonly RawRow[]): ValidationResult {
             ? "Reihenfolge fehlt."
             : `Reihenfolge „${cellText(values.sequence)}“ ist keine Zahl.`,
         );
+      } else if (negative) {
+        error(rowNumber, "sequence", "Reihenfolge darf nicht negativ sein.");
       }
 
       return {
@@ -108,13 +112,14 @@ export function validateRows(rawRows: readonly RawRow[]): ValidationResult {
         description,
         timeMin: time.ok ? time.value : null,
         employee,
-        sequence: sequence.ok ? sequence.value : null,
+        sequence: sequence.ok && !negative ? sequence.value : null,
         predecessorIds: splitPredecessors(values.predecessors),
       };
     });
 
   checkIds(rows, error);
   checkPredecessors(rows, error);
+  checkSharedEmployees(rows, warning);
 
   return {
     rows,
@@ -160,6 +165,36 @@ function checkIds(rows: readonly ParsedRow[], error: Report) {
         `Arbeitsgang-ID „${id}“ kommt mehrfach vor (Zeilen ${lines}).`,
       );
     }
+  }
+}
+
+/**
+ * Dieselbe Bezeichnung an mehreren Stationen ist dieselbe Person (E40). Das ist
+ * erlaubt, bei Dateien mit Nummerierung je Station aber meist ein Versehen;
+ * deshalb ein Hinweis je Mitarbeiter an seiner ersten Zeile.
+ */
+function checkSharedEmployees(rows: readonly ParsedRow[], warning: Report) {
+  const byEmployee = new Map<
+    string,
+    { first: number; stations: Set<string> }
+  >();
+  for (const row of rows) {
+    if (!row.employee || !row.station) continue;
+    const entry = byEmployee.get(row.employee) ?? {
+      first: row.rowNumber,
+      stations: new Set<string>(),
+    };
+    entry.stations.add(row.station);
+    byEmployee.set(row.employee, entry);
+  }
+  for (const [employee, { first, stations }] of byEmployee) {
+    if (stations.size < 2) continue;
+    const labels = [...stations].sort(compareStationLabels).join(", ");
+    warning(
+      first,
+      "employee",
+      `„${employee}“ hat Arbeitsgänge an ${stations.size} Stationen (${labels}) und wird als eine Person nacheinander eingeplant. Ist das nicht gewollt, je Person eine eigene Nummer vergeben.`,
+    );
   }
 }
 

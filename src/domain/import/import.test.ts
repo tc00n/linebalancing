@@ -159,6 +159,41 @@ describe("validateRows", () => {
     expect(result.rows[0]).toMatchObject({ timeMin: 2.35, employee: null });
   });
 
+  it("nimmt Reihenfolgen mit Dezimalkomma an und blockiert negative (F30)", () => {
+    const result = validateRows(rows({ sequence: "2,5" }));
+    expect(result.hasErrors).toBe(false);
+    expect(result.rows[0].sequence).toBe(2.5);
+    expect(errorsOf(rows({ sequence: "-1" }))).toEqual([
+      {
+        severity: "error",
+        rowNumber: 2,
+        column: "sequence",
+        message: "Reihenfolge darf nicht negativ sein.",
+      },
+    ]);
+  });
+
+  it("warnt einmal je Mitarbeiter, der an mehreren Stationen arbeitet (E40)", () => {
+    const result = validateRows(
+      rows(
+        { id: "A", station: "T18" },
+        { id: "B", station: "T17" },
+        { id: "C", station: "T18", employee: "Mitarbeiter 2" },
+        { id: "D", station: "T18" },
+      ),
+    );
+    expect(result.hasErrors).toBe(false);
+    expect(result.messages).toEqual([
+      {
+        severity: "warning",
+        rowNumber: 2,
+        column: "employee",
+        message:
+          "„Mitarbeiter 1“ hat Arbeitsgänge an 2 Stationen (T17, T18) und wird als eine Person nacheinander eingeplant. Ist das nicht gewollt, je Person eine eigene Nummer vergeben.",
+      },
+    ]);
+  });
+
   it("blockiert ungültige Mitarbeiterbezeichnungen", () => {
     expect(errorsOf(rows({ employee: "MA links" }))[0].column).toBe("employee");
   });
