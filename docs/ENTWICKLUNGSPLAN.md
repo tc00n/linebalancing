@@ -2,7 +2,7 @@
 
 ## Kontext
 
-Für das Projekt Eura Mobil / Arbeitsvorbereitung entsteht eine Line-Balancing-Webanwendung mit Excel-Import, interaktivem Yamazumi, manueller Umverteilung, Szenarien, Vergleich und Export. Verbindlich ist die Spezifikation unter [`spezifikation/`](spezifikation/) (README, 01_ANFORDERUNGEN mit Basis 1–27, F1–F131 und P1–P6, 02_DATENMODELL als Vorschlag, 03_TESTS als Abnahmecheckliste). Eine lokale Kopie der Referenz „NEONEX Workshop Hub“ (Repo Prozesshaus) liegt noch nicht vor (E31).
+Für das Projekt Eura Mobil / Arbeitsvorbereitung entsteht eine Line-Balancing-Webanwendung mit Excel-Import, interaktivem Yamazumi, manueller Umverteilung, Szenarien, Vergleich und Export. Verbindlich ist die Spezifikation unter [`spezifikation/`](spezifikation/) (README, 01_ANFORDERUNGEN mit Basis 1–27, F1–F131 und P1–P6, 02_DATENMODELL als Vorschlag, 03_TESTS als Abnahmecheckliste). Die Referenz „NEONEX Workshop Hub“ (Repo Prozesshaus) wird nicht herangezogen (E31 entfällt). Die Anmeldung wird nach der Beschreibung in 01_ANFORDERUNGEN, Abschnitt 7, umgesetzt.
 
 Freigegeben am 26.10.2026. Fachliche Lücken stehen in [`OFFENE_ENTSCHEIDUNGEN.md`](OFFENE_ENTSCHEIDUNGEN.md) und werden nicht eigenmächtig gefüllt.
 
@@ -233,4 +233,4 @@ F4/F9/F16/F43 (Verschiebungsvorschläge), F35 PDF-Bericht, komplexe Ressourcenab
 
 ## 7 · Nächster Schritt nach Freigabe
 
-Phase 0 umsetzen und parallel die Rechenkern-Entscheidungen **E1–E7** sowie den Zugang zur Referenz (**E31**) klären, weil sie Phase 1 und 2 blockieren.
+Phase 0 ist abgeschlossen, E1–E7 sind entschieden (26.10.2026), siehe [`RECHENREGELN.md`](RECHENREGELN.md). Nächster Schritt: Phase 1 (Rechenkern). Vorher noch E14 (Stationssortierung) und E34 (Rundungsart) klären, da beide in die Berechnung eingehen.
