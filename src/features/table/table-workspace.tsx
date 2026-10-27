@@ -20,6 +20,7 @@ import {
   matchesFilter,
   type StepFilter,
 } from "@/features/yamazumi/layout";
+import { ExportMenu } from "@/features/export/export-menu";
 import { FilterBar } from "@/features/workspace/filter-bar";
 import { KpiBar } from "@/features/workspace/kpi-bar";
 import { createScenarioView } from "@/features/workspace/scenario-view";
@@ -183,13 +184,22 @@ function ScenarioTable(props: {
             {editor.updatedByLabel && `von ${editor.updatedByLabel}`}
           </p>
         </div>
-        <Link
-          href={`/szenario?${props.back}`}
-          className={buttonVariants({ variant: "outline" })}
-        >
-          <BarChart3Icon data-icon="inline-start" />
-          Zum Diagramm
-        </Link>
+        <div className="flex gap-2">
+          <ExportMenu
+            view={view}
+            scenarioName={props.scenario.name}
+            stand={`${formatDateTime(editor.updatedAt)}${
+              editor.updatedByLabel ? ` von ${editor.updatedByLabel}` : ""
+            }`}
+          />
+          <Link
+            href={`/szenario?${props.back}`}
+            className={buttonVariants({ variant: "outline" })}
+          >
+            <BarChart3Icon data-icon="inline-start" />
+            Zum Diagramm
+          </Link>
+        </div>
       </div>
 
       <KpiBar view={view} />

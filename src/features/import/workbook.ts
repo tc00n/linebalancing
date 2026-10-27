@@ -10,7 +10,7 @@ import {
 import type { RawRow } from "@/domain/import/validateRows";
 
 // exceljs ist groß (~1 MB) und wird erst beim Import bzw. Template-Download geladen.
-async function newWorkbook(): Promise<Workbook> {
+export async function newWorkbook(): Promise<Workbook> {
   const { default: ExcelJS } = await import("exceljs");
   return new ExcelJS.Workbook();
 }
@@ -176,7 +176,7 @@ export async function createTemplate(): Promise<ArrayBuffer> {
   return workbook.xlsx.writeBuffer() as Promise<ArrayBuffer>;
 }
 
-function styleHeader(sheet: Worksheet) {
+export function styleHeader(sheet: Worksheet) {
   const header = sheet.getRow(1);
   header.font = { bold: true, color: { argb: "FFFFFFFF" } };
   header.fill = {

@@ -52,6 +52,8 @@ import {
   type ChartMode,
 } from "@/features/yamazumi/yamazumi-chart";
 import { formatDateTime, formatMinutes } from "@/lib/format";
+import type { ChartExportInput } from "@/features/export/chart-svg";
+import { ExportMenu } from "@/features/export/export-menu";
 import { DetailPanel } from "./detail-panel";
 import { IssuesList } from "./issues-list";
 import { KpiBar } from "./kpi-bar";
@@ -426,6 +428,34 @@ function ScenarioWorkspace(props: {
     : view.input.steps;
   const visibleMinutes = visibleSteps.reduce((t, s) => t + s.timeMin, 0);
 
+  // F35/F45, E18/E19: Export zeigt das bearbeitete Szenario so, wie es gerade angezeigt wird.
+  const stand = `${formatDateTime(editor.updatedAt)}${
+    editor.updatedByLabel ? ` von ${editor.updatedByLabel}` : ""
+  }`;
+  const chartExport = (): ChartExportInput => ({
+    title: editable.name,
+    subtitle: [
+      `Variante ${editable.variantName}`,
+      `Takt ${formatMinutes(editor.doc.input.taktMin)} min`,
+      `Zuschlag ${formatMinutes(editor.doc.input.allowancePct)} %`,
+      mode === "employee" ? "Mitarbeiteransicht" : "Stationsansicht",
+      `Stand ${stand}`,
+    ].join(" · "),
+    notes: [
+      kpis.incomplete &&
+        `Ergebnis unvollständig: ${kpis.unassignedStepCount} Arbeitsgänge (${formatMinutes(kpis.unassignedWorkContent)} min) ohne Mitarbeiter, in keiner Zeit und Kennzahl enthalten.`,
+      violations.length > 0 &&
+        `Szenario ist konfliktbehaftet: ${violations.length} Vorgängerbeziehungen sind verletzt.`,
+      filtering &&
+        `Gefilterte Ansicht: ${visibleSteps.length} von ${view.input.steps.length} Arbeitsgängen (${formatMinutes(visibleMinutes)} min), ohne Wartezeiten.`,
+    ].filter((note): note is string => !!note),
+    footer: `Exportiert am ${formatDateTime(new Date().toISOString())} · NEONEX Line Balancing`,
+    view,
+    columns: mainColumns,
+    mode,
+    labels,
+  });
+
   /** Backlog/F98/F125: Spurbreite und Zeitskala so wählen, dass das Diagramm das Fenster füllt. */
   function fitToWindow() {
     const area = chartAreaRef.current;
@@ -632,6 +662,12 @@ function ScenarioWorkspace(props: {
           </p>
           {!fullscreen && (
             <div className="ml-auto flex gap-1">
+              <ExportMenu
+                view={view}
+                scenarioName={editable.name}
+                stand={stand}
+                chart={chartExport}
+              />
               <Link
                 href={"/personalplanung?szenario=" + editable.id}
                 className={buttonVariants({ variant: "outline", size: "sm" })}

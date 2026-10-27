@@ -747,3 +747,10 @@ Getroffen im Rahmen der Entwicklung. Präzisieren P1, P3 und die offenen Punkte 
 | ID | Verbindliche Entscheidung | Umsetzungshinweis |
 |---|---|---|
 | E27 (F51, F58, F64) | Ein Szenario wird beim Öffnen für diesen Browser-Tab gesperrt. Die Sperre gilt 2 Minuten und wird alle 30 s erneuert; beim Verlassen oder Schließen wird sie freigegeben, nach Absturz oder Verbindungsverlust läuft sie ab. Andere sehen das Szenario schreibgeschützt mit dem Namen des Bearbeiters und können die Bearbeitung nach Rückfrage übernehmen. | Durchgesetzt in Postgres: `save_scenario` speichert nur mit gültiger eigener Sperre, `delete_scenario` lehnt gesperrte Szenarien ab. Ein zweiter Tab derselben Person bleibt schreibgeschützt. |
+
+## 40 · Export (27.10.2026)
+
+| ID | Verbindliche Entscheidung | Umsetzungshinweis |
+|---|---|---|
+| E18 (F45, F52) | Diagrammexport als PNG und als einseitiges PDF im Querformat A4, auf die Breite skaliert. | Zeigt die aktuelle Ansicht mit Stationsbezeichnungen, numerischer Taktlinie, Stationshöhen, Mitarbeiterzahl, Stationsbelegung, Legende sowie Hinweisen auf Unvollständigkeit, Restriktionsverletzungen und Filter. |
+| E19 (F35) | Excel-Export im Format der Importvorlage mit Zusatzspalten Szenario, Stand und Warnungen. | Aktuelle Station und aktueller Mitarbeiter, importierte Zeiten unverändert (F17); die Datei lässt sich über den normalen Import wieder einlesen. |
