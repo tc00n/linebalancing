@@ -333,9 +333,7 @@ export function DetailPanel(props: {
         </dl>
 
         <section>
-          <h3 className="mb-1.5 text-xs font-semibold tracking-wide uppercase">
-            Hinweise
-          </h3>
+          <h3 className="mb-1.5 text-sm font-semibold">Hinweise</h3>
           {issues.length === 0 ? (
             <p className="text-muted-foreground">Keine Warnungen.</p>
           ) : (

@@ -532,7 +532,7 @@ function ScenarioWorkspace(props: {
   return (
     <div
       ref={fullscreenRef}
-      className={`flex flex-col gap-4 p-4 sm:px-6 ${
+      className={`flex flex-col gap-3 p-4 sm:px-6 ${
         fullscreen ? "h-screen overflow-auto bg-background" : ""
       }`}
     >
@@ -564,35 +564,54 @@ function ScenarioWorkspace(props: {
           </Button>
         </div>
       )}
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
+      {/* G1: Ist/Ziel in der Titelzeile, damit das Diagramm auf dem Laptop früh beginnt. */}
+      <div className="flex flex-col gap-0.5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           {/* Links, damit das Detailpanel rechts Rückgängig/Wiederholen nicht verdeckt. */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h1 className="text-2xl font-semibold">{editable.name}</h1>
-            <SaveIndicator status={editor.saveStatus} />
-            <div className="flex gap-1">
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onClick={editor.undo}
-                disabled={!editor.canUndo}
-                aria-label="Rückgängig"
-                title="Rückgängig (Strg+Z)"
-              >
-                <Undo2Icon />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onClick={editor.redo}
-                disabled={!editor.canRedo}
-                aria-label="Wiederholen"
-                title="Wiederholen (Strg+Y)"
-              >
-                <Redo2Icon />
-              </Button>
-            </div>
+          <h1 className="text-2xl font-semibold">{editable.name}</h1>
+          <SaveIndicator status={editor.saveStatus} />
+          <div className="flex gap-1">
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={editor.undo}
+              disabled={!editor.canUndo}
+              aria-label="Rückgängig"
+              title="Rückgängig (Strg+Z)"
+            >
+              <Undo2Icon />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={editor.redo}
+              disabled={!editor.canRedo}
+              aria-label="Wiederholen"
+              title="Wiederholen (Strg+Y)"
+            >
+              <Redo2Icon />
+            </Button>
           </div>
+          {!hideControls && (
+            <>
+              <span className="mx-1 h-6 w-px bg-border" aria-hidden />
+              <ScenarioBar
+                siblings={props.siblings}
+                istId={props.ist.id}
+                zielId={props.ziel.id}
+                tab={params.tab}
+                compare={compare}
+                onTab={(tab) => props.navigate({ tab })}
+                onSelect={(side, id) =>
+                  props.navigate(side === "ist" ? { ist: id } : { ziel: id })
+                }
+                onToggleCompare={() => props.navigate({ compare: !compare })}
+                onDuplicate={duplicate}
+              />
+            </>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3">
           <p className="text-sm text-muted-foreground">
             Variante {editable.variantName} ·{" "}
             {editable.copiedFrom
@@ -601,45 +620,32 @@ function ScenarioWorkspace(props: {
             · zuletzt geändert {formatDateTime(editor.updatedAt)}{" "}
             {editor.updatedByLabel && `von ${editor.updatedByLabel}`}
           </p>
+          {!fullscreen && (
+            <div className="ml-auto flex gap-1">
+              <Link
+                href={"/personalplanung?szenario=" + editable.id}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                Personalabgleich
+              </Link>
+              {/* F132: Tabellenansicht des bearbeiteten Szenarios; Rückweg zur aktuellen Ansicht. */}
+              <Link
+                href={`/szenario/tabelle?id=${editable.id}&von=${encodeURIComponent(toQuery(params))}`}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                <TableIcon data-icon="inline-start" />
+                Tabelle
+              </Link>
+              <Link
+                href="/"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                Szenarien
+              </Link>
+            </div>
+          )}
         </div>
-        {!fullscreen && (
-          <div className="flex gap-2">
-            <Link
-              href={"/personalplanung?szenario=" + editable.id}
-              className={buttonVariants({ variant: "outline" })}
-            >
-              Personalabgleich
-            </Link>
-            {/* F132: Tabellenansicht des bearbeiteten Szenarios; Rückweg zur aktuellen Ansicht. */}
-            <Link
-              href={`/szenario/tabelle?id=${editable.id}&von=${encodeURIComponent(toQuery(params))}`}
-              className={buttonVariants({ variant: "outline" })}
-            >
-              <TableIcon data-icon="inline-start" />
-              Tabelle
-            </Link>
-            <Link href="/" className={buttonVariants({ variant: "outline" })}>
-              Szenarien
-            </Link>
-          </div>
-        )}
       </div>
-
-      {!hideControls && (
-        <ScenarioBar
-          siblings={props.siblings}
-          istId={props.ist.id}
-          zielId={props.ziel.id}
-          tab={params.tab}
-          compare={compare}
-          onTab={(tab) => props.navigate({ tab })}
-          onSelect={(side, id) =>
-            props.navigate(side === "ist" ? { ist: id } : { ziel: id })
-          }
-          onToggleCompare={() => props.navigate({ compare: !compare })}
-          onDuplicate={duplicate}
-        />
-      )}
 
       {!hideKpis &&
         (comparison ? (
@@ -678,35 +684,47 @@ function ScenarioWorkspace(props: {
           </button>
         </Alert>
       )}
+      {/* G1: einzeilig; die Kennzahlen tragen die Markierung „unvollständig“ zusätzlich. */}
       {!compare && kpis.incomplete && (
-        <Alert className="border-warning/40 bg-warning/5">
-          <AlertTriangleIcon className="text-warning" />
-          <AlertTitle>Ergebnis unvollständig</AlertTitle>
-          <AlertDescription>
+        <p className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/5 px-3 py-1.5 text-sm">
+          <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-warning" />
+          <span>
+            <strong className="font-medium">Ergebnis unvollständig:</strong>{" "}
             {kpis.unassignedStepCount} Arbeitsgänge (
-            {formatMinutes(kpis.unassignedWorkContent)} min) haben keinen
-            Mitarbeiter. Sie sind schraffiert dargestellt und in keiner Zeit und
-            Kennzahl enthalten. Zuordnen per Klick auf den Arbeitsgang.
-          </AlertDescription>
-        </Alert>
+            {formatMinutes(kpis.unassignedWorkContent)} min) ohne Mitarbeiter,
+            schraffiert dargestellt und in keiner Zeit und Kennzahl enthalten.
+            Zuordnen per Klick auf den Arbeitsgang.
+          </span>
+        </p>
       )}
       {violations.length > 0 && (
-        <Alert variant="destructive">
-          <XCircleIcon />
-          <AlertTitle>
-            {compare
-              ? "Ziel-Szenario ist konfliktbehaftet"
-              : "Szenario ist konfliktbehaftet"}
-          </AlertTitle>
-          <AlertDescription>
+        <p className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-1.5 text-sm text-destructive">
+          <XCircleIcon className="mt-0.5 size-4 shrink-0" />
+          <span>
+            <strong className="font-medium">
+              {compare
+                ? "Ziel-Szenario ist konfliktbehaftet:"
+                : "Szenario ist konfliktbehaftet:"}
+            </strong>{" "}
             {violations.length} Vorgängerbeziehungen sind verletzt. Details
             unter „Hinweise“.
-          </AlertDescription>
-        </Alert>
+          </span>
+        </p>
       )}
 
+      {/* G1: Werkzeuge und Filter in einem Kasten. */}
       {!hideControls && (
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border bg-white px-3 py-2">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border bg-white px-3 py-2">
+          <FilterBar
+            view={view}
+            filter={filter}
+            onFilter={setFilter}
+            search={search}
+            onSearch={setSearch}
+            matchCount={matches ? matches.size : null}
+            embedded
+          />
+          <span className="h-6 w-px bg-border" aria-hidden />
           <ToggleGroup
             variant="outline"
             spacing={0}
@@ -809,16 +827,6 @@ function ScenarioWorkspace(props: {
         </div>
       )}
 
-      {!hideControls && (
-        <FilterBar
-          view={view}
-          filter={filter}
-          onFilter={setFilter}
-          search={search}
-          onSearch={setSearch}
-          matchCount={matches ? matches.size : null}
-        />
-      )}
       {filtering && (
         <Alert className="border-nx-blue/30 bg-nx-blue/5">
           <FilterIcon />

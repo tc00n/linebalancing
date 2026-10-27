@@ -1,12 +1,17 @@
-import { AlertTriangleIcon } from "lucide-react";
+"use client";
+
+import { AlertTriangleIcon, ChevronDownIcon } from "lucide-react";
+import { useState } from "react";
 import type { ScenarioView } from "./scenario-view";
 import { formatMinutes, formatPercent } from "@/lib/format";
 
 /**
- * Haupt-KPIs (F130) sichtbar, weitere aufklappbar (F124). Bei nicht
+ * Haupt-KPIs (F130) als schmale Leiste, weitere aufklappbar (F124). Bei nicht
  * zugeordneten Schritten tragen alle Werte einen Unvollständigkeitshinweis (P4).
+ * G1: eine Zeile statt Karten, damit das Diagramm auf dem Laptop sichtbar bleibt.
  */
 export function KpiBar({ view }: { view: ScenarioView }) {
+  const [more, setMore] = useState(false);
   const k = view.result.kpis;
   const overloaded = view.result.stations.filter((s) => s.overTakt).length;
   const maxStationUtilization = Math.max(
@@ -18,8 +23,8 @@ export function KpiBar({ view }: { view: ScenarioView }) {
   ).length;
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+    <div className="rounded-lg border bg-white px-4 py-2 shadow-nx-sm">
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
         <Kpi label="Taktzeit" value={`${formatMinutes(k.taktMin)} min`} />
         <Kpi
           label="Mitarbeiter"
@@ -38,13 +43,21 @@ export function KpiBar({ view }: { view: ScenarioView }) {
           hint="zugeordnete Arbeitsgänge, ohne Zuschlag"
           incomplete={k.incomplete}
         />
+        <button
+          type="button"
+          className="ml-auto flex items-center gap-1 text-sm text-muted-foreground hover:text-nx-blue"
+          aria-expanded={more}
+          onClick={() => setMore((v) => !v)}
+        >
+          Weitere Kennzahlen
+          <ChevronDownIcon
+            className={`size-4 transition-transform ${more ? "rotate-180" : ""}`}
+          />
+        </button>
       </div>
 
-      <details className="group rounded-lg border bg-white px-3 py-2 text-sm">
-        <summary className="cursor-pointer text-muted-foreground select-none marker:text-nx-steel-dark">
-          Weitere Kennzahlen
-        </summary>
-        <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3 lg:grid-cols-6">
+      {more && (
+        <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 border-t pt-2 text-sm sm:grid-cols-3 lg:grid-cols-6">
           <Detail
             label="Zuschlag"
             value={`${formatMinutes(view.input.allowancePct)} %`}
@@ -64,7 +77,7 @@ export function KpiBar({ view }: { view: ScenarioView }) {
           />
           <Detail label="Restriktionsverletzungen" value={String(violations)} />
         </dl>
-      </details>
+      )}
     </div>
   );
 }
@@ -76,11 +89,7 @@ function Kpi(props: {
   incomplete?: boolean;
 }) {
   return (
-    <div
-      role="group"
-      aria-label={props.label}
-      className="rounded-lg border bg-white px-4 py-3 shadow-nx-sm"
-    >
+    <div role="group" aria-label={props.label}>
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         {props.label}
         {props.incomplete && (
@@ -93,12 +102,16 @@ function Kpi(props: {
           </span>
         )}
       </div>
-      <div className="font-heading text-2xl font-semibold tabular-nums">
-        {props.value}
+      <div className="flex items-baseline gap-2">
+        <span className="font-heading text-xl font-semibold tabular-nums">
+          {props.value}
+        </span>
+        {props.hint && (
+          <span className="text-[11px] text-muted-foreground">
+            {props.hint}
+          </span>
+        )}
       </div>
-      {props.hint && (
-        <div className="text-[11px] text-muted-foreground">{props.hint}</div>
-      )}
     </div>
   );
 }

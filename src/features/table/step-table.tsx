@@ -7,7 +7,7 @@ import {
   LockIcon,
   XCircleIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { parseGermanNumber, splitPredecessors } from "@/domain/import/cells";
 import {
@@ -38,8 +38,10 @@ type SortKey =
   | "start";
 
 const idCollator = new Intl.Collator("de", { numeric: true });
+/** Spaltenzahl der Tabelle, für Stationsköpfe und Hinweiszeilen. */
+const COLUMNS = 10;
 const cellSelect =
-  "h-7 w-full min-w-40 rounded-md border border-input bg-white px-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60";
+  "h-7 rounded-md border border-input bg-white px-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60";
 
 /**
  * Tabellenansicht mit Bearbeitung (F132): eine Zeile je Arbeitsgang, editierbar
@@ -145,9 +147,6 @@ export function StepTable(props: {
             <th scope="col" className="px-2 py-2 text-right font-medium">
               Wartezeit
             </th>
-            <th scope="col" className="px-2 py-2 font-medium">
-              Hinweise
-            </th>
           </tr>
         </thead>
         {groups.map((group, groupIndex) => (
@@ -164,7 +163,7 @@ export function StepTable(props: {
               <tr className="border-y border-nx-blue/15 bg-nx-blue/5">
                 <th
                   scope="rowgroup"
-                  colSpan={11}
+                  colSpan={COLUMNS}
                   className="px-3 py-3 text-left"
                 >
                   <div className="flex items-center gap-3">
@@ -184,138 +183,143 @@ export function StepTable(props: {
             {group.steps.map((step) => {
               const scheduled = view.scheduled.get(step.id);
               const issues = view.issuesByStep.get(step.id) ?? [];
+              const marked = step.employeeId
+                ? ""
+                : "bg-warning/5 shadow-[inset_3px_0_0_var(--warning)]";
               return (
-                <tr
-                  key={step.id}
-                  className={`border-t align-middle ${
-                    step.employeeId
-                      ? ""
-                      : "bg-warning/5 shadow-[inset_3px_0_0_var(--warning)]"
-                  }`}
-                >
-                  <th
-                    scope="row"
-                    className="px-2 py-1 text-left font-medium whitespace-nowrap"
-                  >
-                    {step.id}
-                  </th>
-                  <td
-                    className="max-w-80 min-w-48 px-2 py-1"
-                    title={step.description}
-                  >
-                    <span className="line-clamp-2">{step.description}</span>
-                  </td>
-                  <td className="px-2 py-1 text-right whitespace-nowrap tabular-nums">
-                    <span
-                      className="inline-flex items-center gap-1"
-                      title="Importiert, schreibgeschützt"
+                <Fragment key={step.id}>
+                  <tr className={`border-t align-middle ${marked}`}>
+                    <th
+                      scope="row"
+                      rowSpan={issues.length > 0 ? 2 : undefined}
+                      className={`px-2 py-1 text-left font-medium whitespace-nowrap ${
+                        // Über zwei Zeilen: oben, auf Höhe der Beschreibung.
+                        issues.length > 0 ? "pt-2 align-top" : ""
+                      }`}
                     >
-                      {formatMinutes(step.timeMin)}
-                      <LockIcon
-                        className="size-3 text-muted-foreground"
-                        aria-hidden
-                      />
-                    </span>
-                  </td>
-                  <td className="px-2 py-1">
-                    <select
-                      aria-label={`Station von ${step.id}`}
-                      className={cellSelect}
-                      value={step.stationId}
-                      onChange={(e) =>
-                        props.onApply({
-                          type: "moveStep",
-                          stepId: step.id,
-                          stationId: e.target.value,
-                        })
-                      }
+                      {step.id}
+                    </th>
+                    <td
+                      className="max-w-80 min-w-48 px-2 py-1"
+                      title={step.description}
                     >
-                      {stations.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-2 py-1">
-                    <select
-                      aria-label={`Mitarbeiter von ${step.id}`}
-                      className={`${cellSelect} ${step.employeeId ? "" : "border-warning text-warning"}`}
-                      value={step.employeeId ?? ""}
-                      onChange={(e) =>
-                        props.onApply(
-                          employeeOperation(step.id, e.target.value),
-                        )
-                      }
-                    >
-                      <option value="">nicht zugeordnet</option>
-                      <EmployeeOptions
-                        employees={view.input.employees}
-                        stations={view.input.stations}
-                        stationId={step.stationId}
-                      />
-                    </select>
-                  </td>
-                  <td className="px-2 py-1">
-                    <select
-                      aria-label={`Kategorie von ${step.id}`}
-                      className={cellSelect}
-                      value={step.categoryId ?? ""}
-                      onChange={(e) =>
-                        props.onApply({
-                          type: "setCategory",
-                          stepId: step.id,
-                          categoryId: e.target.value,
-                        })
-                      }
-                    >
-                      {view.categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-2 py-1">
-                    <SequenceCell step={step} onApply={props.onApply} />
-                  </td>
-                  <td className="px-2 py-1">
-                    <PredecessorCell step={step} onApply={props.onApply} />
-                  </td>
-                  <td className="px-2 py-1 text-right whitespace-nowrap tabular-nums">
-                    {scheduled
-                      ? `${formatMinutes(scheduled.start)} – ${formatMinutes(scheduled.end)}`
-                      : "–"}
-                  </td>
-                  <td className="px-2 py-1 text-right tabular-nums">
-                    {scheduled && scheduled.waitBefore > 0
-                      ? formatMinutes(scheduled.waitBefore)
-                      : ""}
-                  </td>
-                  <td className="px-2 py-1">
-                    {issues.length > 0 && (
-                      <ul className="flex flex-col gap-0.5 text-xs">
-                        {issues.map((issue, i) => (
-                          <li
-                            key={i}
-                            className={`flex gap-1 ${
-                              issue.severity === "violation"
-                                ? "text-destructive"
-                                : "text-warning"
-                            }`}
-                          >
-                            {issue.severity === "violation" ? (
-                              <XCircleIcon className="mt-0.5 size-3 shrink-0" />
-                            ) : (
-                              <AlertTriangleIcon className="mt-0.5 size-3 shrink-0" />
-                            )}
-                            {describeIssue(issue, view)}
-                          </li>
+                      <span className="line-clamp-2">{step.description}</span>
+                    </td>
+                    <td className="px-2 py-1 text-right whitespace-nowrap tabular-nums">
+                      <span
+                        className="inline-flex items-center gap-1"
+                        title="Importiert, schreibgeschützt"
+                      >
+                        {formatMinutes(step.timeMin)}
+                        <LockIcon
+                          className="size-3 text-muted-foreground"
+                          aria-hidden
+                        />
+                      </span>
+                    </td>
+                    <td className="px-2 py-1">
+                      <select
+                        aria-label={`Station von ${step.id}`}
+                        className={`${cellSelect} w-auto`}
+                        value={step.stationId}
+                        onChange={(e) =>
+                          props.onApply({
+                            type: "moveStep",
+                            stepId: step.id,
+                            stationId: e.target.value,
+                          })
+                        }
+                      >
+                        {stations.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.label}
+                          </option>
                         ))}
-                      </ul>
-                    )}
-                  </td>
-                </tr>
+                      </select>
+                    </td>
+                    <td className="px-2 py-1">
+                      <select
+                        aria-label={`Mitarbeiter von ${step.id}`}
+                        className={`${cellSelect} w-full min-w-40 ${step.employeeId ? "" : "border-warning text-warning"}`}
+                        value={step.employeeId ?? ""}
+                        onChange={(e) =>
+                          props.onApply(
+                            employeeOperation(step.id, e.target.value),
+                          )
+                        }
+                      >
+                        <option value="">nicht zugeordnet</option>
+                        <EmployeeOptions
+                          employees={view.input.employees}
+                          stations={view.input.stations}
+                          stationId={step.stationId}
+                        />
+                      </select>
+                    </td>
+                    <td className="px-2 py-1">
+                      <select
+                        aria-label={`Kategorie von ${step.id}`}
+                        className={`${cellSelect} w-auto`}
+                        value={step.categoryId ?? ""}
+                        onChange={(e) =>
+                          props.onApply({
+                            type: "setCategory",
+                            stepId: step.id,
+                            categoryId: e.target.value,
+                          })
+                        }
+                      >
+                        {view.categories.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-2 py-1">
+                      <SequenceCell step={step} onApply={props.onApply} />
+                    </td>
+                    <td className="px-2 py-1">
+                      <PredecessorCell step={step} onApply={props.onApply} />
+                    </td>
+                    <td className="px-2 py-1 text-right whitespace-nowrap tabular-nums">
+                      {scheduled
+                        ? `${formatMinutes(scheduled.start)} – ${formatMinutes(scheduled.end)}`
+                        : "–"}
+                    </td>
+                    <td className="px-2 py-1 text-right tabular-nums">
+                      {scheduled && scheduled.waitBefore > 0
+                        ? formatMinutes(scheduled.waitBefore)
+                        : ""}
+                    </td>
+                  </tr>
+                  {/* G4: Hinweise unter dem Arbeitsgang über die volle Breite statt in einer schmalen Spalte. */}
+                  {issues.length > 0 && (
+                    <tr className={marked}>
+                      <td colSpan={COLUMNS - 1} className="px-2 pb-1.5">
+                        <ul className="flex flex-col gap-0.5 text-xs">
+                          {issues.map((issue, i) => (
+                            <li
+                              key={i}
+                              className={`flex gap-1 ${
+                                issue.severity === "violation"
+                                  ? "text-destructive"
+                                  : "text-warning"
+                              }`}
+                            >
+                              {issue.severity === "violation" ? (
+                                <XCircleIcon className="mt-0.5 size-3 shrink-0" />
+                              ) : (
+                                <AlertTriangleIcon className="mt-0.5 size-3 shrink-0" />
+                              )}
+                              {describeIssue(issue, view)}
+                            </li>
+                          ))}
+                        </ul>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
           </tbody>

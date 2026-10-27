@@ -25,6 +25,7 @@ import { textColorFor } from "@/domain/model/categories";
 import { violationsAfterMove } from "@/domain/ops/movePreview";
 import type { ScenarioView } from "@/features/workspace/scenario-view";
 import {
+  chartStepId,
   formatAxis,
   formatHeadcount,
   formatMinutes,
@@ -665,6 +666,13 @@ const SegmentView = memo(function SegmentView(props: SegmentProps) {
   return <StepSegment {...props} segment={segment} style={style} />;
 });
 
+/**
+ * G6: deutlicher Fokus auf den Balken, weiß mit dunkelblauem Rand. Als Umriss und Pseudoelement,
+ * weil Verschoben-Markierung und Suchtreffer box-shadow bzw. outline per Inline-Style setzen.
+ */
+const FOCUS_RING =
+  "focus-visible:z-20 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-nx-blue focus-visible:after:pointer-events-none focus-visible:after:absolute focus-visible:after:inset-0.5 focus-visible:after:border-2 focus-visible:after:border-white focus-visible:after:content-['']";
+
 function StepSegment(
   props: Omit<SegmentProps, "segment"> & {
     segment: Extract<Segment, { kind: "step" | "unassigned" }>;
@@ -682,7 +690,8 @@ function StepSegment(
     ? props.view.categoryById.get(step.categoryId)
     : undefined;
   const parts = [
-    props.labels.id && step.id,
+    props.labels.id &&
+      chartStepId(step.id, props.view.stations.get(step.stationId)!.label),
     props.labels.description && step.description,
     props.labels.duration && formatMinutes(step.timeMin),
   ].filter(Boolean);
@@ -721,7 +730,7 @@ function StepSegment(
       // obwohl er per Klick (Details) bedienbar bleibt.
       {...(props.draggable ? attributes : {})}
       {...listeners}
-      className={`absolute inset-x-0 touch-none overflow-hidden border-t border-white px-0.5 text-left text-[10px] leading-[1.15] outline-none hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring ${
+      className={`absolute inset-x-0 touch-none overflow-hidden border-t border-white px-0.5 text-left text-[10px] leading-[1.15] outline-none hover:brightness-95 ${FOCUS_RING} ${
         props.draggable
           ? "cursor-grab active:cursor-grabbing"
           : "cursor-pointer"

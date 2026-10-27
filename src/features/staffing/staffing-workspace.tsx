@@ -1,9 +1,8 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   createStaffingRepository,
   type StoredStaffingPlan,
@@ -21,7 +20,10 @@ const number = (value: number | null) =>
 const delta = (value: number | null) =>
   value === null ? "–" : (value > 1e-9 ? "+" : "") + formatMinutes(value);
 const cell = "px-3 py-2 text-right whitespace-nowrap tabular-nums";
+const text = "px-3 py-2 text-left";
 const head = "px-3 py-3 text-left font-medium whitespace-nowrap";
+/** Spaltenköpfe dürfen umbrechen, damit die Tabellen auf dem Laptop passen (G5). */
+const columnHead = "px-3 py-3 text-left align-bottom font-medium";
 const emptyInput = {
   taktMin: 70,
   allowancePct: 0,
@@ -38,6 +40,7 @@ export function StaffingWorkspace() {
   );
   const search = useSearchParams();
   const hydrated = useHydrated();
+  const fileInputId = useId();
   const [scenarios, setScenarios] = useState<StoredScenario[]>([]),
     [plans, setPlans] = useState<StoredStaffingPlan[]>([]);
   const [scenarioId, setScenarioId] = useState(search.get("szenario") ?? ""),
@@ -162,15 +165,33 @@ export function StaffingWorkspace() {
             Zuordnungen.
           </p>
         </div>
-        <label className="grid max-w-xl gap-2 text-sm">
-          Personalplanung (.xlsx)
-          <Input
-            type="file"
-            accept=".xlsx"
-            disabled={!hydrated || busy}
-            onChange={(e) => read(e.target.files?.[0])}
-          />
-        </label>
+        <div className="grid gap-2 text-sm">
+          <label htmlFor={fileInputId}>Personalplanung (.xlsx)</label>
+          <div className="flex items-center gap-3">
+            {/* G5: wie beim Szenarioimport; natives Dateifeld verborgen, damit die Beschriftung deutsch ist. */}
+            <input
+              id={fileInputId}
+              type="file"
+              accept=".xlsx"
+              disabled={!hydrated || busy}
+              className="peer sr-only"
+              onChange={(e) => read(e.target.files?.[0])}
+            />
+            <label
+              htmlFor={fileInputId}
+              className={buttonVariants({
+                variant: "outline",
+                className:
+                  "cursor-pointer peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50 peer-disabled:pointer-events-none peer-disabled:opacity-50",
+              })}
+            >
+              Datei auswählen
+            </label>
+            <span className="text-muted-foreground">
+              {preview?.document.filename ?? "Keine Datei ausgewählt"}
+            </span>
+          </div>
+        </div>
         {busy && <p role="status">Personalplanung wird verarbeitet …</p>}
         {preview && (
           <div className="grid gap-3 rounded-lg bg-secondary p-4">
@@ -315,7 +336,7 @@ export function StaffingWorkspace() {
                           "Stationshöhe [min]",
                           "Bewertung",
                         ].map((h) => (
-                          <th key={h} className={head}>
+                          <th key={h} className={columnHead}>
                             {h}
                           </th>
                         ))}
@@ -325,8 +346,8 @@ export function StaffingWorkspace() {
                       {result.stations.map((s) => (
                         <tr key={s.stationId} className="border-t">
                           <th className={head}>{s.label}</th>
-                          <td className={cell}>{s.plan?.costCenter ?? "–"}</td>
-                          <td className={cell}>{s.plan?.teamSpeaker ?? "–"}</td>
+                          <td className={text}>{s.plan?.costCenter ?? "–"}</td>
+                          <td className={text}>{s.plan?.teamSpeaker ?? "–"}</td>
                           <td className={cell}>
                             {number(s.plan?.productive ?? null)}
                           </td>
@@ -390,7 +411,7 @@ export function StaffingWorkspace() {
                         "Tool abgedeckt [MA]",
                         "Differenz abgedeckt [MA]",
                       ].map((h) => (
-                        <th key={h} className={head}>
+                        <th key={h} className={columnHead}>
                           {h}
                         </th>
                       ))}
@@ -449,7 +470,7 @@ export function StaffingWorkspace() {
                         "Excel-Summe [MA]",
                         "Hinweis",
                       ].map((h) => (
-                        <th key={h} className={head}>
+                        <th key={h} className={columnHead}>
                           {h}
                         </th>
                       ))}
@@ -547,7 +568,7 @@ function ReferenceRows({ rows }: { rows: StaffingPlan["rows"] }) {
               "Produktiv [MA]",
               "Brutto [MA]",
             ].map((h) => (
-              <th key={h} className={head}>
+              <th key={h} className={columnHead}>
                 {h}
               </th>
             ))}
@@ -558,9 +579,9 @@ function ReferenceRows({ rows }: { rows: StaffingPlan["rows"] }) {
             <tr key={r.sourceRow} className="border-t">
               <td className={cell}>{r.sourceRow}</td>
               <td className="px-3 py-2">{r.area}</td>
-              <td className={cell}>{r.station ?? "–"}</td>
-              <td className={cell}>{r.costCenter ?? "–"}</td>
-              <td className={cell}>{r.teamSpeaker ?? "–"}</td>
+              <td className={text}>{r.station ?? "–"}</td>
+              <td className={text}>{r.costCenter ?? "–"}</td>
+              <td className={text}>{r.teamSpeaker ?? "–"}</td>
               <td className={cell}>{number(r.productive)}</td>
               <td className={cell}>{number(r.gross)}</td>
             </tr>

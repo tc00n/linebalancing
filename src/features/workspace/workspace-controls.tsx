@@ -109,7 +109,7 @@ export function ScaleSlider(props: {
     <label className="flex items-center gap-2 text-sm">
       <span className="text-muted-foreground">{props.label}</span>
       {/* Feste Breite außen: der Slider selbst ist auf 100 % seines Containers gesetzt. */}
-      <div className="w-40">
+      <div className="w-32">
         <Slider
           min={0}
           max={SLIDER_STEPS}
@@ -123,7 +123,7 @@ export function ScaleSlider(props: {
           aria-valuetext={`${props.value} ${props.unit}`}
         />
       </div>
-      <span className="w-20 text-xs text-muted-foreground tabular-nums">
+      <span className="w-24 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
         {props.value.toLocaleString("de-DE", {
           maximumFractionDigits: props.decimals ?? 0,
         })}{" "}
@@ -208,6 +208,8 @@ export function Legend(props: {
         <span className="inline-block size-3 border-2 border-(--yz-over) bg-(--yz-over)/15" />
         über Takt
       </span>
+      {/* G7: Abkürzung unter den Stationen und in der Mitarbeiteransicht erklären. */}
+      <span>MA = Mitarbeiter</span>
     </div>
   );
 }

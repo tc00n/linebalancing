@@ -36,6 +36,8 @@ export function FilterBar(props: {
   search: string;
   onSearch: (search: string) => void;
   matchCount: number | null;
+  /** Ohne eigenen Kasten, z. B. in der Werkzeugleiste des Arbeitsbereichs (G1). */
+  embedded?: boolean;
 }) {
   const { view, filter } = props;
   const stations: Option[] = sortStations(view.input.stations).map((s) => ({
@@ -74,7 +76,9 @@ export function FilterBar(props: {
     <div
       role="search"
       aria-label="Suche und Filter"
-      className="flex flex-col gap-2 rounded-lg border bg-white px-3 py-2"
+      className={`flex flex-col gap-2 ${
+        props.embedded ? "" : "rounded-lg border bg-white px-3 py-2"
+      }`}
     >
       <div className="flex flex-wrap items-center gap-2">
         <label className="relative flex items-center">

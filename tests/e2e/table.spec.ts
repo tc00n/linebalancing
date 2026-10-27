@@ -9,7 +9,8 @@ test("Arbeitsgänge in der Tabellenansicht bearbeiten (F132)", async ({
   await expect(page).toHaveURL(/\/szenario\/tabelle\?id=/);
 
   const table = page.getByRole("table", { name: "Arbeitsgänge" });
-  await expect(table.getByRole("row")).toHaveCount(8); // Kopfzeile + 2 Stationszeilen + 5 Arbeitsgänge
+  // Kopfzeile + 2 Stationszeilen + 5 Arbeitsgänge + Hinweiszeilen für D und E (ohne Mitarbeiter, G4)
+  await expect(table.getByRole("row")).toHaveCount(10);
   await page.screenshot({
     path: testInfo.outputPath("00-stationen.png"),
     fullPage: true,

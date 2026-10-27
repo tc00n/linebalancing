@@ -44,6 +44,7 @@ Keiner der Befunde betrifft Rechenwerte.
   - Ist/Ziel in die Titelzeile.
   - Ziel: Das Diagramm beginnt bei 768 px Höhe spätestens bei etwa 300 px.
   - Aufwand: mittel (½–1 Tag), Browsertests anpassen.
+- **Status: behoben (27.10.2026).** Kennzahlen als eine Leiste mit „Weitere Kennzahlen“ darin, „Ergebnis unvollständig“ und „konfliktbehaftet“ einzeilig, Ist/Ziel in der Titelzeile, Navigation in der Untertitelzeile, Filter und Werkzeuge in einem Kasten, Regler schmaler. Gemessen mit dem Testbeispiel und 10 % Zuschlag: Das Diagramm beginnt bei 1366 × 768 und bei 1920 × 1080 bei 376 px statt 600 px; bei 1366 × 768 sind Diagramm und Legende ohne Scrollen sichtbar. Das Ziel von etwa 300 px ist damit nicht ganz erreicht; mehr ginge nur, wenn Bedienelemente in ein Aufklappmenü wandern. Die Kennzahlenleiste gilt auch in der Tabellenansicht. Alle Bedienelemente behalten ihre Namen, die Browsertests liefen unverändert durch.
 
 ### G2 · Auf dem großen Workshop-Bildschirm bleibt das Diagramm klein (Mittel)
 
@@ -53,6 +54,7 @@ Keiner der Befunde betrifft Rechenwerte.
   - Erst „An Fenster anpassen“ nutzt den Platz. Die Einstellung wird je Gerät gespeichert (E16), passt sich aber nicht an, wenn sich Fenster oder Bildschirm ändern.
 - **Folge:** Am Workshop-Bildschirm muss erst jemand „An Fenster anpassen“ klicken. Sonst sind Balken und Beschriftungen für den Raum zu klein (F125).
 - **Vorschlag:** Ohne gespeicherte Einstellung beim Öffnen automatisch einpassen. „An Fenster anpassen“ als Modus führen, der aktiv bleibt, bis jemand Breite oder Zeitskala von Hand ändert. Das berührt E16 nur in der Voreinstellung. Aufwand: klein bis mittel.
+- **Status: erledigt (27.10.2026).** Das Einpassen beim ersten Öffnen gibt es bereits (Codex, Commit `69cda16`, Backlog). Nachgemessen bei 2560 × 1440 mit dem Testbeispiel: Die Stationen füllen Breite und Höhe. **Entscheidung des Nutzers:** Ändert sich das Fenster nach dem Öffnen, wird nicht automatisch nachgeführt; dafür gibt es „An Fenster anpassen“.
 
 ### G3 · Balkenbeschriftung „ID“ zeigt bei echten Daten nur „T…“ (Mittel)
 
@@ -63,6 +65,7 @@ Keiner der Befunde betrifft Rechenwerte.
   - Die Station steht aber ohnehin unter der Spalte.
 - **Folge:** Die Beschriftung „ID“ ist mit echten Daten nutzlos. Man muss jeden Balken einzeln anfahren, um ihn zu erkennen.
 - **Vorschlag:** Im Diagramm den Stationsvorsatz weglassen, wenn die ID mit der Stationsbezeichnung beginnt (`AA010A`). Tooltip, Panel und Tabelle zeigen weiter die volle ID. Aufwand: klein, mit Unit-Test.
+- **Status: behoben (27.10.2026).** `chartStepId` in `src/lib/format.ts` lässt den Vorsatz weg, wenn die ID mit der Bezeichnung der aktuellen Station plus Trennzeichen beginnt (`T19-AA010A` an T19 → `AA010A`). Ein an eine andere Station verschobener Arbeitsgang behält die volle ID. Unit-Test in `format.test.ts`.
 
 ### G4 · Tabelle auf dem Laptop: Spalte „Hinweise“ abgeschnitten, Warnzeilen sehr hoch (Mittel)
 
@@ -76,6 +79,7 @@ Keiner der Befunde betrifft Rechenwerte.
   - Auswahlfelder schmaler setzen: Station und Kategorie haben Platz übrig.
   - Den Hinweistext unter der Zeile über die volle Breite zeigen statt in einer eigenen Spalte.
   - Aufwand: klein.
+- **Status: behoben (27.10.2026).** Spalte „Hinweise“ entfällt; Hinweise stehen in einer eigenen Zeile direkt unter dem Arbeitsgang über die Breite ab „Beschreibung“, mit derselben Warnmarkierung. Station und Kategorie sind so breit wie ihr Inhalt. Bei 1280 px passt die Tabelle ohne seitliches Scrollen. Browsertest `table.spec.ts` zählt die Hinweiszeilen mit.
 
 ### G5 · Personalplanung: Datei-Auswahl im Browserstil, Spalten bei 1366 px abgeschnitten (Niedrig)
 
@@ -87,6 +91,7 @@ Keiner der Befunde betrifft Rechenwerte.
   - „Kostenstelle“ und „Teamsprecher“ sind als Text rechtsbündig unter linksbündigen Überschriften.
 - **Folge:** Uneinheitlicher Eindruck. Inhaltlich ist nichts falsch.
 - **Vorschlag:** Denselben Datei-Knopf wie beim Import verwenden, Textspalten linksbündig setzen und die Tabelle seitlich scrollbar mit sichtbarem Rand gestalten. Aufwand: klein.
+- **Status: behoben (27.10.2026).** Datei-Knopf „Datei auswählen“ wie beim Szenarioimport, daneben der gewählte Dateiname. Kostenstelle, Teamsprecher und Station sind linksbündig. Spaltenköpfe dürfen umbrechen; bei 1366 px passt die Tabelle „Produktiver Abgleich je Station“ ohne seitliches Scrollen (gemessen: Inhalt so breit wie der Kasten).
 
 ### G6 · Tastaturfokus auf Diagrammbalken kaum sichtbar (Niedrig)
 
@@ -96,11 +101,13 @@ Keiner der Befunde betrifft Rechenwerte.
   - Der Fokusring ist auf Knöpfen ein blasser hellblauer Rand. Auf den petrolfarbenen Balken ist er kaum zu erkennen: dunkelblau mit geringer Deckkraft.
 - **Folge:** Wer per Tastatur arbeitet, verliert auf dem Diagramm den Überblick. Im Workshop ist das selten, weil dort meist mit der Maus gearbeitet wird.
 - **Vorschlag:** Auf Segmenten einen deutlichen Fokusring in Weiß mit dunkelblauem Außenrand. Aufwand: klein.
+- **Status: behoben (27.10.2026).** Fokus auf Balken mit dunkelblauem Umriss und weißem Innenrand (Pseudoelement), damit er auch auf verschobenen Arbeitsgängen und Suchtreffern sichtbar bleibt. Per Tastatur geprüft. Der allgemeine `--ring` bleibt unverändert.
 
 ### G7 · Kleinigkeiten in Wortwahl und Schreibweise (Niedrig)
 
 - Im Detailpanel steht „HINWEISE“ in Großbuchstaben. Alle anderen Beschriftungen sind normal geschrieben.
 - Die Mitarbeiteransicht beschriftet Spuren mit „MA 1“, überall sonst steht „Mitarbeiter 1“. Unter der Station steht „3 MA“. Das ist als Abkürzung in Ordnung, sollte aber an einer Stelle erklärt sein, z. B. in der Legende.
+- **Status: behoben (27.10.2026).** „Hinweise“ im Detailpanel normal geschrieben. Die Legende erklärt „MA = Mitarbeiter“; die Abkürzung bleibt unter den Stationen und in der Mitarbeiteransicht.
 
 ## Hinweise ohne Handlungsbedarf
 

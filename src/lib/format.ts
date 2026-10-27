@@ -30,6 +30,19 @@ export function formatHeadcount(value: number): string {
   return axis.format(roundHalfUp(value));
 }
 
+/**
+ * ID für die Balkenbeschriftung: „T19-AA010A“ an Station „T19“ → „AA010A“ (G3).
+ * Die Station steht ohnehin unter der Spalte; Tooltip, Panel und Tabelle zeigen die volle ID.
+ * Liegt der Arbeitsgang an einer anderen Station, bleibt die volle ID stehen.
+ */
+export function chartStepId(stepId: string, stationLabel: string): string {
+  const rest = stepId.slice(stationLabel.length);
+  if (!stepId.startsWith(stationLabel) || !/^[-_ .:/]./.test(rest)) {
+    return stepId;
+  }
+  return rest.slice(1);
+}
+
 export function formatDateTime(iso: string): string {
   return new Intl.DateTimeFormat("de-DE", {
     dateStyle: "medium",
