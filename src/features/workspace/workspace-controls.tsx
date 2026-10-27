@@ -1,6 +1,11 @@
 "use client";
 
-import { AlertTriangleIcon, CheckCircle2Icon, Loader2Icon } from "lucide-react";
+import {
+  AlertTriangleIcon,
+  CheckCircle2Icon,
+  Loader2Icon,
+  LockIcon,
+} from "lucide-react";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -19,6 +24,17 @@ export function SaveIndicator({ status }: { status: SaveStatus }) {
         role="status"
       >
         <Loader2Icon className="size-4 animate-spin" /> speichert …
+      </span>
+    );
+  }
+  if (status === "locked") {
+    return (
+      <span
+        className="flex items-center gap-1 text-xs font-medium text-muted-foreground"
+        role="status"
+        title="Jemand anderes bearbeitet dieses Szenario. Änderungen sind erst möglich, wenn es frei ist oder übernommen wird."
+      >
+        <LockIcon className="size-4" /> schreibgeschützt
       </span>
     );
   }
@@ -48,6 +64,7 @@ export function NumberSetting(props: {
   label: string;
   value: number;
   onCommit: (value: number) => string | null;
+  disabled?: boolean;
 }) {
   const shown = formatMinutes(props.value);
   const [invalid, setInvalid] = useState(false);
@@ -59,6 +76,7 @@ export function NumberSetting(props: {
         defaultValue={shown}
         inputMode="decimal"
         aria-invalid={invalid}
+        disabled={props.disabled}
         className="h-8 w-20 tabular-nums"
         onBlur={(e) => {
           const parsed = parseGermanNumber(e.target.value);

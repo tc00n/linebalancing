@@ -47,7 +47,7 @@ Die Datenbanktests verwenden Node/pg mit echten Rollen und SQL-Assertions anstel
 
 Für echte Magic-Links unter Authentication / URL Configuration die richtige Site URL und Callback-Freigabe prüfen: lokal `http://localhost:3000/auth/callback` sowie später die tatsächliche Deployment-URL mit `/auth/callback`. Diese Management-Einstellungen sind mit Publishable Key und DB-URL nicht änderbar. Kein echter Anmeldelink wurde ohne ausdrücklichen Auftrag verschickt; Zustellung und PKCE im Postfach sind noch manuell abzunehmen. SMTP für produktiven Versand gehört zur offenen Betriebsentscheidung E29.
 
-Szenariosperre mit Lease/Heartbeat (Phase 5/E27) ist nicht vorweggenommen. Versionsschutz verhindert stille Überschreibungen, ersetzt aber keine Bearbeitungssperre. Persistente Offline-Outbox und Wiederanlauf (Phase 6/E17) bleiben offen. Löschen einzelner Cloud-Szenarien ist seit 27.10.2026 nach E26 freigegeben (Owner und Editoren, `delete_scenario`, Migration `202610270001_delete_scenario.sql`). Projektlöschung durch Owner ist gemäß Phase 2 umgesetzt. Export und weitere Betriebs-/Abnahmefragen bleiben offen.
+Szenariosperre mit Lease/Heartbeat (Phase 5/E27) ist seit 27.10.2026 umgesetzt (Migration `202610270002_scenario_locks.sql`); der Versionsschutz bleibt als zweite Sicherung. Persistente Offline-Outbox und Wiederanlauf (Phase 6/E17) bleiben offen. Löschen einzelner Cloud-Szenarien ist seit 27.10.2026 nach E26 freigegeben (Owner und Editoren, `delete_scenario`, Migration `202610270001_delete_scenario.sql`). Projektlöschung durch Owner ist gemäß Phase 2 umgesetzt. Export und weitere Betriebs-/Abnahmefragen bleiben offen.
 
 ## Abschlussprüfung
 

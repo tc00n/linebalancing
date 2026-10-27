@@ -10,7 +10,11 @@ import {
   type Operation,
 } from "@/domain/ops/operations";
 
-export type SaveStatus = "saved" | "saving" | "failed";
+/** F119; „locked“: schreibgeschützt, weil jemand anderes bearbeitet (E27). */
+export type SaveStatus = "saved" | "saving" | "failed" | "locked";
+
+const READ_ONLY =
+  "Schreibgeschützt: Das Szenario wird gerade an anderer Stelle bearbeitet.";
 
 const HISTORY_LIMIT = 100;
 
@@ -24,8 +28,9 @@ interface History {
  * Bearbeitungszustand eines Szenarios: jede Änderung wird sofort gespeichert
  * (F25) und ist innerhalb der Sitzung rückgängig zu machen (F26, F65; E17 offen).
  * Erfolgreich gespeichert gilt erst nach Bestätigung des Speichers (F37).
+ * Ohne Bearbeitungssperre (`readOnly`, E27) werden keine Änderungen angenommen.
  */
-export function useScenarioEditor(initial: StoredScenario) {
+export function useScenarioEditor(initial: StoredScenario, readOnly = false) {
   const repository = useScenarioRepository();
   const [saveQueue] = useState(
     () => new ScenarioSaveQueue(repository, initial),
@@ -69,6 +74,7 @@ export function useScenarioEditor(initial: StoredScenario) {
 
   /** Wendet eine Änderung an; liefert die Fehlermeldung oder null. */
   function apply(op: Operation): string | null {
+    if (readOnly) return READ_ONLY;
     const result = applyOperation(history.doc, op);
     if (!result.ok) {
       setError(result.error);
@@ -87,7 +93,7 @@ export function useScenarioEditor(initial: StoredScenario) {
 
   function undo() {
     const previous = history.past.at(-1);
-    if (!previous) return;
+    if (!previous || readOnly) return;
     setHistory({
       doc: previous,
       past: history.past.slice(0, -1),
@@ -98,7 +104,7 @@ export function useScenarioEditor(initial: StoredScenario) {
 
   function redo() {
     const next = history.future[0];
-    if (!next) return;
+    if (!next || readOnly) return;
     setHistory({
       doc: next,
       past: [...history.past, history.doc],
@@ -130,15 +136,21 @@ export function useScenarioEditor(initial: StoredScenario) {
   }, [undoRef, redoRef]);
 
   const saveStatus: SaveStatus =
-    saving.pending > 0 ? "saving" : saving.failed ? "failed" : "saved";
+    saving.pending > 0
+      ? "saving"
+      : saving.failed
+        ? "failed"
+        : readOnly
+          ? "locked"
+          : "saved";
 
   return {
     doc: history.doc,
     apply,
     undo,
     redo,
-    canUndo: history.past.length > 0,
-    canRedo: history.future.length > 0,
+    canUndo: !readOnly && history.past.length > 0,
+    canRedo: !readOnly && history.future.length > 0,
     saveStatus,
     updatedAt,
     updatedByLabel,

@@ -24,6 +24,8 @@ import { FilterBar } from "@/features/workspace/filter-bar";
 import { KpiBar } from "@/features/workspace/kpi-bar";
 import { createScenarioView } from "@/features/workspace/scenario-view";
 import { useScenarioEditor } from "@/features/workspace/use-scenario-editor";
+import { LockNotice, useLockFollowUp } from "@/features/workspace/lock-notice";
+import { useScenarioLock } from "@/features/workspace/use-scenario-lock";
 import { SaveIndicator } from "@/features/workspace/workspace-controls";
 import { formatDateTime } from "@/lib/format";
 import { StepTable } from "./step-table";
@@ -40,6 +42,8 @@ export function TableWorkspace() {
     id: string;
     scenario: StoredScenario | null;
   } | null>(null);
+  // E27: nach dem Erwerb einer zuvor fremden Sperre den aktuellen Stand laden.
+  const [reloads, setReloads] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -57,7 +61,7 @@ export function TableWorkspace() {
     return () => {
       active = false;
     };
-  }, [id, repository]);
+  }, [id, repository, reloads]);
 
   if (loadError)
     return (
@@ -88,12 +92,21 @@ export function TableWorkspace() {
       key={`${loaded.scenario.id}:${loaded.scenario.updatedAt}`}
       scenario={loaded.scenario}
       back={back}
+      reload={() => setReloads((n) => n + 1)}
     />
   );
 }
 
-function ScenarioTable(props: { scenario: StoredScenario; back: string }) {
-  const editor = useScenarioEditor(props.scenario);
+function ScenarioTable(props: {
+  scenario: StoredScenario;
+  back: string;
+  reload: () => void;
+}) {
+  // E27: dieselbe Sperre wie im Diagramm dieses Tabs; ohne Sperre schreibgeschützt (F51).
+  const lock = useScenarioLock(props.scenario.id);
+  const readOnly = lock.status !== "held";
+  const editor = useScenarioEditor(props.scenario, readOnly);
+  useLockFollowUp(lock, editor.saveStatus, props.reload);
   const [filter, setFilter] = useState<StepFilter>(EMPTY_FILTER);
   const [query, setQuery] = useState("");
 
@@ -181,6 +194,8 @@ function ScenarioTable(props: { scenario: StoredScenario; back: string }) {
 
       <KpiBar view={view} />
 
+      <LockNotice lock={lock} onReload={props.reload} />
+
       {editor.error && (
         <Alert variant="destructive">
           <XCircleIcon />
@@ -209,7 +224,12 @@ function ScenarioTable(props: { scenario: StoredScenario; back: string }) {
         {steps.length} von {view.input.steps.length} Arbeitsgängen
       </p>
 
-      <StepTable view={view} steps={steps} onApply={editor.apply} />
+      <StepTable
+        view={view}
+        steps={steps}
+        onApply={editor.apply}
+        readOnly={readOnly}
+      />
     </div>
   );
 }

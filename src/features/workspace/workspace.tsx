@@ -62,6 +62,8 @@ import { InitialChartFit } from "./initial-chart-fit";
 import { ScenarioBar, type Side } from "./scenario-bar";
 import { createScenarioView, type ScenarioView } from "./scenario-view";
 import { useScenarioEditor } from "./use-scenario-editor";
+import { LockNotice, useLockFollowUp } from "./lock-notice";
+import { useScenarioLock } from "./use-scenario-lock";
 import {
   Legend,
   NumberSetting,
@@ -110,6 +112,8 @@ export function Workspace() {
     query: string;
     scenarios: StoredScenario[];
   } | null>(null);
+  // E27: nach dem Erwerb einer zuvor fremden Sperre den aktuellen Stand laden.
+  const [reloads, setReloads] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -126,7 +130,7 @@ export function Workspace() {
     return () => {
       active = false;
     };
-  }, [query, repository]);
+  }, [query, repository, reloads]);
 
   if (loadError)
     return (
@@ -187,6 +191,7 @@ export function Workspace() {
       siblings={siblings}
       params={current}
       navigate={navigate}
+      reload={() => setReloads((n) => n + 1)}
     />
   );
 }
@@ -224,9 +229,14 @@ function ScenarioWorkspace(props: {
   siblings: readonly StoredScenario[];
   params: Params;
   navigate: (next: Partial<Params>) => void;
+  reload: () => void;
 }) {
   const { editable, params } = props;
-  const editor = useScenarioEditor(editable);
+  // F48/F58: nur das bearbeitete Szenario wird gesperrt; ohne Sperre schreibgeschützt (F51).
+  const lock = useScenarioLock(editable.id);
+  const readOnly = lock.status !== "held";
+  const editor = useScenarioEditor(editable, readOnly);
+  useLockFollowUp(lock, editor.saveStatus, props.reload);
   const repository = useScenarioRepository();
   const compare = params.compare;
   const sameScenario = props.ist.id === props.ziel.id;
@@ -669,6 +679,7 @@ function ScenarioWorkspace(props: {
           </AlertDescription>
         </Alert>
       )}
+      <LockNotice lock={lock} onReload={props.reload} />
       {editor.error && (
         <Alert variant="destructive">
           <XCircleIcon />
@@ -742,6 +753,7 @@ function ScenarioWorkspace(props: {
             label={compare ? "Takt Ziel [min]" : "Takt [min]"}
             value={editor.doc.input.taktMin}
             onCommit={(taktMin) => apply({ type: "setTakt", taktMin })}
+            disabled={readOnly}
           />
           <NumberSetting
             label={compare ? "Zuschlag Ziel [%]" : "Zuschlag [%]"}
@@ -749,6 +761,7 @@ function ScenarioWorkspace(props: {
             onCommit={(allowancePct) =>
               apply({ type: "setAllowance", allowancePct })
             }
+            disabled={readOnly}
           />
 
           <div className="flex items-center gap-2 text-sm">
@@ -884,7 +897,7 @@ function ScenarioWorkspace(props: {
                 movedStepIds={comparison.moved}
                 selectedStepId={selected?.stepId ?? null}
                 onSelectStep={(stepId) => setSelected({ side: "ziel", stepId })}
-                actions={actions}
+                actions={readOnly ? undefined : actions}
               />
             </section>
           </div>
@@ -895,14 +908,14 @@ function ScenarioWorkspace(props: {
             columns={mainColumns}
             selectedStepId={selected?.stepId ?? null}
             onSelectStep={(stepId) => setSelected({ side: editSide, stepId })}
-            actions={actions}
+            actions={readOnly ? undefined : actions}
           />
         )}
       </div>
 
       <Legend
         categories={editor.doc.categories}
-        onApply={apply}
+        onApply={readOnly ? undefined : apply}
         showMoved={!!comparison}
       />
 
@@ -918,7 +931,7 @@ function ScenarioWorkspace(props: {
           onSelectStep={(stepId) =>
             setSelected({ side: selected.side, stepId })
           }
-          onApply={panelReadOnly ? undefined : apply}
+          onApply={panelReadOnly || readOnly ? undefined : apply}
         />
       )}
     </div>

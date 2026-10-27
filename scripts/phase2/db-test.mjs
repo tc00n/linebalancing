@@ -21,6 +21,10 @@ const owner = "10000000-0000-4000-8000-000000000001",
   staffEditor = "10000000-0000-4000-8000-000000000004";
 const sid = "20000000-0000-4000-8000-000000000001",
   otherSid = "20000000-0000-4000-8000-000000000002";
+// Sperrkennungen je Browser-Tab (E27).
+const editorTab = "50000000-0000-4000-8000-000000000001",
+  editorTab2 = "50000000-0000-4000-8000-000000000002",
+  ownerTab = "50000000-0000-4000-8000-000000000003";
 let count = 0;
 const q = (sql, args = []) => client.query(sql, args);
 async function as(user, session = sid) {
@@ -169,19 +173,41 @@ try {
     assert.equal(result.version, 1);
     assert.equal(result.input.steps.length, 2);
   });
+  const lock = async (scenarioId, token, takeover = false) =>
+    (
+      await q("select public.acquire_scenario_lock($1,$2,$3,$4) lock", [
+        p,
+        scenarioId,
+        token,
+        takeover,
+      ])
+    ).rows[0].lock;
+  await test("Editor erhaelt beim Oeffnen die Sperre (E27)", async () =>
+    assert.deepEqual(await lock(doc.id, editorTab), { held: true }));
   await test("Editor kann zuweisen und versioniert speichern", async () => {
     doc.input.steps[0].employeeId = null;
     const result = (
-      await q("select public.save_scenario($1,$2,1) doc", [p, doc])
+      await q(
+        "select public.save_scenario($1,$2,1,'50000000-0000-4000-8000-000000000001') doc",
+        [p, doc],
+      )
     ).rows[0].doc;
     assert.equal(result.version, 2);
   });
   await test("Veraltete Version wird abgelehnt", () =>
-    denied("select public.save_scenario($1,$2,1)", [p, doc], "40001"));
+    denied(
+      "select public.save_scenario($1,$2,1,'50000000-0000-4000-8000-000000000001')",
+      [p, doc],
+      "40001",
+    ));
   await test("Importzeit durch RPC unveraenderlich", async () => {
     const changed = structuredClone(doc);
     changed.input.steps[0].timeMin = 99;
-    await denied("select public.save_scenario($1,$2,2)", [p, changed], "23514");
+    await denied(
+      "select public.save_scenario($1,$2,2,'50000000-0000-4000-8000-000000000001')",
+      [p, changed],
+      "23514",
+    );
   });
   await test("Direkte Aenderung und Loeschung von Schritten verboten", async () => {
     await denied("update public.steps set time_min=99 where scenario_id=$1", [
@@ -192,18 +218,30 @@ try {
   await test("Kreise beim Speichern abgelehnt", async () => {
     const changed = structuredClone(doc);
     changed.input.steps[0].predecessorIds = ["B"];
-    await denied("select public.save_scenario($1,$2,2)", [p, changed], "23514");
+    await denied(
+      "select public.save_scenario($1,$2,2,'50000000-0000-4000-8000-000000000001')",
+      [p, changed],
+      "23514",
+    );
   });
   await test("Unbekannte Vorgaenger abgelehnt", async () => {
     const changed = structuredClone(doc);
     changed.input.steps[0].predecessorIds = ["unbekannt"];
-    await denied("select public.save_scenario($1,$2,2)", [p, changed], "23503");
+    await denied(
+      "select public.save_scenario($1,$2,2,'50000000-0000-4000-8000-000000000001')",
+      [p, changed],
+      "23503",
+    );
   });
   await test("Fremder Mitarbeiter an Station abgelehnt", async () => {
     const changed = structuredClone(doc);
     changed.input.steps[0].stationId = "s2";
     changed.input.steps[0].employeeId = "e1";
-    await denied("select public.save_scenario($1,$2,2)", [p, changed], "23503");
+    await denied(
+      "select public.save_scenario($1,$2,2,'50000000-0000-4000-8000-000000000001')",
+      [p, changed],
+      "23503",
+    );
   });
   await test("Vernetzte Vorgaenger werden zuegig geprueft", async () => {
     // Je Schritt zwei Vorgaenger: Die fruehere Pfadsuche brauchte hierfuer exponentiell lange.
@@ -228,10 +266,11 @@ try {
     const saved = (
       await q("select public.import_scenario($1,$2) doc", [p, net])
     ).rows[0].doc;
+    await lock(net.id, editorTab);
     const cyclic = structuredClone(net);
     cyclic.input.steps[0].predecessorIds = ["N199"];
     await denied(
-      "select public.save_scenario($1,$2,$3)",
+      "select public.save_scenario($1,$2,$3,'50000000-0000-4000-8000-000000000001')",
       [p, cyclic, saved.version],
       "23514",
     );
@@ -250,7 +289,10 @@ try {
       },
     ];
     const saved = (
-      await q("select public.save_scenario($1,$2,2) doc", [p, springer])
+      await q(
+        "select public.save_scenario($1,$2,2,'50000000-0000-4000-8000-000000000001') doc",
+        [p, springer],
+      )
     ).rows[0].doc;
     assert.deepEqual(
       saved.input.employees.map((e) => [e.id, e.stationId, e.personId]),
@@ -262,14 +304,14 @@ try {
     const relabeled = structuredClone(springer);
     relabeled.input.employees[1].label = "Mitarbeiter 2";
     await denied(
-      "select public.save_scenario($1,$2,$3)",
+      "select public.save_scenario($1,$2,$3,'50000000-0000-4000-8000-000000000001')",
       [p, relabeled, saved.version],
       "23514",
     );
     const twice = structuredClone(springer);
     twice.input.employees[1].stationId = "s1";
     await denied(
-      "select public.save_scenario($1,$2,$3)",
+      "select public.save_scenario($1,$2,$3,'50000000-0000-4000-8000-000000000001')",
       [p, twice, saved.version],
       "23505",
     );
@@ -281,18 +323,17 @@ try {
     const between = structuredClone(doc);
     between.input.steps[0].sequence = 2.5;
     const saved = (
-      await q("select public.save_scenario($1,$2,$3) doc", [
-        p,
-        between,
-        version,
-      ])
+      await q(
+        "select public.save_scenario($1,$2,$3,'50000000-0000-4000-8000-000000000001') doc",
+        [p, between, version],
+      )
     ).rows[0].doc;
     assert.equal(saved.input.steps[0].sequence, 2.5);
     for (const sequence of [-1, "NaN"]) {
       const invalid = structuredClone(between);
       invalid.input.steps[0].sequence = sequence;
       await denied(
-        "select public.save_scenario($1,$2,$3)",
+        "select public.save_scenario($1,$2,$3,'50000000-0000-4000-8000-000000000001')",
         [p, invalid, saved.version],
         "23514",
       );
@@ -342,7 +383,82 @@ try {
   });
   await test("Geloeschtes Szenario wird weder erneut geloescht noch gespeichert", async () => {
     await denied("select public.delete_scenario($1,$2)", [p, copy.id], "40001");
-    await denied("select public.save_scenario($1,$2,1)", [p, copy], "40001");
+    await denied(
+      "select public.save_scenario($1,$2,1,'50000000-0000-4000-8000-000000000001')",
+      [p, copy],
+      "40001",
+    );
+  });
+  await test("Speichern ohne eigene Sperre abgelehnt (F51)", async () => {
+    const version = (
+      await q("select version from public.scenarios where id=$1", [doc.id])
+    ).rows[0].version;
+    await denied(
+      "select public.save_scenario($1,$2,$3,$4)",
+      [p, doc, version, editorTab2],
+      "55P03",
+    );
+  });
+  await test("Zweiter Tab derselben Person bleibt schreibgeschuetzt", async () =>
+    assert.deepEqual(await lock(doc.id, editorTab2), {
+      held: false,
+      holder: "phase2-editor@example.org",
+      sameUser: true,
+    }));
+  await as(owner);
+  await test("Zweiter Nutzer wird gewarnt und blockiert (F51, F58)", async () => {
+    assert.deepEqual(await lock(doc.id, ownerTab), {
+      held: false,
+      holder: "phase2-editor@example.org",
+      sameUser: false,
+    });
+    const version = (
+      await q("select version from public.scenarios where id=$1", [doc.id])
+    ).rows[0].version;
+    await denied(
+      "select public.save_scenario($1,$2,$3,$4)",
+      [p, doc, version, ownerTab],
+      "55P03",
+    );
+  });
+  await test("Gesperrtes Szenario wird nicht geloescht (E26)", () =>
+    denied("select public.delete_scenario($1,$2)", [p, doc.id], "55P03"));
+  await test("Uebernahme nach Rueckfrage entzieht dem bisherigen Bearbeiter das Speichern", async () => {
+    assert.deepEqual(await lock(doc.id, ownerTab, true), { held: true });
+    await as(editor);
+    assert.equal(
+      (await lock(doc.id, editorTab)).holder,
+      "phase2-owner@neonex.de",
+    );
+    const version = (
+      await q("select version from public.scenarios where id=$1", [doc.id])
+    ).rows[0].version;
+    await denied(
+      "select public.save_scenario($1,$2,$3,$4)",
+      [p, doc, version, editorTab],
+      "55P03",
+    );
+  });
+  await test("Freigabe beim Verlassen gibt das Szenario frei (F64)", async () => {
+    await as(owner);
+    await q("select public.release_scenario_lock($1,$2,$3)", [
+      p,
+      doc.id,
+      ownerTab,
+    ]);
+    await as(editor);
+    assert.deepEqual(await lock(doc.id, editorTab), { held: true });
+  });
+  await test("Abgelaufene Sperre ist ohne Uebernahme frei (F64)", async () => {
+    await q("reset role");
+    await q(
+      "update public.scenario_locks set expires_at=now()-interval '1 second' where scenario_id=$1",
+      [doc.id],
+    );
+    await as(owner);
+    assert.deepEqual(await lock(doc.id, ownerTab), { held: true });
+    await as(editor);
+    assert.deepEqual(await lock(doc.id, editorTab, true), { held: true });
   });
   await as(editor, otherSid);
   await test("Neue Anmeldung erfordert Code erneut", async () =>
@@ -354,6 +470,12 @@ try {
     denied("select public.list_scenario_documents($1)", [p]));
   await test("Neue Sitzung darf keine Szenarien loeschen", () =>
     denied("select public.delete_scenario($1,$2)", [p, doc.id]));
+  await test("Neue Sitzung erhaelt keine Sperre", () =>
+    denied("select public.acquire_scenario_lock($1,$2,$3)", [
+      p,
+      doc.id,
+      editorTab2,
+    ]));
   await as(staffEditor);
   await q("select public.redeem_project_code($1)", [code]);
   await as(staffEditor, otherSid);
@@ -408,6 +530,7 @@ try {
       "member_sessions",
       "project_codes",
       "code_attempts",
+      "scenario_locks",
     ];
     for (const role of ["owner", "editor", "outsider", "anonymous"]) {
       if (role === "owner") await as(owner);
@@ -633,6 +756,11 @@ try {
     await denied("select * from public.projects");
     await denied("select public.create_project('Anonym')");
     await denied("select public.delete_scenario($1,$2)", [
+      "00000000-0000-4000-8000-000000000000",
+      "00000000-0000-4000-8000-000000000000",
+    ]);
+    await denied("select public.acquire_scenario_lock($1,$2,$3)", [
+      "00000000-0000-4000-8000-000000000000",
       "00000000-0000-4000-8000-000000000000",
       "00000000-0000-4000-8000-000000000000",
     ]);

@@ -33,12 +33,30 @@ export interface StoredScenario {
   readonly categories: readonly Category[];
 }
 
+/** Ergebnis eines Sperrversuchs (E27); `sameUser`: Sperre liegt in einem anderen Tab derselben Person. */
+export interface LockState {
+  readonly held: boolean;
+  readonly holder?: string;
+  readonly sameUser?: boolean;
+}
+
+/** Bearbeitungssperre je Szenario und Browser-Tab (F51, F58, F64). */
+export interface ScenarioLockApi {
+  /** Erwerben bzw. erneuern; mit `takeover` eine fremde Sperre übernehmen. */
+  acquire(scenarioId: string, takeover?: boolean): Promise<LockState>;
+  release(scenarioId: string): Promise<void>;
+  /** Freigabe beim Schließen des Tabs, ohne auf eine Antwort zu warten. */
+  releaseOnExit(scenarioId: string): void;
+}
+
 /** Gemeinsame Schnittstelle fuer projektbezogene Cloud- und lokale Browserablage. */
 export interface ScenarioRepository {
   list(): Promise<StoredScenario[]>;
   get(id: string): Promise<StoredScenario | undefined>;
   save(scenario: StoredScenario): Promise<StoredScenario | void>;
   remove(id: string): Promise<void>;
+  /** Nur in der Cloud; die Browserablage nutzt nur dieses Gerät und braucht keine Sperre. */
+  readonly lock?: ScenarioLockApi;
 }
 
 /**

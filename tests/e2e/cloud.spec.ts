@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { test, expect, type BrowserContext } from "@playwright/test";
+import { test, expect, type BrowserContext, type Page } from "@playwright/test";
 import { importExample, XLSX_MIME } from "./fixtures";
 import { staffingWorkbook } from "./staffing-fixture";
 process.loadEnvFile(".env.local");
@@ -50,6 +50,14 @@ async function useLogin(
       sameSite: "Lax" as const,
     })),
   );
+}
+/** F64: Szenario über die Navigation verlassen und warten, bis die Sperre freigegeben ist. */
+async function leaveScenario(page: Page) {
+  const released = page.waitForResponse((r) =>
+    r.url().includes("/rpc/release_scenario_lock"),
+  );
+  await page.getByRole("link", { name: "Szenarien", exact: true }).click();
+  expect((await released).ok()).toBe(true);
 }
 test.beforeEach(async ({ page }) => {
   page.on("pageerror", (error) =>
@@ -139,6 +147,8 @@ test("Owner importiert, dupliziert und speichert ein Cloud-Szenario", async ({
   );
   expect(error).toBeNull();
   expect(data).toHaveLength(2);
+  // Sonst blockiert die Sperre des Owners das Löschen der Kopie im nächsten Test (E26).
+  await leaveScenario(page);
 });
 test("Editor muss Code einloesen und nach neuer Anmeldung erneut eingeben", async ({
   page,
@@ -175,6 +185,7 @@ test("Editor muss Code einloesen und nach neuer Anmeldung erneut eingeben", asyn
   ).toContainText(emails.editor);
   await page.reload();
   await expect(page.getByLabel("Takt [min]")).toHaveValue("5,00");
+  await leaveScenario(page);
   const second = await login(emails.editor);
   await context.clearCookies();
   await useLogin(context, second);
@@ -189,6 +200,96 @@ test("Editor muss Code einloesen und nach neuer Anmeldung erneut eingeben", asyn
   await expect(page).toHaveURL(/\/login$/);
   await page.goto("/");
   await expect(page).toHaveURL(/\/login$/);
+});
+
+test("Szenariosperre: zweiter Nutzer schreibgeschuetzt, Uebernahme und Freigabe (E27)", async ({
+  page,
+  context,
+  browser,
+}) => {
+  await useLogin(context, ownerAuth);
+  await page.goto("/projects");
+  await page
+    .locator("section")
+    .filter({ hasText: "Phase 2 Browser-Test " + owner })
+    .getByRole("button", { name: "Öffnen", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Szenarien", exact: true }),
+  ).toBeVisible();
+  const { data } = await ownerAuth.client.rpc("list_scenario_documents", {
+    p_project_id: projectId,
+  });
+  const scenarioId = data[0].id;
+  await page.goto("/szenario?ist=" + scenarioId);
+  await expect(page.getByLabel("Takt [min]")).toBeEnabled();
+
+  // Zweiter Nutzer: gewarnt, schreibgeschützt (F51, F58).
+  const editorContext = await browser.newContext();
+  const editorPage = await editorContext.newPage();
+  await useLogin(editorContext, await login(emails.editor));
+  await editorPage.goto("/projects");
+  await editorPage.getByLabel("Projektcode", { exact: true }).fill(code);
+  await editorPage.getByRole("button", { name: "Projekt beitreten" }).click();
+  await expect(editorPage).toHaveURL("http://localhost:3101/", {
+    timeout: 15000,
+  });
+  await editorPage.goto("/szenario?ist=" + scenarioId);
+  await expect(
+    editorPage.getByText("Wird gerade von " + emails.owner + " bearbeitet"),
+  ).toBeVisible();
+  await expect(editorPage.getByLabel("Takt [min]")).toBeDisabled();
+  await expect(editorPage.getByText("schreibgeschützt").first()).toBeVisible();
+
+  // Übernahme nach Rückfrage; der Owner kann danach nicht mehr speichern.
+  editorPage.once("dialog", (dialog) => dialog.accept());
+  await editorPage
+    .getByRole("button", { name: "Bearbeitung übernehmen" })
+    .click();
+  await expect(editorPage.getByLabel("Takt [min]")).toBeEnabled();
+  const ownerTakt = page.getByLabel("Takt [min]");
+  await ownerTakt.fill("6");
+  await ownerTakt.press("Enter");
+  await expect(
+    page.getByText(emails.editor + " hat die Bearbeitung übernommen"),
+  ).toBeVisible();
+  await expect(page.getByLabel("Takt [min]")).toBeDisabled();
+  const editorTakt = editorPage.getByLabel("Takt [min]");
+  await editorTakt.fill("7");
+  await editorTakt.press("Enter");
+  await expect(
+    editorPage.getByText("gespeichert", { exact: true }),
+  ).toBeVisible();
+
+  // Gelöscht wird ein gerade bearbeitetes Szenario nicht (E26).
+  const deletion = await ownerAuth.client.rpc("delete_scenario", {
+    p_project_id: projectId,
+    p_scenario_id: scenarioId,
+  });
+  expect(deletion.error?.code).toBe("55P03");
+
+  // F64: Schließen des Tabs gibt die Sperre frei.
+  await editorPage.close({ runBeforeUnload: true });
+  const probe = randomUUID();
+  await expect
+    .poll(
+      async () =>
+        (
+          await ownerAuth.client.rpc("acquire_scenario_lock", {
+            p_project_id: projectId,
+            p_scenario_id: scenarioId,
+            p_token: probe,
+          })
+        ).data?.held,
+      { timeout: 10000 },
+    )
+    .toBe(true);
+  await ownerAuth.client.rpc("release_scenario_lock", {
+    p_project_id: projectId,
+    p_scenario_id: scenarioId,
+    p_token: probe,
+  });
+  await editorContext.close();
 });
 
 test("Personalplanung im Cloud-Projekt speichern und wiederfinden", async ({

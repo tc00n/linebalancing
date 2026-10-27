@@ -51,6 +51,8 @@ export function StepTable(props: {
   view: ScenarioView;
   steps: readonly Step[];
   onApply: (op: Operation) => string | null;
+  /** Ohne Bearbeitungssperre (E27) sind alle Felder gesperrt. */
+  readOnly?: boolean;
 }) {
   const { view } = props;
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({
@@ -220,6 +222,7 @@ export function StepTable(props: {
                     <td className="px-2 py-1">
                       <select
                         aria-label={`Station von ${step.id}`}
+                        disabled={props.readOnly}
                         className={`${cellSelect} w-auto`}
                         value={step.stationId}
                         onChange={(e) =>
@@ -240,6 +243,7 @@ export function StepTable(props: {
                     <td className="px-2 py-1">
                       <select
                         aria-label={`Mitarbeiter von ${step.id}`}
+                        disabled={props.readOnly}
                         className={`${cellSelect} w-full min-w-40 ${step.employeeId ? "" : "border-warning text-warning"}`}
                         value={step.employeeId ?? ""}
                         onChange={(e) =>
@@ -259,6 +263,7 @@ export function StepTable(props: {
                     <td className="px-2 py-1">
                       <select
                         aria-label={`Kategorie von ${step.id}`}
+                        disabled={props.readOnly}
                         className={`${cellSelect} w-auto`}
                         value={step.categoryId ?? ""}
                         onChange={(e) =>
@@ -277,10 +282,18 @@ export function StepTable(props: {
                       </select>
                     </td>
                     <td className="px-2 py-1">
-                      <SequenceCell step={step} onApply={props.onApply} />
+                      <SequenceCell
+                        step={step}
+                        onApply={props.onApply}
+                        disabled={props.readOnly}
+                      />
                     </td>
                     <td className="px-2 py-1">
-                      <PredecessorCell step={step} onApply={props.onApply} />
+                      <PredecessorCell
+                        step={step}
+                        onApply={props.onApply}
+                        disabled={props.readOnly}
+                      />
                     </td>
                     <td className="px-2 py-1 text-right whitespace-nowrap tabular-nums">
                       {scheduled
@@ -337,6 +350,7 @@ export function StepTable(props: {
 function SequenceCell(props: {
   step: Step;
   onApply: (op: Operation) => string | null;
+  disabled?: boolean;
 }) {
   const shown = String(props.step.sequence).replace(".", ",");
   return (
@@ -345,6 +359,7 @@ function SequenceCell(props: {
       defaultValue={shown}
       inputMode="decimal"
       aria-label={`Reihenfolge von ${props.step.id}`}
+      disabled={props.disabled}
       className="h-7 w-20 tabular-nums"
       onBlur={(e) => {
         const parsed = parseGermanNumber(e.target.value);
@@ -369,6 +384,7 @@ function SequenceCell(props: {
 function PredecessorCell(props: {
   step: Step;
   onApply: (op: Operation) => string | null;
+  disabled?: boolean;
 }) {
   const shown = props.step.predecessorIds.join("; ");
   const [error, setError] = useState<string | null>(null);
@@ -378,6 +394,7 @@ function PredecessorCell(props: {
         key={shown}
         defaultValue={shown}
         aria-label={`Vorgänger von ${props.step.id}`}
+        disabled={props.disabled}
         aria-invalid={error !== null}
         placeholder="keine"
         className="h-7"

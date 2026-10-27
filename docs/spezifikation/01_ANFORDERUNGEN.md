@@ -740,4 +740,10 @@ Getroffen im Rahmen der Entwicklung. Präzisieren P1, P3 und die offenen Punkte 
 
 | ID | Verbindliche Entscheidung | Umsetzungshinweis |
 |---|---|---|
-| E26 (A5) | Owner und Editoren dürfen einzelne Szenarien nach einer Rückfrage endgültig löschen, ohne Papierkorb. Mit dem letzten Szenario einer Variante entfällt die Variante. Aufbewahrungs- und Backupfristen bleiben offen. | Serverseitig über die geprüfte Funktion `delete_scenario` (Mitgliedschaft und Code-Sitzung wie beim Speichern). Löschschutz für gerade bearbeitete Szenarien folgt mit der Szenariosperre (E27). |
+| E26 (A5) | Owner und Editoren dürfen einzelne Szenarien nach einer Rückfrage endgültig löschen, ohne Papierkorb. Mit dem letzten Szenario einer Variante entfällt die Variante. Aufbewahrungs- und Backupfristen bleiben offen. | Serverseitig über die geprüfte Funktion `delete_scenario` (Mitgliedschaft und Code-Sitzung wie beim Speichern). Gerade bearbeitete Szenarien werden nicht gelöscht (E27). |
+
+## 39 · Szenariosperre (27.10.2026)
+
+| ID | Verbindliche Entscheidung | Umsetzungshinweis |
+|---|---|---|
+| E27 (F51, F58, F64) | Ein Szenario wird beim Öffnen für diesen Browser-Tab gesperrt. Die Sperre gilt 2 Minuten und wird alle 30 s erneuert; beim Verlassen oder Schließen wird sie freigegeben, nach Absturz oder Verbindungsverlust läuft sie ab. Andere sehen das Szenario schreibgeschützt mit dem Namen des Bearbeiters und können die Bearbeitung nach Rückfrage übernehmen. | Durchgesetzt in Postgres: `save_scenario` speichert nur mit gültiger eigener Sperre, `delete_scenario` lehnt gesperrte Szenarien ab. Ein zweiter Tab derselben Person bleibt schreibgeschützt. |

@@ -29,6 +29,7 @@ import {
   type StoredScenario,
 } from "@/data/scenarioRepository";
 import { TemplateDownloadButton } from "@/features/import/template-download-button";
+import { withScenarioLock } from "@/features/workspace/use-scenario-lock";
 import { formatDateTime } from "@/lib/format";
 
 export function ScenarioList() {
@@ -86,13 +87,16 @@ export function ScenarioList() {
     );
     const trimmed = name.trim();
     if (!trimmed || trimmed === scenario.name) return;
-    await repository.save({
-      ...scenario,
-      name: uniqueName(
-        trimmed,
-        siblings.map((s) => s.name),
-      ),
-      updatedAt: new Date().toISOString(),
+    // E27: Umbenennen ist eine Änderung und braucht die Bearbeitungssperre.
+    await withScenarioLock(repository.lock, scenario.id, async () => {
+      await repository.save({
+        ...scenario,
+        name: uniqueName(
+          trimmed,
+          siblings.map((s) => s.name),
+        ),
+        updatedAt: new Date().toISOString(),
+      });
     });
     await reload();
   }
