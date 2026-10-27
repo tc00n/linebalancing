@@ -735,3 +735,9 @@ Getroffen im Rahmen der Entwicklung. Präzisieren P1, P3 und die offenen Punkte 
 | ID | Verbindliche Entscheidung | Umsetzungshinweis |
 |---|---|---|
 | F134 | Ein Mitarbeiter kann Arbeitsgänge an mehreren Stationen übernehmen, ohne eigenen Status (kein gesondert definierter Springer). Bezeichnungen „Mitarbeiter N“ laufen über die ganze Linie; dieselbe Bezeichnung an mehreren Stationen ist dieselbe Person (E40). Ändert F68, F75 und F100: Ein Arbeitsgang kann jedem Mitarbeiter der Linie zugewiesen werden. | Arbeitsgänge eines Mitarbeiters werden über alle Stationen nacheinander eingeplant, ohne Wegezeit. Je Einsatzstation eine eigene Spur; die Zeit an anderen Stationen ist keine Wartezeit. Stationshöhe nur aus der Arbeit an der Station, Überlast an der Gesamtbelegung. Mitarbeiterzahl je Station anteilig nach Belegung (F105, F108). F61 bleibt. Rechenregeln: docs/RECHENREGELN.md, Abschnitt 6a. |
+
+## 38 · Löschen von Szenarien (27.10.2026)
+
+| ID | Verbindliche Entscheidung | Umsetzungshinweis |
+|---|---|---|
+| E26 (A5) | Owner und Editoren dürfen einzelne Szenarien nach einer Rückfrage endgültig löschen, ohne Papierkorb. Mit dem letzten Szenario einer Variante entfällt die Variante. Aufbewahrungs- und Backupfristen bleiben offen. | Serverseitig über die geprüfte Funktion `delete_scenario` (Mitgliedschaft und Code-Sitzung wie beim Speichern). Löschschutz für gerade bearbeitete Szenarien folgt mit der Szenariosperre (E27). |

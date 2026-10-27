@@ -50,8 +50,22 @@ export function ScenarioList() {
   }, [repository]);
 
   async function remove(scenario: StoredScenario) {
+    // E26: Mit dem letzten Szenario entfällt auch die Variante.
+    const last = !(scenarios ?? []).some(
+      (s) => s.variantId === scenario.variantId && s.id !== scenario.id,
+    );
     const confirmed = window.confirm(
-      `Szenario „${scenario.name}“ aus diesem Browser löschen? Das lässt sich nicht rückgängig machen.`,
+      [
+        project.local
+          ? `Szenario „${scenario.name}“ aus diesem Browser löschen?`
+          : `Szenario „${scenario.name}“ für alle im Projekt endgültig löschen?`,
+        last
+          ? `Es ist das letzte Szenario der Variante „${scenario.variantName}“; die Variante entfällt damit.`
+          : "",
+        "Das lässt sich nicht rückgängig machen.",
+      ]
+        .filter(Boolean)
+        .join(" "),
     );
     if (!confirmed) return;
     await repository.remove(scenario.id);
@@ -159,11 +173,7 @@ export function ScenarioList() {
                 <ScenarioCard
                   key={scenario.id}
                   scenario={scenario}
-                  onRemove={
-                    project.local
-                      ? () => action(() => remove(scenario))
-                      : undefined
-                  }
+                  onRemove={() => action(() => remove(scenario))}
                   onDuplicate={() => action(() => duplicate(scenario))}
                   onRename={(name) => action(() => rename(scenario, name))}
                 />
@@ -178,7 +188,7 @@ export function ScenarioList() {
 
 function ScenarioCard(props: {
   scenario: StoredScenario;
-  onRemove?: () => void;
+  onRemove: () => void;
   onDuplicate: () => void;
   onRename: (name: string) => void;
 }) {
@@ -234,17 +244,15 @@ function ScenarioCard(props: {
           >
             <CopyIcon />
           </Button>
-          {props.onRemove && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Szenario ${scenario.name} löschen`}
-              title="Löschen"
-              onClick={props.onRemove}
-            >
-              <Trash2Icon />
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Szenario ${scenario.name} löschen`}
+            title="Löschen"
+            onClick={props.onRemove}
+          >
+            <Trash2Icon />
+          </Button>
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-wrap items-center gap-2">

@@ -298,6 +298,52 @@ try {
       );
     }
   });
+  const copy = {
+    ...structuredClone(doc),
+    id: "30000000-0000-4000-8000-000000000011",
+    name: "Kopie",
+  };
+  const single = {
+    ...structuredClone(doc),
+    id: "30000000-0000-4000-8000-000000000012",
+    variantId: "40000000-0000-4000-8000-000000000012",
+    variantName: "Einzeln",
+  };
+  const countIn = async (table, column, id) =>
+    (
+      await q(
+        "select count(*)::int n from public." +
+          table +
+          " where " +
+          column +
+          "=$1",
+        [id],
+      )
+    ).rows[0].n;
+  await test("Editor loescht Szenario vollstaendig, Variante bleibt mit weiterem Szenario (E26)", async () => {
+    await q("select public.import_scenario($1,$2)", [p, copy]);
+    await q("select public.delete_scenario($1,$2)", [p, copy.id]);
+    assert.equal(await countIn("scenarios", "id", copy.id), 0);
+    for (const table of [
+      "stations",
+      "employees",
+      "categories",
+      "steps",
+      "step_predecessors",
+    ])
+      assert.equal(await countIn(table, "scenario_id", copy.id), 0, table);
+    assert.equal(await countIn("scenarios", "id", doc.id), 1);
+    assert.equal(await countIn("variants", "id", doc.variantId), 1);
+  });
+  await test("Mit dem letzten Szenario verschwindet die Variante (E26)", async () => {
+    await q("select public.import_scenario($1,$2)", [p, single]);
+    await q("select public.delete_scenario($1,$2)", [p, single.id]);
+    assert.equal(await countIn("variants", "id", single.variantId), 0);
+  });
+  await test("Geloeschtes Szenario wird weder erneut geloescht noch gespeichert", async () => {
+    await denied("select public.delete_scenario($1,$2)", [p, copy.id], "40001");
+    await denied("select public.save_scenario($1,$2,1)", [p, copy], "40001");
+  });
   await as(editor, otherSid);
   await test("Neue Anmeldung erfordert Code erneut", async () =>
     assert.equal(
@@ -306,6 +352,8 @@ try {
     ));
   await test("Neue Sitzung sieht keine Szenarien", () =>
     denied("select public.list_scenario_documents($1)", [p]));
+  await test("Neue Sitzung darf keine Szenarien loeschen", () =>
+    denied("select public.delete_scenario($1,$2)", [p, doc.id]));
   await as(staffEditor);
   await q("select public.redeem_project_code($1)", [code]);
   await as(staffEditor, otherSid);
@@ -329,6 +377,7 @@ try {
       p,
       { ...doc, id: "30000000-0000-4000-8000-000000000099" },
     ]);
+    await denied("select public.delete_scenario($1,$2)", [p, doc.id]);
   });
   await test("Fuenf Fehlversuche fuehren zu Sperre", async () => {
     for (let i = 0; i < 5; i++)
@@ -583,6 +632,10 @@ try {
   await test("Anonyme haben keinen Tabellen-/Funktionszugriff", async () => {
     await denied("select * from public.projects");
     await denied("select public.create_project('Anonym')");
+    await denied("select public.delete_scenario($1,$2)", [
+      "00000000-0000-4000-8000-000000000000",
+      "00000000-0000-4000-8000-000000000000",
+    ]);
   });
   await q("rollback");
   console.log(

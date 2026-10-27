@@ -47,10 +47,19 @@ export function createCloudRepository(projectId: string): ScenarioRepository {
       }
       return withDefaults(data as StoredScenario);
     },
-    async remove() {
-      throw Error(
-        "Das Löschen einzelner Cloud-Szenarien ist noch nicht freigegeben (E26).",
-      );
+    /** E26: endgültig für alle im Projekt; mit dem letzten Szenario entfällt die Variante. */
+    async remove(id) {
+      const { error } = await client().rpc("delete_scenario", {
+        p_project_id: projectId,
+        p_scenario_id: id,
+      });
+      if (error) {
+        if (error.code === "40001")
+          throw Error("Das Szenario wurde bereits gelöscht. Bitte neu laden.");
+        throw Error(
+          "Löschen fehlgeschlagen. Bitte Verbindung und Projektzugriff prüfen.",
+        );
+      }
     },
   };
 }
