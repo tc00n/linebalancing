@@ -1,7 +1,12 @@
 import { COLUMNS, SHEET_STEPS } from "@/domain/import/template";
 import { compareStationLabels } from "@/domain/model/stationOrder";
 import { compareSteps } from "@/domain/model/stepOrder";
-import { newWorkbook, styleHeader } from "@/features/import/workbook";
+import { isProcess } from "@/domain/model/types";
+import {
+  columnWidth,
+  newWorkbook,
+  styleHeader,
+} from "@/features/import/workbook";
 import {
   describeIssue,
   type ScenarioView,
@@ -42,6 +47,8 @@ export function exportRows(view: ScenarioView, meta: ExportMeta) {
         : "",
       sequence: step.sequence,
       predecessors: step.predecessorIds.join("; "),
+      timeKind: isProcess(step) ? "Prozess" : "Hand",
+      holdsStation: isProcess(step) ? (step.holdsStation ? "ja" : "nein") : "",
     };
     return [
       ...COLUMNS.map((c) => template[c.key]),
@@ -68,7 +75,7 @@ export async function createExcelExport(
     ...COLUMNS.map((c) => ({
       header: c.header,
       key: c.key,
-      width: c.key === "description" ? 48 : c.key === "predecessors" ? 22 : 18,
+      width: columnWidth(c.key),
     })),
     { header: EXTRA_COLUMNS[0], key: "scenario", width: 28 },
     { header: EXTRA_COLUMNS[1], key: "stand", width: 34 },

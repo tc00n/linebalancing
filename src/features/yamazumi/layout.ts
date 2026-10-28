@@ -1,11 +1,12 @@
 import type { ScenarioResult } from "@/domain/calc/evaluate";
 import { exceeds } from "@/domain/calc/tolerance";
 import { compareSteps } from "@/domain/model/stepOrder";
-import type {
-  Employee,
-  ScenarioInput,
-  Station,
-  Step,
+import {
+  isUnassigned,
+  type Employee,
+  type ScenarioInput,
+  type Station,
+  type Step,
 } from "@/domain/model/types";
 
 // Übersetzt das Rechenergebnis in Diagrammsegmente (Minuten-Koordinaten).
@@ -32,6 +33,13 @@ export type Segment =
       readonly stepId: string;
       readonly from: number;
       readonly to: number;
+    }
+  /** Prozesszeit ohne Mitarbeiter, zeitlich korrekt in der Prozessspur (E44). */
+  | {
+      readonly kind: "process";
+      readonly stepId: string;
+      readonly from: number;
+      readonly to: number;
     };
 
 export interface Lane {
@@ -53,6 +61,8 @@ export interface StationColumn {
   readonly employeeCount: number;
   /** Nicht zugeordnete Schritte, gestapelt; nicht Teil der Stationshöhe (F67, E10). */
   readonly unassigned: readonly Segment[];
+  /** Prozesszeiten der Station (E44); leer = keine Prozessspur. */
+  readonly process: readonly Segment[];
   readonly height: number;
   readonly stationUtilization: number;
   readonly overTakt: boolean;
@@ -69,6 +79,8 @@ export interface StepFilter {
 }
 
 export const UNASSIGNED = "__unassigned__";
+/** Filterbezeichnung der Prozessspur; Prozesszeiten erscheinen nur ohne Mitarbeiterfilter. */
+const PROCESS = "__process__";
 
 export const EMPTY_FILTER: StepFilter = {
   stationIds: new Set(),
@@ -114,7 +126,7 @@ export function applyFilter(
   const restack = (
     segments: readonly Segment[],
     label: string | null,
-    kind: "step" | "unassigned",
+    kind: "step" | "unassigned" | "process",
   ) => {
     let top = 0;
     const out: Segment[] = [];
@@ -159,10 +171,12 @@ export function applyFilter(
         null,
         "unassigned",
       ).segments;
+      const process = restack(column.process, PROCESS, "process").segments;
       return {
         ...column,
         lanes,
         unassigned,
+        process,
         height: Math.max(0, ...lanes.map((l) => l.occupancy)),
         overTakt: false,
         filtered: true,
@@ -178,7 +192,7 @@ export function buildColumns(
   const employees = new Map(input.employees.map((e) => [e.id, e]));
   const stepsByStation = new Map<string, Step[]>();
   for (const step of [...input.steps].sort(compareSteps)) {
-    if (step.employeeId !== null) continue;
+    if (!isUnassigned(step)) continue;
     stepsByStation.set(step.stationId, [
       ...(stepsByStation.get(step.stationId) ?? []),
       step,
@@ -264,6 +278,12 @@ export function buildColumns(
       lanes,
       employeeCount: stationResult.employeeCount,
       unassigned,
+      process: stationResult.processSteps.map((s): Segment => ({
+        kind: "process",
+        stepId: s.stepId,
+        from: s.start,
+        to: s.end,
+      })),
       height: stationResult.height,
       stationUtilization: stationResult.stationUtilization,
       overTakt: stationResult.overTakt,
@@ -271,7 +291,7 @@ export function buildColumns(
   });
 }
 
-/** Höchster darzustellender Wert: Takt, Stationshöhen, Spuren und Stapel nicht zugeordneter Schritte. */
+/** Höchster darzustellender Wert: Takt, Stationshöhen, Spuren, Prozesszeiten und Stapel nicht zugeordneter Schritte. */
 export function axisMaximum(
   columns: readonly StationColumn[],
   taktMin: number,
@@ -279,6 +299,7 @@ export function axisMaximum(
   const tops = columns.flatMap((c) => [
     c.height,
     c.unassigned.at(-1)?.to ?? 0,
+    ...c.process.map((s) => s.to),
     ...c.lanes.map((l) => l.top),
   ]);
   return Math.max(taktMin, ...tops);

@@ -30,6 +30,15 @@ function editedView() {
       time: 0.76,
       sequence: 2.5,
     },
+    // Ablüften nach C, hält die Station (E44).
+    {
+      id: "E",
+      station: "S1",
+      time: 4,
+      predecessors: ["C"],
+      process: true,
+      holdsStation: true,
+    },
   ]);
   const doc = { input, categories: defaultCategories() };
   // Umverteilung: D nach S1 (Mitarbeiter wird entfernt, F61), C an MA2.
@@ -69,19 +78,22 @@ describe("Excel-Export (F35, E19)", () => {
       "Mitarbeiter",
       "Reihenfolge",
       "Vorgänger-IDs",
+      "Zeitart",
+      "Hält Station",
       ...EXTRA_COLUMNS,
     ]);
     const rows = sheet
       .getRows(2, sheet.rowCount - 1)!
       .map((r) => (r.values as unknown[]).slice(1));
-    expect(rows.map((r) => r.slice(0, 7))).toEqual([
-      ["A", "S1", "Arbeitsgang A", 2, "Mitarbeiter 1", 1, ""],
-      ["B", "S1", "Arbeitsgang B", 3, "Mitarbeiter 2", 2, ""],
-      ["C", "S1", "Arbeitsgang C", 1.5, "Mitarbeiter 2", 3, "B"],
-      ["D", "S1", "Arbeitsgang D", 0.76, "", 2.5, ""],
+    expect(rows.map((r) => r.slice(0, 9))).toEqual([
+      ["A", "S1", "Arbeitsgang A", 2, "Mitarbeiter 1", 1, "", "Hand", ""],
+      ["B", "S1", "Arbeitsgang B", 3, "Mitarbeiter 2", 2, "", "Hand", ""],
+      ["C", "S1", "Arbeitsgang C", 1.5, "Mitarbeiter 2", 3, "B", "Hand", ""],
+      ["E", "S1", "Arbeitsgang E", 4, "", 5, "C", "Prozess", "ja"],
+      ["D", "S1", "Arbeitsgang D", 0.76, "", 2.5, "", "Hand", ""],
     ]);
-    expect(rows[0].slice(7, 9)).toEqual([meta.scenarioName, meta.stand]);
-    expect(rows[3][9]).toContain("Kein Mitarbeiter zugeordnet");
+    expect(rows[0].slice(9, 11)).toEqual([meta.scenarioName, meta.stand]);
+    expect(rows[4][11]).toContain("Kein Mitarbeiter zugeordnet");
   });
 
   it("lässt sich über den normalen Import wieder einlesen", async () => {
@@ -106,12 +118,15 @@ describe("Excel-Export (F35, E19)", () => {
         label(s.employeeId),
         s.sequence,
         s.predecessorIds,
+        s.timeKind ?? "manual",
+        s.holdsStation ?? false,
       ]),
     ).toEqual([
-      ["A", 2, "station:S1", "Mitarbeiter 1", 1, []],
-      ["B", 3, "station:S1", "Mitarbeiter 2", 2, []],
-      ["C", 1.5, "station:S1", "Mitarbeiter 2", 3, ["B"]],
-      ["D", 0.76, "station:S1", null, 2.5, []],
+      ["A", 2, "station:S1", "Mitarbeiter 1", 1, [], "manual", false],
+      ["B", 3, "station:S1", "Mitarbeiter 2", 2, [], "manual", false],
+      ["C", 1.5, "station:S1", "Mitarbeiter 2", 3, ["B"], "manual", false],
+      ["E", 4, "station:S1", null, 5, ["C"], "process", true],
+      ["D", 0.76, "station:S1", null, 2.5, [], "manual", false],
     ]);
   });
 });

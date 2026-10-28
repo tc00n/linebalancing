@@ -1,6 +1,7 @@
 import { sortStations } from "../model/stationOrder";
 import { compareSteps } from "../model/stepOrder";
 import {
+  isUnassigned,
   personOf,
   type Minutes,
   type ScenarioInput,
@@ -11,7 +12,8 @@ import { exceeds, isBefore, nearlyEqual } from "./tolerance";
 export interface ScheduledStep {
   readonly stepId: string;
   readonly stationId: string;
-  readonly employeeId: string;
+  /** null = Prozesszeit ohne Mitarbeiter (E44). */
+  readonly employeeId: string | null;
   readonly start: Minutes;
   readonly end: Minutes;
   /** Wartezeit unmittelbar vor diesem Schritt (F63/F66, E5). */
@@ -19,7 +21,8 @@ export interface ScheduledStep {
 }
 
 /**
- * Ablaufplanung aller zugeordneten Schritte (docs/RECHENREGELN.md, Abschnitte 3 und 6a).
+ * Ablaufplanung aller zugeordneten Schritte und Prozesszeiten (docs/RECHENREGELN.md,
+ * Abschnitte 3, 6a und 6b).
  * Jede Station ist ein eigener Taktzyklus ab 0 (E1a); geplant wird gemeinsam über
  * alle Stationen, weil ein Springer (E40) linienweit nur eine Tätigkeit zugleich
  * ausführt. Ohne Springer ist das Ergebnis identisch mit der Planung je Station.
@@ -27,12 +30,10 @@ export interface ScheduledStep {
  * Ergebnis in Planungsreihenfolge, d. h. je Mitarbeiter nach nicht fallendem Start.
  */
 export function scheduleScenario(input: ScenarioInput): ScheduledStep[] {
-  // F109: nicht zugeordnete Schritte werden nicht eingeplant.
-  const steps = input.steps
-    .filter((s) => s.employeeId !== null)
-    .sort(compareSteps);
+  // F109: nicht zugeordnete Schritte werden nicht eingeplant, Prozesszeiten schon (E44).
+  const steps = input.steps.filter((s) => !isUnassigned(s)).sort(compareSteps);
   const byId = new Map(steps.map((s) => [s.id, s]));
-  // Zeitlich wirksam sind nur zugeordnete Vorgänger derselben Station (E1a, E4).
+  // Zeitlich wirksam sind nur eingeplante Vorgänger derselben Station (E1a, E4, E44).
   const timingPredecessors = new Map(
     steps.map((s) => [
       s.id,
@@ -48,6 +49,11 @@ export function scheduleScenario(input: ScenarioInput): ScheduledStep[] {
     compareSteps(a, b);
 
   const personFree = new Map<string, Minutes>();
+  // Prozesszeiten binden niemanden und warten nur auf ihre Vorgänger (E44).
+  const freeAt = (step: Step) =>
+    step.employeeId === null
+      ? 0
+      : (personFree.get(person.get(step.employeeId)!) ?? 0);
   const done = new Map<string, ScheduledStep>();
   const pending = new Set(steps);
   const result: ScheduledStep[] = [];
@@ -59,7 +65,7 @@ export function scheduleScenario(input: ScenarioInput): ScheduledStep[] {
       const predecessors = timingPredecessors.get(step.id)!;
       if (!predecessors.every((p) => done.has(p))) continue;
       const start = Math.max(
-        personFree.get(person.get(step.employeeId!)!) ?? 0,
+        freeAt(step),
         ...predecessors.map((p) => done.get(p)!.end),
       );
       if (
@@ -78,17 +84,20 @@ export function scheduleScenario(input: ScenarioInput): ScheduledStep[] {
     }
 
     const { step, start } = best;
-    const who = person.get(step.employeeId!)!;
-    const free = personFree.get(who) ?? 0;
+    const free = freeAt(step);
     const scheduled: ScheduledStep = {
       stepId: step.id,
       stationId: step.stationId,
-      employeeId: step.employeeId!,
+      employeeId: step.employeeId,
       start,
       end: start + step.timeMin,
-      waitBefore: exceeds(start, free) ? start - free : 0,
+      // Vor einer Prozesszeit wartet niemand.
+      waitBefore:
+        step.employeeId !== null && exceeds(start, free) ? start - free : 0,
     };
-    personFree.set(who, scheduled.end);
+    if (step.employeeId !== null) {
+      personFree.set(person.get(step.employeeId)!, scheduled.end);
+    }
     done.set(step.id, scheduled);
     pending.delete(step);
     result.push(scheduled);

@@ -10,6 +10,10 @@ export interface StepSpec {
   time: number;
   sequence?: number;
   predecessors?: string[];
+  /** Prozesszeit ohne Mitarbeiter (E44); `employee` bleibt dann leer. */
+  process?: boolean;
+  /** Prozesszeit hält die Station (E44). */
+  holdsStation?: boolean;
 }
 
 export function scenario(
@@ -55,6 +59,8 @@ export function scenario(
       stationId: spec.station,
       employeeId,
       predecessorIds: spec.predecessors ?? [],
+      ...(spec.process ? { timeKind: "process" as const } : {}),
+      ...(spec.holdsStation ? { holdsStation: true } : {}),
     };
   });
   options.idleEmployees?.forEach(addEmployee);

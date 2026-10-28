@@ -95,6 +95,8 @@
   --yz-wait-stripe: var(--nx-steel-dark);
   --yz-allowance: #dce6f0;
   --yz-unassigned: var(--warning);
+  /* Prozesszeit ohne Mitarbeiter (E44): gestrichelt wie im Standardarbeitsblatt. */
+  --yz-process: #e3ecf5;
   --yz-takt: var(--nx-red);
   --yz-over: var(--nx-red);
   --yz-grid: #e3e8ee;

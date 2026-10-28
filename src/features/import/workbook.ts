@@ -2,6 +2,7 @@ import type { Workbook, Worksheet } from "exceljs";
 import type { CellValue } from "@/domain/import/cells";
 import {
   COLUMNS,
+  type ColumnKey,
   mapHeaders,
   normalizeHeader,
   SHEET_GUIDE,
@@ -60,10 +61,13 @@ export async function readWorkbook(data: ArrayBuffer): Promise<ReadResult> {
   for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber++) {
     const row = sheet.getRow(rowNumber);
     const values = Object.fromEntries(
-      COLUMNS.map((c) => [
-        c.key,
-        normalizeCell(row.getCell(mapping.indexByKey[c.key] + 1).value),
-      ]),
+      COLUMNS.map((c) => {
+        const index = mapping.indexByKey[c.key];
+        return [
+          c.key,
+          index === null ? null : normalizeCell(row.getCell(index + 1).value),
+        ];
+      }),
     ) as RawRow["values"];
     rows.push({ rowNumber, values });
   }
@@ -135,6 +139,18 @@ const GUIDE_ROWS: [string, string, string, string][] = [
     "Arbeitsgang-IDs, die vorher abgeschlossen sein müssen, mit Semikolon getrennt. Leer = keine Vorgänger.",
     "AG-005; AG-008",
   ],
+  [
+    "Zeitart",
+    "nein",
+    "„Hand“ = Tätigkeit eines Mitarbeiters. „Prozess“ = Zeit, die ohne Mitarbeiter abläuft (z. B. Ablüften, Aushärten); der Mitarbeiter kann währenddessen anderes tun, Nachfolger warten auf ihr Ende. Bei „Prozess“ bleibt „Mitarbeiter“ leer. Leer oder Spalte fehlt = Hand.",
+    "Prozess",
+  ],
+  [
+    "Hält Station",
+    "nein",
+    "Nur bei Zeitart „Prozess“: „ja“ = das Produkt bleibt bis zum Ende der Prozesszeit an der Station, sie zählt in die Stationshöhe. „nein“ = sie läuft beim Weitertakten weiter. Leer = nein.",
+    "nein",
+  ],
 ];
 
 /** Leeres Importtemplate mit Ausfüllanleitung (F89). */
@@ -148,7 +164,7 @@ export async function createTemplate(): Promise<ArrayBuffer> {
   steps.columns = COLUMNS.map((c) => ({
     header: c.header,
     key: c.key,
-    width: c.key === "description" ? 48 : c.key === "predecessors" ? 22 : 18,
+    width: columnWidth(c.key),
   }));
   steps.getColumn("time").numFmt = "0.00";
   styleHeader(steps);
@@ -174,6 +190,10 @@ export async function createTemplate(): Promise<ArrayBuffer> {
   });
 
   return workbook.xlsx.writeBuffer() as Promise<ArrayBuffer>;
+}
+
+export function columnWidth(key: ColumnKey): number {
+  return key === "description" ? 48 : key === "predecessors" ? 22 : 18;
 }
 
 export function styleHeader(sheet: Worksheet) {

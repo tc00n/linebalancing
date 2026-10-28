@@ -1,5 +1,6 @@
 "use client";
 
+import { isProcess } from "@/domain/model/types";
 import {
   describeIssue,
   type ScenarioView,
@@ -42,8 +43,22 @@ export function StepTooltip(props: {
         <dd className="tabular-nums">{formatMinutes(step.timeMin)} min</dd>
         <dt className="text-muted-foreground">Station</dt>
         <dd>{view.stations.get(step.stationId)!.label}</dd>
-        <dt className="text-muted-foreground">Mitarbeiter</dt>
-        <dd>{employee?.label ?? "nicht zugeordnet"}</dd>
+        {isProcess(step) ? (
+          <>
+            <dt className="text-muted-foreground">Zeitart</dt>
+            <dd>
+              Prozesszeit ohne Mitarbeiter,{" "}
+              {step.holdsStation
+                ? "hält die Station"
+                : "läuft beim Weitertakten weiter"}
+            </dd>
+          </>
+        ) : (
+          <>
+            <dt className="text-muted-foreground">Mitarbeiter</dt>
+            <dd>{employee?.label ?? "nicht zugeordnet"}</dd>
+          </>
+        )}
         {scheduled && (
           <>
             <dt className="text-muted-foreground">Start – Ende</dt>

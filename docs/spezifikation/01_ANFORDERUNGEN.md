@@ -754,3 +754,9 @@ Getroffen im Rahmen der Entwicklung. Präzisieren P1, P3 und die offenen Punkte 
 |---|---|---|
 | E18 (F45, F52) | Diagrammexport als PNG und als einseitiges PDF im Querformat A4, auf die Breite skaliert. | Zeigt die aktuelle Ansicht mit Stationsbezeichnungen, numerischer Taktlinie, Stationshöhen, Mitarbeiterzahl, Stationsbelegung, Legende sowie Hinweisen auf Unvollständigkeit, Restriktionsverletzungen und Filter. |
 | E19 (F35) | Excel-Export im Format der Importvorlage mit Zusatzspalten Szenario, Stand und Warnungen. | Aktuelle Station und aktueller Mitarbeiter, importierte Zeiten unverändert (F17); die Datei lässt sich über den normalen Import wieder einlesen. |
+
+## 41 · Prozesszeiten ohne Mitarbeiter (28.10.2026)
+
+| ID | Verbindliche Entscheidung | Umsetzungshinweis |
+|---|---|---|
+| F135 | Arbeitsgänge haben eine Zeitart: Handzeit (bindet einen Mitarbeiter) oder Prozesszeit (läuft ohne Mitarbeiter ab, z. B. Ablüften). Eine Prozesszeit hat keinen Mitarbeiter; je Prozesszeit wird festgelegt, ob sie die Station hält (Vorgabe: nein). Zeitart und Kennzeichen kommen aus der Importdatei und sind in der App änderbar (E44). | Nachfolger warten auf das Ende der Prozesszeit, der Mitarbeiter arbeitet währenddessen weiter. Nicht im Arbeitsinhalt, ohne Zuschlag, kein Hinweis „unvollständig“. In die Stationshöhe nur, wenn sie die Station hält. Eigene, gestrichelte Prozessspur im Diagramm. Importspalten „Zeitart“ und „Hält Station“ sind optional. Rechenregeln: docs/RECHENREGELN.md, Abschnitt 6b. |

@@ -209,6 +209,10 @@ export function Legend(props: {
         Zuschlag
       </span>
       <span className="flex items-center gap-1.5">
+        <span className="inline-block size-3 rounded-sm border border-dashed border-nx-blue bg-(--yz-process)" />
+        Prozesszeit (bindet keinen Mitarbeiter)
+      </span>
+      <span className="flex items-center gap-1.5">
         <span className={swatch} style={{ backgroundImage: hatchUnassigned }} />
         ohne Mitarbeiter (nicht eingerechnet)
       </span>

@@ -27,6 +27,12 @@ export function personOf(employee: Pick<Employee, "id" | "personId">): string {
   return employee.personId ?? employee.id;
 }
 
+/**
+ * Zeitart (E44): Handzeit bindet einen Mitarbeiter, Prozesszeit (z. B. Ablüften)
+ * läuft ohne Mitarbeiter ab.
+ */
+export type TimeKind = "manual" | "process";
+
 export interface Step {
   /** Arbeitsgang-ID, eindeutig innerhalb der Variante (F69). */
   readonly id: string;
@@ -36,12 +42,32 @@ export interface Step {
   /** Spalte „Reihenfolge“; entscheidet nur bei Gleichstand (E3). */
   readonly sequence: number;
   readonly stationId: string;
-  /** null = nicht zugeordnet (F61/F109). */
+  /** null = nicht zugeordnet (F61/F109); bei Prozesszeit immer null (E44). */
   readonly employeeId: string | null;
   /** Arbeitsgang-IDs der Vorgänger (F54). */
   readonly predecessorIds: readonly string[];
   /** Kategorie (F27, F97); ohne Einfluss auf die Berechnung. */
   readonly categoryId?: string;
+  /** Fehlt = Handzeit (Szenarien vor E44). */
+  readonly timeKind?: TimeKind;
+  /**
+   * Nur Prozesszeit: Das Produkt bleibt bis zu ihrem Ende an der Station, sie
+   * zählt also in die Stationshöhe (E44). Fehlt = nein, die Prozesszeit läuft
+   * beim Weitertakten weiter.
+   */
+  readonly holdsStation?: boolean;
+}
+
+/** Prozesszeit ohne Mitarbeiter (E44). */
+export function isProcess(step: Pick<Step, "timeKind">): boolean {
+  return step.timeKind === "process";
+}
+
+/** Handzeit ohne Mitarbeiter: wird nicht eingeplant (F109). */
+export function isUnassigned(
+  step: Pick<Step, "timeKind" | "employeeId">,
+): boolean {
+  return step.employeeId === null && !isProcess(step);
 }
 
 export interface ScenarioInput {

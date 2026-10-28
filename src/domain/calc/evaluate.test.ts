@@ -400,3 +400,130 @@ describe("Eingabeprüfung", () => {
     expect(() => evaluateScenario(broken)).toThrow(/gehört nicht zur Station/);
   });
 });
+
+describe("Prozesszeiten (E44, RECHENREGELN 6b)", () => {
+  // Primern (MA1) → Ablüften 5 min → Kleben (MA1); dazwischen kann MA1 Weiteres erledigen.
+  const flashOff = (holdsStation = false, extra = true) =>
+    evaluateScenario(
+      scenario(
+        [
+          { id: "P", station: "S1", employee: "MA1", time: 2 },
+          {
+            id: "L",
+            station: "S1",
+            time: 5,
+            predecessors: ["P"],
+            process: true,
+            holdsStation,
+          },
+          {
+            id: "K",
+            station: "S1",
+            employee: "MA1",
+            time: 1,
+            predecessors: ["L"],
+          },
+          ...(extra
+            ? [{ id: "X", station: "S1", employee: "MA1", time: 3 }]
+            : []),
+        ],
+        { takt: 10 },
+      ),
+    );
+
+  it("bindet keinen Mitarbeiter: Er arbeitet während des Ablüftens weiter", () => {
+    const result = flashOff();
+    expect(timeline(result, "S1/MA1")).toEqual([
+      ["P", 0, 2, 0],
+      ["X", 2, 5, 0],
+      ["K", 7, 8, 2],
+    ]);
+    expect(station(result, "S1").processSteps).toEqual([
+      {
+        stepId: "L",
+        stationId: "S1",
+        employeeId: null,
+        start: 2,
+        end: 7,
+        waitBefore: 0,
+      },
+    ]);
+  });
+
+  it("zählt nicht als Arbeitsinhalt, nicht unvollständig, ohne Zuschlag", () => {
+    const result = evaluateScenario(
+      scenario(
+        [
+          { id: "P", station: "S1", employee: "MA1", time: 2 },
+          { id: "L", station: "S1", time: 5, process: true },
+        ],
+        { takt: 10, allowancePct: 10 },
+      ),
+    );
+    expect(result.kpis.totalWorkContent).toBe(2);
+    expect(result.kpis.incomplete).toBe(false);
+    expect(result.kpis.unassignedStepCount).toBe(0);
+    expect(employee(result, "S1/MA1").allowance).toBeCloseTo(0.2, 12);
+    expect(result.issues).toEqual([]);
+  });
+
+  it("bestimmt die Stationshöhe nur, wenn sie die Station hält", () => {
+    // Ablüften als letzter Schritt: endet bei 7, MA1 ist nach 2 fertig.
+    const last = (holdsStation: boolean) =>
+      station(
+        evaluateScenario(
+          scenario(
+            [
+              { id: "P", station: "S1", employee: "MA1", time: 2 },
+              {
+                id: "L",
+                station: "S1",
+                time: 5,
+                predecessors: ["P"],
+                process: true,
+                holdsStation,
+              },
+            ],
+            { takt: 6 },
+          ),
+        ),
+        "S1",
+      );
+    expect(last(false).height).toBe(2);
+    expect(last(false).overTakt).toBe(false);
+    expect(last(true).height).toBe(7);
+    expect(last(true).overTakt).toBe(true);
+    // Mitarbeiter, die länger arbeiten, bestimmen die Höhe weiterhin.
+    expect(station(flashOff(true), "S1").height).toBe(8);
+  });
+
+  it("meldet einen nicht zugeordneten Vorgänger einer Prozesszeit", () => {
+    const result = evaluateScenario(
+      scenario([
+        { id: "P", station: "S1", employee: null, time: 2 },
+        { id: "L", station: "S1", time: 5, predecessors: ["P"], process: true },
+      ]),
+    );
+    expect(result.issues).toEqual([
+      { kind: "step_unassigned", severity: "warning", stepId: "P" },
+      {
+        kind: "predecessor_unassigned",
+        severity: "warning",
+        stepId: "L",
+        predecessorId: "P",
+      },
+    ]);
+    expect(station(result, "S1").processSteps.map((s) => s.start)).toEqual([0]);
+  });
+
+  it("lehnt eine Prozesszeit mit Mitarbeiter ab", () => {
+    const input = scenario([
+      { id: "A", station: "S1", employee: "MA1", time: 1 },
+    ]);
+    const broken = {
+      ...input,
+      steps: input.steps.map((s) => ({ ...s, timeKind: "process" as const })),
+    };
+    expect(() => evaluateScenario(broken)).toThrow(/Prozesszeit/);
+  });
+});

@@ -114,3 +114,23 @@ Station S1, Takt 4,00 min, Zuschlag 10 %. Mitarbeiter 1: A (2,00), C (1,50, Vorg
 ## Mitarbeiter an mehreren Stationen
 
 **E40 – entschieden und umgesetzt (26.10.2026):** Mitarbeiter werden über die Linie durchnummeriert (T17 → Mitarbeiter 1, T18 → Mitarbeiter 2 …), und jeder Mitarbeiter kann Arbeitsgänge an mehreren Stationen übernehmen (F134), ohne dafür eigens als Springer gekennzeichnet zu sein. Nutzerentscheidungen: Arbeitsgänge eines Mitarbeiters laufen nacheinander, auch über Stationen hinweg; keine Wegezeit; Verschieben auf eine andere Station entfernt den Mitarbeiter weiterhin (F61); Mitarbeiter an mehreren Stationen zählen bei der Mitarbeiterzahl je Station anteilig nach Belegung, im Szenario einmal. Im Import ist dieselbe Bezeichnung an mehreren Stationen dieselbe Person. Szenarien vor E40 rechnen unverändert (jede Spur eine eigene Person). Rechenregeln: [RECHENREGELN.md](RECHENREGELN.md), Abschnitt 6a. Datenbank: Migration `202610260004_springer.sql`.
+
+## Prozesszeiten ohne Mitarbeiter
+
+**E44 – entschieden und umgesetzt (28.10.2026):** Zeiten wie das Ablüften (T17-AA006) binden keinen Mitarbeiter; er kann währenddessen andere Tätigkeiten ausführen, die nicht davon abhängen. Neue Anforderung F135.
+
+Übliche Darstellung (Standardarbeit nach TPS, REFA): Jeder Schritt hat eine Zeitart. Im Standardarbeitskombinationsblatt sind Handzeit (durchgezogen), Prozess-/Maschinenzeit (gestrichelt) und Gehzeit (Wellenlinie) getrennte Linien auf der Zeitachse. Im Yamazumi werden nur Handzeiten je Mitarbeiter gestapelt, Prozesszeiten erscheinen als eigene Spur.
+
+Nutzerentscheidungen:
+
+- Neue Zeitart „Prozesszeit“, gekennzeichnet über die optionale Importspalte „Zeitart“ (Hand/Prozess).
+- Je Prozesszeit ein Kennzeichen „hält Station“; **Vorgabe: nein** (Ablüften läuft beim Weitertakten weiter). Nicht pauschal für alle Prozesszeiten festgelegt.
+- Zeitart und Kennzeichen sind in der App änderbar (Detailpanel, Tabelle).
+
+Umsetzung: Rechenregeln in [RECHENREGELN.md](RECHENREGELN.md), Abschnitt 6b; Importspalten in [IMPORTTEMPLATE.md](IMPORTTEMPLATE.md). Prozessspur gestrichelt rechts neben den Mitarbeitern, auch im PNG/PDF-Export; Excel-Export mit beiden Spalten. Datenbank: Migration `202610280001_process_time.sql` (Spalten `time_kind`, `holds_station` mit Prüfungen; bestehende Schritte werden Handzeiten), am 28.10.2026 nach Bestätigung des Nutzers live angewendet; 50 Datenbanktests gegen das Live-Schema bestanden.
+
+Offen: Mehrere gleichzeitige Prozesszeiten einer Station liegen in derselben Spur übereinander. Der Konverter für Zeitaufnahmen setzt keine Zeitart; Ablüftzeiten sind nach dem Import in der App oder in der Datei umzustellen.
+
+## Mitarbeiteransicht
+
+**E45 – offen (28.10.2026):** Nutzer möchte die Funktion „Mitarbeiteransicht“ umsetzen lassen und hat darum gebeten, daran erinnert zu werden. Heute gibt es den Umschalter „Stationen | Mitarbeiter“ nach E9: Die Mitarbeiteransicht zeigt dieselben Spuren je Station, nur breiter und mit Beschriftung „MA N“ (F7, F92, F102, F106). Was darüber hinaus gewünscht ist (z. B. ein Balken je Person über alle Stationen, Sortierung nach Belegung, eigene Kennzahlen je Mitarbeiter), ist vor der Umsetzung mit dem Nutzer zu klären.

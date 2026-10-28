@@ -1,4 +1,5 @@
 import { roundHalfUp } from "../calc/rounding";
+import type { TimeKind } from "../model/types";
 
 /** Zellwert nach dem Einlesen: Text, Zahl oder leer. */
 export type CellValue = string | number | null;
@@ -69,4 +70,24 @@ export function splitPredecessors(value: CellValue): string[] {
     .split(";")
     .map((part) => part.trim())
     .filter((part) => part !== "");
+}
+
+const TIME_KINDS: Record<string, TimeKind> = {
+  hand: "manual",
+  handzeit: "manual",
+  prozess: "process",
+  prozesszeit: "process",
+};
+
+/** Spalte „Zeitart“ (E44): leer = Handzeit; null bei unbekanntem Text. */
+export function parseTimeKind(value: CellValue): TimeKind | null {
+  if (isBlank(value)) return "manual";
+  return TIME_KINDS[cellText(value).toLocaleLowerCase("de")] ?? null;
+}
+
+/** „ja“/„nein“, leer = nein; null bei anderem Text. */
+export function parseYesNo(value: CellValue): boolean | null {
+  if (isBlank(value)) return false;
+  const text = cellText(value).toLocaleLowerCase("de");
+  return text === "ja" ? true : text === "nein" ? false : null;
 }

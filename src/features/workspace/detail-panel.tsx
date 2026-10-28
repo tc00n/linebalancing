@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { parseGermanNumber } from "@/domain/import/cells";
 import { sortStations } from "@/domain/model/stationOrder";
+import { isProcess } from "@/domain/model/types";
 import type { Operation } from "@/domain/ops/operations";
 import { formatMinutes } from "@/lib/format";
 import { EmployeeOptions, employeeOperation } from "./employee-options";
@@ -17,7 +18,7 @@ const selectClass =
 /**
  * Detailpanel als Overlay rechts über dem Diagramm (F33, F123, F126).
  * Nicht modal, damit Drag-and-drop bedienbar bleibt. Editierbar sind
- * Station, Mitarbeiter, Kategorie, Reihenfolge und Vorgänger (E13, F127);
+ * Station, Zeitart, Mitarbeiter, Kategorie, Reihenfolge und Vorgänger (E13, F127, E44);
  * importierte Zeit und Arbeitsgang-ID bleiben schreibgeschützt (F17, F69).
  */
 export function DetailPanel(props: {
@@ -40,6 +41,7 @@ export function DetailPanel(props: {
   const readOnly = !props.onApply;
   const apply = (op: Operation) => props.onApply?.(op) ?? null;
 
+  const process = isProcess(step);
   const scheduled = view.scheduled.get(step.id);
   const issues = view.issuesByStep.get(step.id) ?? [];
   const successors = view.successors.get(step.id) ?? [];
@@ -120,30 +122,92 @@ export function DetailPanel(props: {
 
           <dt>
             <label
-              htmlFor={`${ids}-employee`}
+              htmlFor={`${ids}-time-kind`}
               className="text-muted-foreground"
             >
-              Mitarbeiter
+              Zeitart
             </label>
           </dt>
           <dd>
             <select
-              id={`${ids}-employee`}
-              className={`${selectClass} ${step.employeeId ? "" : "border-warning text-warning"}`}
-              value={step.employeeId ?? ""}
+              id={`${ids}-time-kind`}
+              className={selectClass}
+              value={process ? "process" : "manual"}
               disabled={readOnly}
               onChange={(e) =>
-                apply(employeeOperation(step.id, e.target.value))
+                apply({
+                  type: "setTimeKind",
+                  stepId: step.id,
+                  timeKind: e.target.value === "process" ? "process" : "manual",
+                })
               }
             >
-              <option value="">nicht zugeordnet</option>
-              <EmployeeOptions
-                employees={view.input.employees}
-                stations={view.input.stations}
-                stationId={step.stationId}
-              />
+              <option value="manual">Handzeit (Mitarbeiter)</option>
+              <option value="process">Prozesszeit (ohne Mitarbeiter)</option>
             </select>
           </dd>
+
+          {process ? (
+            <>
+              <dt>
+                <label
+                  htmlFor={`${ids}-holds`}
+                  className="text-muted-foreground"
+                >
+                  Hält Station
+                </label>
+              </dt>
+              <dd>
+                <select
+                  id={`${ids}-holds`}
+                  className={selectClass}
+                  value={step.holdsStation ? "yes" : "no"}
+                  disabled={readOnly}
+                  onChange={(e) =>
+                    apply({
+                      type: "setHoldsStation",
+                      stepId: step.id,
+                      holdsStation: e.target.value === "yes",
+                    })
+                  }
+                >
+                  <option value="no">
+                    nein, läuft beim Weitertakten weiter
+                  </option>
+                  <option value="yes">ja, zählt in die Stationshöhe</option>
+                </select>
+              </dd>
+            </>
+          ) : (
+            <>
+              <dt>
+                <label
+                  htmlFor={`${ids}-employee`}
+                  className="text-muted-foreground"
+                >
+                  Mitarbeiter
+                </label>
+              </dt>
+              <dd>
+                <select
+                  id={`${ids}-employee`}
+                  className={`${selectClass} ${step.employeeId ? "" : "border-warning text-warning"}`}
+                  value={step.employeeId ?? ""}
+                  disabled={readOnly}
+                  onChange={(e) =>
+                    apply(employeeOperation(step.id, e.target.value))
+                  }
+                >
+                  <option value="">nicht zugeordnet</option>
+                  <EmployeeOptions
+                    employees={view.input.employees}
+                    stations={view.input.stations}
+                    stationId={step.stationId}
+                  />
+                </select>
+              </dd>
+            </>
+          )}
 
           <dt>
             <label

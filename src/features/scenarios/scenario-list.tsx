@@ -1,5 +1,6 @@
 "use client";
 import { LocalScenarios } from "@/features/projects/local-scenarios";
+import { isUnassigned } from "@/domain/model/types";
 import { useProjectSession } from "@/features/projects/project-session";
 import { useScenarioRepository } from "@/features/projects/use-scenario-repository";
 
@@ -198,9 +199,7 @@ function ScenarioCard(props: {
 }) {
   const { scenario } = props;
   const [editing, setEditing] = useState(false);
-  const unassigned = scenario.input.steps.filter(
-    (s) => s.employeeId === null,
-  ).length;
+  const unassigned = scenario.input.steps.filter(isUnassigned).length;
 
   return (
     <Card>

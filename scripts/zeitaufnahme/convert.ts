@@ -1,5 +1,9 @@
 import type { Workbook, Worksheet } from "exceljs";
-import { COLUMNS, type ColumnKey } from "@/domain/import/template";
+import {
+  COLUMNS,
+  type ColumnKey,
+  type RequiredColumnKey,
+} from "@/domain/import/template";
 import { normalizeCell } from "@/features/import/workbook";
 
 /**
@@ -13,7 +17,9 @@ import { normalizeCell } from "@/features/import/workbook";
  */
 
 export interface ConvertedRow {
-  readonly values: Record<ColumnKey, string | number | null>;
+  /** Optionale Spalten (z. B. Zeitart, E44) bleiben leer. */
+  readonly values: Record<RequiredColumnKey, string | number | null> &
+    Partial<Record<ColumnKey, string | number | null>>;
   /** Zusatzspalten zur Nachverfolgung; der Import ignoriert sie. */
   readonly source: {
     readonly row: number;
@@ -190,7 +196,7 @@ export function fillTemplate(
   });
   for (const row of conversion.rows) {
     sheet.addRow([
-      ...COLUMNS.map((c) => row.values[c.key]),
+      ...COLUMNS.map((c) => row.values[c.key] ?? null),
       `${conversion.sheetName}!${row.source.row}`,
       row.source.za || null,
       row.source.aa || null,

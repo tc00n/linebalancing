@@ -1,5 +1,5 @@
 import { compareStationLabels } from "../model/stationOrder";
-import type { ScenarioInput } from "../model/types";
+import { isUnassigned, type ScenarioInput } from "../model/types";
 
 /**
  * Hinweise für Konfliktübersicht und Warnungen (docs/RECHENREGELN.md, Abschnitt 6).
@@ -31,7 +31,7 @@ export function findIssues(input: ScenarioInput): Issue[] {
   const issues: Issue[] = [];
 
   for (const step of input.steps) {
-    if (step.employeeId === null) {
+    if (isUnassigned(step)) {
       issues.push({
         kind: "step_unassigned",
         severity: "warning",
@@ -44,7 +44,7 @@ export function findIssues(input: ScenarioInput): Issue[] {
 
       if (predecessor.stationId === step.stationId) {
         // E4: nur ein Vorgänger derselben Station beeinflusst den Start (E1a).
-        if (step.employeeId !== null && predecessor.employeeId === null) {
+        if (!isUnassigned(step) && isUnassigned(predecessor)) {
           issues.push({
             kind: "predecessor_unassigned",
             severity: "warning",

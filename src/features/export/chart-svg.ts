@@ -43,6 +43,7 @@ const C = {
   allowance: "#dce6f0",
   unassigned: "#f0d0aa",
   unassignedStripe: "#e8ad69",
+  process: "#e3ecf5",
 };
 const FONT = "Inter, Arial, Helvetica, sans-serif";
 
@@ -90,10 +91,14 @@ export function chartSvg(input: ChartExportInput) {
   const unassignedWidth = Math.round(laneWidth * 0.8);
   const lanesWidth = (c: StationColumn) =>
     c.lanes.length * laneWidth + Math.max(0, c.lanes.length - 1) * LANE_GAP;
+  // Prozessspur (E44) rechts neben den Mitarbeitern.
+  const processWidth = (c: StationColumn) =>
+    c.process.length ? LANE_GAP + laneWidth : 0;
   const columnWidth = (c: StationColumn) =>
     Math.max(
       MIN_COLUMN_WIDTH,
       lanesWidth(c) +
+        processWidth(c) +
         (c.unassigned.length ? 2 * LANE_GAP + unassignedWidth : 0),
     );
 
@@ -187,7 +192,13 @@ export function chartSvg(input: ChartExportInput) {
     const fill =
       s.kind === "unassigned"
         ? "url(#unassigned)"
-        : (category?.color ?? C.step);
+        : s.kind === "process"
+          ? C.process
+          : (category?.color ?? C.step);
+    const stroke =
+      s.kind === "process"
+        ? `stroke="${C.blue}" stroke-width="1.5" stroke-dasharray="4 2"`
+        : 'stroke="#ffffff" stroke-width="1"';
     const color =
       s.kind === "step" && category ? textColorFor(category.color) : C.blue;
     const parts = [
@@ -208,13 +219,13 @@ export function chartSvg(input: ChartExportInput) {
             },
           )
         : "";
-    return `<rect x="${x}" y="${top}" width="${w}" height="${h}" fill="${fill}" stroke="#ffffff" stroke-width="1"/>${label}`;
+    return `<rect x="${x}" y="${top}" width="${w}" height="${h}" fill="${fill}" ${stroke}/>${label}`;
   };
 
   let x = plotLeft + 8;
   for (const column of columns) {
     const w = columnWidth(column);
-    const lanes = lanesWidth(column);
+    const lanes = lanesWidth(column) + processWidth(column);
     // Spuren je Mitarbeiter, zeitlich korrekt nebeneinander (E9).
     column.lanes.forEach((lane, i) => {
       const laneX = x + i * (laneWidth + LANE_GAP);
@@ -234,12 +245,14 @@ export function chartSvg(input: ChartExportInput) {
           ),
         );
     });
+    const processX = x + lanesWidth(column) + LANE_GAP;
+    column.process.forEach((s) => out.push(segment(s, processX, laneWidth)));
     // Nicht zugeordnete Arbeitsgänge daneben, nicht Teil der Stationshöhe (E10).
     const unassignedX = x + lanes + 2 * LANE_GAP;
     column.unassigned.forEach((s) =>
       out.push(segment(s, unassignedX, unassignedWidth)),
     );
-    if (column.lanes.length > 0) {
+    if (lanes > 0) {
       if (column.overTakt && !column.filtered && column.height > takt)
         out.push(
           `<rect x="${x}" y="${y(column.height)}" width="${lanes}" height="${(column.height - takt) * scale}" fill="${C.red}" fill-opacity="0.15" stroke="${C.red}" stroke-width="1.5"/>`,
@@ -351,6 +364,14 @@ function legendLayout(view: ScenarioView, top: number, width: number) {
       ),
       swatchWidth: 12,
       label: "Zuschlag",
+    },
+    {
+      swatch: box(
+        C.process,
+        `stroke="${C.blue}" stroke-width="1.5" stroke-dasharray="3 2"`,
+      ),
+      swatchWidth: 12,
+      label: "Prozesszeit (bindet keinen Mitarbeiter)",
     },
     {
       swatch: box("url(#unassigned)"),

@@ -25,7 +25,7 @@ export function buildScenario(
 
     // E40: Dieselbe Bezeichnung an mehreren Stationen ist dieselbe Person (Springer).
     let employeeId: string | null = null;
-    if (row.employee) {
+    if (row.employee && !row.process) {
       employeeId = `${stationId}/${row.employee}`;
       employees.set(employeeId, {
         id: employeeId,
@@ -44,6 +44,8 @@ export function buildScenario(
       employeeId,
       predecessorIds: [...row.predecessorIds],
       categoryId: DEFAULT_CATEGORY_ID, // E11
+      ...(row.process ? { timeKind: "process" as const } : {}),
+      ...(row.holdsStation ? { holdsStation: true } : {}),
     };
   });
 

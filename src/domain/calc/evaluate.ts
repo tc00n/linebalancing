@@ -1,7 +1,12 @@
 import { findIssues, type Issue } from "../checks/issues";
 import { sortStations } from "../model/stationOrder";
 import { compareSteps } from "../model/stepOrder";
-import { personOf, type Minutes, type ScenarioInput } from "../model/types";
+import {
+  isUnassigned,
+  personOf,
+  type Minutes,
+  type ScenarioInput,
+} from "../model/types";
 import { assertValidScenario } from "../model/validate";
 import { scheduleScenario, type ScheduledStep } from "./schedule";
 import { exceeds } from "./tolerance";
@@ -41,7 +46,10 @@ export interface StationResult {
    * nach Belegung (6a), daher nicht immer ganzzahlig.
    */
   readonly employeeCount: number;
-  /** Größte Belegung eines Mitarbeiters (F90). */
+  /**
+   * Größte Belegung eines Mitarbeiters (F90), mindestens bis zum Ende jeder
+   * Prozesszeit, die die Station hält (E44).
+   */
   readonly height: Minutes;
   /** Stationsbelegung = Höhe / Takt (F107). */
   readonly stationUtilization: number;
@@ -51,6 +59,8 @@ export interface StationResult {
   readonly overTakt: boolean;
   readonly unassignedStepIds: readonly string[];
   readonly unassignedWorkContent: Minutes;
+  /** Eingeplante Prozesszeiten der Station nach Start (E44). */
+  readonly processSteps: readonly ScheduledStep[];
 }
 
 export interface ScenarioKpis {
@@ -59,7 +69,7 @@ export interface ScenarioKpis {
   readonly employeeCount: number;
   /** F108 über alle Mitarbeiter des Szenarios; null ohne Mitarbeiter. */
   readonly personnelUtilization: number | null;
-  /** Summe der zugeordneten Zeiten ohne Zuschlag (E6b). */
+  /** Summe der zugeordneten Handzeiten ohne Zuschlag (E6b); ohne Prozesszeiten (E44). */
   readonly totalWorkContent: Minutes;
   readonly unassignedWorkContent: Minutes;
   readonly unassignedStepCount: number;
@@ -93,6 +103,7 @@ export function evaluateScenario(input: ScenarioInput): ScenarioResult {
   );
 
   const scheduled = scheduleScenario(input);
+  const stepById = new Map(input.steps.map((s) => [s.id, s]));
   const stepTime = new Map(input.steps.map((s) => [s.id, s.timeMin]));
   const allowanceFactor = input.allowancePct / 100;
 
@@ -136,9 +147,18 @@ export function evaluateScenario(input: ScenarioInput): ScenarioResult {
 
   const stations: StationResult[] = stationsInFlow.map((station) => {
     const own = employees.filter((e) => e.stationId === station.id);
-    const height = Math.max(0, ...own.map((e) => e.occupancy));
-    const unassigned = orderedSteps.filter(
+    const processSteps = scheduled.filter(
       (s) => s.stationId === station.id && s.employeeId === null,
+    );
+    const height = Math.max(
+      0,
+      ...own.map((e) => e.occupancy),
+      ...processSteps
+        .filter((s) => stepById.get(s.stepId)!.holdsStation)
+        .map((s) => s.end),
+    );
+    const unassigned = orderedSteps.filter(
+      (s) => s.stationId === station.id && isUnassigned(s),
     );
     const headcount = sum(own.map((e) => e.share));
     return {
@@ -150,11 +170,12 @@ export function evaluateScenario(input: ScenarioInput): ScenarioResult {
       overTakt: exceeds(height, input.taktMin),
       unassignedStepIds: unassigned.map((s) => s.id),
       unassignedWorkContent: sum(unassigned.map((s) => s.timeMin)),
+      processSteps,
     };
   });
 
   const issues = findIssues({ ...input, steps: orderedSteps });
-  const unassignedSteps = orderedSteps.filter((s) => s.employeeId === null);
+  const unassignedSteps = orderedSteps.filter(isUnassigned);
 
   return {
     stations,

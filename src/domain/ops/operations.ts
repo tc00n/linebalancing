@@ -1,10 +1,12 @@
 import { findCycles } from "../checks/cycles";
 import type { Category } from "../model/categories";
 import {
+  isProcess,
   personOf,
   type Employee,
   type ScenarioInput,
   type Step,
+  type TimeKind,
 } from "../model/types";
 
 /** Bearbeitbarer Stand eines Szenarios. */
@@ -43,6 +45,19 @@ export type Operation =
       readonly stepId: string;
       readonly sequence: number;
     }
+  /** E44: Prozesszeit verliert ihren Mitarbeiter, Handzeit das Kennzeichen „hält Station“. */
+  | {
+      readonly type: "setTimeKind";
+      readonly stepId: string;
+      readonly timeKind: TimeKind;
+      /** Nur Prozesszeit; fehlt = bisheriger Wert bleibt. */
+      readonly holdsStation?: boolean;
+    }
+  | {
+      readonly type: "setHoldsStation";
+      readonly stepId: string;
+      readonly holdsStation: boolean;
+    }
   | { readonly type: "setTakt"; readonly taktMin: number }
   | { readonly type: "setAllowance"; readonly allowancePct: number }
   | { readonly type: "addEmployee"; readonly stationId: string }
@@ -75,6 +90,8 @@ export function applyOperation(
     });
 
   const needStep = (stepId: string) => input.steps.find((s) => s.id === stepId);
+  const PROCESS_HAS_NO_EMPLOYEE =
+    "Prozesszeiten binden keinen Mitarbeiter. Zum Zuordnen die Zeitart auf Handzeit stellen.";
 
   switch (op.type) {
     case "moveStep": {
@@ -98,6 +115,7 @@ export function applyOperation(
       if (op.employeeId === null) {
         return updateStep(op.stepId, (s) => ({ ...s, employeeId: null }));
       }
+      if (isProcess(step)) return fail(PROCESS_HAS_NO_EMPLOYEE);
       const employee = input.employees.find((e) => e.id === op.employeeId);
       if (!employee) return fail("Mitarbeiter existiert nicht.");
       if (employee.stationId === step.stationId) {
@@ -171,6 +189,41 @@ export function applyOperation(
       return updateStep(op.stepId, (s) => ({ ...s, sequence: op.sequence }));
     }
 
+    case "setTimeKind": {
+      const step = needStep(op.stepId);
+      if (!step) return fail(`Arbeitsgang ${op.stepId} existiert nicht.`);
+      if (op.timeKind !== "manual" && op.timeKind !== "process") {
+        return fail("Unbekannte Zeitart.");
+      }
+      if (op.timeKind === "manual" && op.holdsStation) {
+        return fail("Nur Prozesszeiten können die Station halten.");
+      }
+      return updateStep(op.stepId, (s) => {
+        const holds = op.holdsStation ?? (isProcess(s) && !!s.holdsStation);
+        return op.timeKind === "process"
+          ? {
+              ...withoutTimeKind(s),
+              employeeId: null,
+              timeKind: "process",
+              ...(holds ? { holdsStation: true } : {}),
+            }
+          : withoutTimeKind(s);
+      });
+    }
+
+    case "setHoldsStation": {
+      const step = needStep(op.stepId);
+      if (!step) return fail(`Arbeitsgang ${op.stepId} existiert nicht.`);
+      if (!isProcess(step)) {
+        return fail("Nur Prozesszeiten können die Station halten.");
+      }
+      return updateStep(op.stepId, (s) =>
+        op.holdsStation
+          ? { ...s, holdsStation: true }
+          : { ...withoutTimeKind(s), timeKind: "process" },
+      );
+    }
+
     case "setTakt":
       if (!Number.isFinite(op.taktMin) || op.taktMin <= 0) {
         return fail("Taktzeit muss größer als 0 sein.");
@@ -194,6 +247,7 @@ export function applyOperation(
     case "assignNewEmployee": {
       const step = needStep(op.stepId);
       if (!step) return fail(`Arbeitsgang ${op.stepId} existiert nicht.`);
+      if (isProcess(step)) return fail(PROCESS_HAS_NO_EMPLOYEE);
       const employee = nextEmployee(input.employees, step.stationId);
       return withInput({
         employees: [...input.employees, employee],
@@ -236,6 +290,14 @@ export function applyOperation(
       };
     }
   }
+}
+
+/** Handzeit ohne Zeitart-Felder wie vor E44, damit unveränderte Stände gleich bleiben. */
+function withoutTimeKind(step: Step): Step {
+  const copy: { -readonly [K in keyof Step]: Step[K] } = { ...step };
+  delete copy.timeKind;
+  delete copy.holdsStation;
+  return copy;
 }
 
 /** Neue Spur einer Person an einer weiteren Station (E40). */

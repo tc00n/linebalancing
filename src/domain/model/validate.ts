@@ -1,5 +1,5 @@
 import { findCycles } from "../checks/cycles";
-import { personOf, type ScenarioInput } from "./types";
+import { isProcess, personOf, type ScenarioInput } from "./types";
 
 /**
  * Verletzte Invarianten der Eingabe. Import (F79–F87) und Datenbank stellen
@@ -72,7 +72,11 @@ export function assertValidScenario(input: ScenarioInput): void {
     if (!Number.isFinite(step.sequence)) {
       problems.push(`Arbeitsgang ${step.id}: ungültige Reihenfolge.`);
     }
-    if (step.employeeId !== null) {
+    if (isProcess(step) && step.employeeId !== null) {
+      problems.push(
+        `Arbeitsgang ${step.id}: Prozesszeit darf keinem Mitarbeiter zugeordnet sein.`,
+      );
+    } else if (step.employeeId !== null) {
       if (!employeeIds.has(step.employeeId)) {
         problems.push(
           `Arbeitsgang ${step.id}: unbekannter Mitarbeiter ${step.employeeId}.`,

@@ -284,3 +284,60 @@ describe("Invarianten über beliebige Operationsfolgen", () => {
     );
   });
 });
+
+describe("Zeitart (E44)", () => {
+  const process = () =>
+    ok({ type: "setTimeKind", stepId: "A", timeKind: "process" });
+
+  it("macht aus einer Handzeit eine Prozesszeit ohne Mitarbeiter", () => {
+    const s = process();
+    expect(step(s, "A")).toMatchObject({
+      timeKind: "process",
+      employeeId: null,
+      timeMin: 2,
+    });
+    expect(() => assertValidScenario(s.input)).not.toThrow();
+  });
+
+  it("verweigert die Zuordnung eines Mitarbeiters zu einer Prozesszeit", () => {
+    for (const op of [
+      { type: "assignEmployee", stepId: "A", employeeId: "S1/MA1" },
+      { type: "assignNewEmployee", stepId: "A" },
+    ] as const) {
+      const result = apply(op, process());
+      expect(result.ok).toBe(false);
+    }
+  });
+
+  it("setzt „hält Station“ nur bei Prozesszeiten und entfernt es mit der Rückkehr zur Handzeit", () => {
+    expect(
+      apply({ type: "setHoldsStation", stepId: "A", holdsStation: true }).ok,
+    ).toBe(false);
+    const held = ok(
+      { type: "setHoldsStation", stepId: "A", holdsStation: true },
+      process(),
+    );
+    expect(step(held, "A").holdsStation).toBe(true);
+    // In einem Schritt umstellen (Tabellenansicht).
+    expect(
+      step(
+        ok({
+          type: "setTimeKind",
+          stepId: "A",
+          timeKind: "process",
+          holdsStation: true,
+        }),
+        "A",
+      ).holdsStation,
+    ).toBe(true);
+    const manual = ok(
+      { type: "setTimeKind", stepId: "A", timeKind: "manual" },
+      held,
+    );
+    // Ohne Zeitart-Felder wie vor E44, der Mitarbeiter muss neu zugeordnet werden.
+    expect(step(manual, "A")).toEqual({
+      ...step(editable(), "A"),
+      employeeId: null,
+    });
+  });
+});

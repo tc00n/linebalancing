@@ -115,7 +115,15 @@ export function stationColumnWidth(
   const unassigned = column.unassigned.length
     ? LANE_GAP * 2 + Math.max(14, Math.round(laneWidth * 0.8))
     : 0;
-  return Math.max(MIN_COLUMN_WIDTH, lanes + unassigned);
+  return Math.max(
+    MIN_COLUMN_WIDTH,
+    lanes + processLaneWidth(column, laneWidth) + unassigned,
+  );
+}
+
+/** Prozessspur (E44) samt Abstand; 0 ohne Prozesszeiten. */
+function processLaneWidth(column: StationColumn, laneWidth: number): number {
+  return column.process.length ? LANE_GAP + laneWidth : 0;
 }
 
 const labelKey = (label: string) => label.toLocaleLowerCase("de");
@@ -366,6 +374,8 @@ function StationColumnView(
   const lanesWidth =
     column.lanes.length * laneWidth +
     Math.max(0, column.lanes.length - 1) * LANE_GAP;
+  // Stationshöhe über Mitarbeiter- und Prozessspur (E44: Prozesszeit kann die Station halten).
+  const heightLineWidth = lanesWidth + processLaneWidth(column, laneWidth);
   const width = Math.max(props.minWidth, stationColumnWidth(column, laneWidth));
   const dragging = props.draggedStep !== null;
   const isOrigin = props.draggedStep?.stationId === column.station.id;
@@ -401,6 +411,36 @@ function StationColumnView(
               highlight={isOrigin}
             />
           ))}
+          {column.process.length > 0 && (
+            <div
+              className="relative h-full"
+              style={{ width: laneWidth }}
+              aria-label="Prozesszeiten ohne Mitarbeiter"
+              title="Prozesszeiten ohne Mitarbeiter"
+            >
+              {column.process.map((segment, i) => (
+                <SegmentView
+                  key={i}
+                  segment={segment}
+                  view={props.view}
+                  pxPerMinute={pxPerMinute}
+                  labels={props.labels}
+                  selected={
+                    "stepId" in segment &&
+                    segment.stepId === props.selectedStepId
+                  }
+                  moved={
+                    "stepId" in segment &&
+                    !!props.movedStepIds?.has(segment.stepId)
+                  }
+                  highlight={highlightOf(segment, props.highlightStepIds)}
+                  draggable={!!props.actions}
+                  onSelectStep={props.onSelectStep}
+                  onHover={props.onHover}
+                />
+              ))}
+            </div>
+          )}
           {hasUnassigned && (
             <div
               className="relative ml-[3px] h-full pl-[3px]"
@@ -434,10 +474,10 @@ function StationColumnView(
           )}
         </div>
 
-        {column.lanes.length > 0 && (
+        {heightLineWidth > 0 && (
           <div
             className="pointer-events-none absolute left-0 z-10 border-t-2 border-nx-blue"
-            style={{ bottom: y(column.height), width: lanesWidth }}
+            style={{ bottom: y(column.height), width: heightLineWidth }}
             aria-hidden
           >
             <span
@@ -675,7 +715,7 @@ const FOCUS_RING =
 
 function StepSegment(
   props: Omit<SegmentProps, "segment"> & {
-    segment: Extract<Segment, { kind: "step" | "unassigned" }>;
+    segment: Extract<Segment, { kind: "step" | "unassigned" | "process" }>;
     style: { bottom: number; height: number; opacity?: number };
   },
 ) {
@@ -686,6 +726,7 @@ function StepSegment(
     disabled: !props.draggable,
   });
   const unassigned = segment.kind === "unassigned";
+  const process = segment.kind === "process";
   const category = step.categoryId
     ? props.view.categoryById.get(step.categoryId)
     : undefined;
@@ -704,10 +745,16 @@ function StepSegment(
             "repeating-linear-gradient(135deg, color-mix(in srgb, var(--yz-unassigned) 35%, white) 0 5px, color-mix(in srgb, var(--yz-unassigned) 60%, white) 5px 7px)",
           color: "#003c73",
         }
-      : {
-          backgroundColor: category?.color ?? "var(--yz-step)",
-          color: category ? textColorFor(category.color) : "#003c73",
-        };
+      : process
+        ? {
+            backgroundColor: "var(--yz-process)",
+            border: "1.5px dashed var(--nx-blue)",
+            color: "#003c73",
+          }
+        : {
+            backgroundColor: category?.color ?? "var(--yz-step)",
+            color: category ? textColorFor(category.color) : "#003c73",
+          };
   // F113/F116: verschobene Arbeitsgänge mit eigener Randfarbe und Symbol.
   const movedStyle = props.moved
     ? { boxShadow: "inset 4px 0 0 var(--yz-moved)" }
@@ -739,7 +786,7 @@ function StepSegment(
       }`}
       style={{ ...style, ...colors, ...movedStyle, ...matchStyle }}
       aria-label={`Arbeitsgang ${step.id}, ${formatMinutes(step.timeMin)} min${
-        unassigned ? ", nicht zugeordnet" : ""
+        unassigned ? ", nicht zugeordnet" : process ? ", Prozesszeit" : ""
       }${props.moved ? ", verschoben" : ""}`}
       onClick={() => props.onSelectStep(step.id)}
       onPointerEnter={(e) =>

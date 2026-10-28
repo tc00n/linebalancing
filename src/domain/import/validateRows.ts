@@ -6,6 +6,8 @@ import {
   normalizeEmployee,
   parseGermanNumber,
   parseTime,
+  parseTimeKind,
+  parseYesNo,
   splitPredecessors,
   type CellValue,
 } from "./cells";
@@ -35,6 +37,9 @@ export interface ParsedRow {
   readonly employee: string | null;
   readonly sequence: number | null;
   readonly predecessorIds: readonly string[];
+  /** Prozesszeit ohne Mitarbeiter (E44). */
+  readonly process: boolean;
+  readonly holdsStation: boolean;
 }
 
 export interface ValidationResult {
@@ -77,8 +82,40 @@ export function validateRows(rawRows: readonly RawRow[]): ValidationResult {
         );
       }
 
+      const timeKind = parseTimeKind(values.timeKind);
+      if (timeKind === null) {
+        error(
+          rowNumber,
+          "timeKind",
+          `Zeitart „${cellText(values.timeKind)}“ ist unbekannt. Erwartet: „Hand“ oder „Prozess“.`,
+        );
+      }
+      const process = timeKind === "process";
+      const holdsStation = parseYesNo(values.holdsStation);
+      if (holdsStation === null) {
+        error(
+          rowNumber,
+          "holdsStation",
+          `„${cellText(values.holdsStation)}“ ist ungültig. Erwartet: „ja“ oder „nein“.`,
+        );
+      } else if (holdsStation && timeKind === "manual") {
+        error(
+          rowNumber,
+          "holdsStation",
+          "Nur Prozesszeiten können die Station halten. Zeitart auf „Prozess“ setzen oder „nein“ eintragen.",
+        );
+      }
+
       let employee: string | null = null;
-      if (isBlank(values.employee)) {
+      if (process) {
+        if (!isBlank(values.employee)) {
+          error(
+            rowNumber,
+            "employee",
+            "Eine Prozesszeit bindet keinen Mitarbeiter. Mitarbeiter leeren oder Zeitart auf „Hand“ setzen.",
+          );
+        }
+      } else if (isBlank(values.employee)) {
         warning(rowNumber, "employee", "Kein Mitarbeiter zugeordnet.");
       } else {
         employee = normalizeEmployee(values.employee);
@@ -114,6 +151,8 @@ export function validateRows(rawRows: readonly RawRow[]): ValidationResult {
         employee,
         sequence: sequence.ok && !negative ? sequence.value : null,
         predecessorIds: splitPredecessors(values.predecessors),
+        process,
+        holdsStation: process && holdsStation === true,
       };
     });
 

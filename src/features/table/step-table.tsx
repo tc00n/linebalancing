@@ -15,7 +15,7 @@ import {
   sortStations,
 } from "@/domain/model/stationOrder";
 import { compareSteps } from "@/domain/model/stepOrder";
-import type { Step } from "@/domain/model/types";
+import { isProcess, type Step } from "@/domain/model/types";
 import type { Operation } from "@/domain/ops/operations";
 import {
   describeIssue,
@@ -39,7 +39,7 @@ type SortKey =
 
 const idCollator = new Intl.Collator("de", { numeric: true });
 /** Spaltenzahl der Tabelle, für Stationsköpfe und Hinweiszeilen. */
-const COLUMNS = 10;
+const COLUMNS = 11;
 const cellSelect =
   "h-7 rounded-md border border-input bg-white px-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60";
 
@@ -139,6 +139,9 @@ export function StepTable(props: {
             {header("description", "Beschreibung")}
             {header("time", "Zeit [min]", "text-right")}
             {header("station", "Station")}
+            <th scope="col" className="px-2 py-2 font-medium">
+              Zeitart
+            </th>
             {header("employee", "Mitarbeiter")}
             {header("category", "Kategorie")}
             {header("sequence", "Reihenfolge")}
@@ -185,9 +188,11 @@ export function StepTable(props: {
             {group.steps.map((step) => {
               const scheduled = view.scheduled.get(step.id);
               const issues = view.issuesByStep.get(step.id) ?? [];
-              const marked = step.employeeId
-                ? ""
-                : "bg-warning/5 shadow-[inset_3px_0_0_var(--warning)]";
+              const process = isProcess(step);
+              const marked =
+                step.employeeId || process
+                  ? ""
+                  : "bg-warning/5 shadow-[inset_3px_0_0_var(--warning)]";
               return (
                 <Fragment key={step.id}>
                   <tr className={`border-t align-middle ${marked}`}>
@@ -242,23 +247,60 @@ export function StepTable(props: {
                     </td>
                     <td className="px-2 py-1">
                       <select
-                        aria-label={`Mitarbeiter von ${step.id}`}
+                        aria-label={`Zeitart von ${step.id}`}
                         disabled={props.readOnly}
-                        className={`${cellSelect} w-full min-w-40 ${step.employeeId ? "" : "border-warning text-warning"}`}
-                        value={step.employeeId ?? ""}
+                        className={`${cellSelect} w-auto`}
+                        value={
+                          process
+                            ? step.holdsStation
+                              ? "process-held"
+                              : "process"
+                            : "manual"
+                        }
                         onChange={(e) =>
-                          props.onApply(
-                            employeeOperation(step.id, e.target.value),
-                          )
+                          props.onApply({
+                            type: "setTimeKind",
+                            stepId: step.id,
+                            timeKind:
+                              e.target.value === "manual"
+                                ? "manual"
+                                : "process",
+                            holdsStation: e.target.value === "process-held",
+                          })
                         }
                       >
-                        <option value="">nicht zugeordnet</option>
-                        <EmployeeOptions
-                          employees={view.input.employees}
-                          stations={view.input.stations}
-                          stationId={step.stationId}
-                        />
+                        <option value="manual">Hand</option>
+                        <option value="process">Prozess</option>
+                        <option value="process-held">
+                          Prozess, hält Station
+                        </option>
                       </select>
+                    </td>
+                    <td className="px-2 py-1">
+                      {process ? (
+                        <span className="px-1.5 text-muted-foreground">
+                          – (Prozesszeit)
+                        </span>
+                      ) : (
+                        <select
+                          aria-label={`Mitarbeiter von ${step.id}`}
+                          disabled={props.readOnly}
+                          className={`${cellSelect} w-full min-w-40 ${step.employeeId ? "" : "border-warning text-warning"}`}
+                          value={step.employeeId ?? ""}
+                          onChange={(e) =>
+                            props.onApply(
+                              employeeOperation(step.id, e.target.value),
+                            )
+                          }
+                        >
+                          <option value="">nicht zugeordnet</option>
+                          <EmployeeOptions
+                            employees={view.input.employees}
+                            stations={view.input.stations}
+                            stationId={step.stationId}
+                          />
+                        </select>
+                      )}
                     </td>
                     <td className="px-2 py-1">
                       <select

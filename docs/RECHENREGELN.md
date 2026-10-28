@@ -1,6 +1,6 @@
 # Rechenregeln
 
-**Stand:** 26.10.2026 · Verbindliche Grundlage für den Rechenkern (`src/domain/calc/`). Quellen: 01_ANFORDERUNGEN (F/P-Nummern) und die Entscheidungen E1–E7, E14 und E34 in [`OFFENE_ENTSCHEIDUNGEN.md`](OFFENE_ENTSCHEIDUNGEN.md). Mitarbeiter an mehreren Stationen (E40, F134) siehe Abschnitt 6a. Noch offen und hier nicht geregelt: E8 (Filter).
+**Stand:** 26.10.2026 · Verbindliche Grundlage für den Rechenkern (`src/domain/calc/`). Quellen: 01_ANFORDERUNGEN (F/P-Nummern) und die Entscheidungen E1–E7, E14 und E34 in [`OFFENE_ENTSCHEIDUNGEN.md`](OFFENE_ENTSCHEIDUNGEN.md). Mitarbeiter an mehreren Stationen (E40, F134) siehe Abschnitt 6a, Prozesszeiten (E44, F135) Abschnitt 6b. Noch offen und hier nicht geregelt: E8 (Filter).
 
 ## 1 · Einheiten und Genauigkeit
 
@@ -107,6 +107,28 @@ Entscheidung des Nutzers vom 26.10.2026: Ein Mitarbeiter kann an mehreren Statio
 - Stationshöhe (F90) = größte Spurbelegung der Station.
 - Mitarbeiterzahl einer Station (F105) = Summe der **Anteile**: Anteil einer Spur = Spurbelegung / Gesamtbelegung. Ohne jede Belegung verteilt sich ein Mitarbeiter gleichmäßig auf seine Einsatzstationen. Mitarbeiterzahl des Szenarios = Zahl der Personen.
 - Personalauslastung der Station (F108) = Summe der Spurbelegungen / (Mitarbeiterzahl der Station × Takt). Szenariowert unverändert.
+
+## 6b · Prozesszeiten ohne Mitarbeiter (E44, F135)
+
+Entscheidung des Nutzers vom 28.10.2026: Zeiten wie das Ablüften laufen ohne Mitarbeiter ab; er kann währenddessen andere Tätigkeiten ausführen, die nicht davon abhängen. Jeder Arbeitsgang hat deshalb eine **Zeitart**: Handzeit (bisheriges Verhalten) oder Prozesszeit. Ohne Prozesszeiten bleiben alle Ergebnisse unverändert.
+
+**Modell**
+
+- Eine Prozesszeit hat nie einen Mitarbeiter. Sie ist weder „nicht zugeordnet“ noch löst sie den Hinweis „unvollständig“ aus.
+- Je Prozesszeit gibt es das Kennzeichen **hält Station** (Vorgabe: nein). Nein = das Produkt darf während der Prozesszeit weitertakten (z. B. Ablüften). Ja = das Produkt bleibt bis zu ihrem Ende an der Station.
+- Zeitart und Kennzeichen sind in der App änderbar. Beim Wechsel zur Prozesszeit verliert der Arbeitsgang seinen Mitarbeiter, beim Wechsel zur Handzeit das Kennzeichen; er ist dann nicht zugeordnet.
+
+**Ablaufplanung (ergänzt Abschnitte 3 und 6a)**
+
+- Prozesszeiten werden eingeplant. Frühester Start = Ende ihrer zeitlich wirksamen Vorgänger (0 ohne Vorgänger); es gibt keinen Mitarbeiter, auf den sie warten.
+- Prozesszeiten sind zeitlich wirksame Vorgänger wie zugeordnete Handzeiten derselben Station. Ein Nachfolger startet frühestens an ihrem Ende; die Lücke bei seinem Mitarbeiter ist Wartezeit, sofern dieser nichts anderes ausführen kann.
+- Ein nicht zugeordneter Vorgänger einer Prozesszeit löst wie in Abschnitt 6 die Warnung „Startzeit unsicher“ aus.
+- Mehrere Prozesszeiten einer Station dürfen gleichzeitig laufen.
+
+**Kennzahlen (ergänzt Abschnitte 4 und 5)**
+
+- Prozesszeiten zählen nicht zur produktiven Zeit, zum Zuschlag, zur Belegung, zur Personalauslastung oder zum Gesamtarbeitsinhalt.
+- Stationshöhe = max(größte Belegung eines Mitarbeiters der Station; Ende jeder Prozesszeit der Station, die die Station hält). Eine Prozesszeit, die die Station nicht hält, verändert die Stationshöhe nur indirekt über die Wartezeit ihrer Nachfolger.
 
 ## 7 · Verbindlicher Testfall
 

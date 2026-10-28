@@ -48,7 +48,10 @@ export function createScenarioView(
     stations: new Map(input.stations.map((s) => [s.id, s])),
     employees: new Map(input.employees.map((e) => [e.id, e])),
     scheduled: new Map(
-      result.employees.flatMap((e) => e.steps).map((s) => [s.stepId, s]),
+      [
+        ...result.employees.flatMap((e) => e.steps),
+        ...result.stations.flatMap((s) => s.processSteps),
+      ].map((s) => [s.stepId, s]),
     ),
     successors,
     issuesByStep,

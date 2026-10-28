@@ -19,6 +19,8 @@ const base: Values = {
   employee: "Mitarbeiter 1",
   sequence: 1,
   predecessors: null,
+  timeKind: null,
+  holdsStation: null,
 };
 const rows = (...values: Partial<Values>[]): RawRow[] =>
   values.map((v, i) => ({ rowNumber: i + 2, values: { ...base, ...v } }));
@@ -117,6 +119,8 @@ describe("validateRows", () => {
           employee: null,
           sequence: null,
           predecessors: null,
+          timeKind: null,
+          holdsStation: null,
         },
       },
     ]);
@@ -273,5 +277,67 @@ describe("nameFromFilename (F88)", () => {
   it("entfernt Pfad und Endung", () => {
     expect(nameFromFilename("C:\\Daten\\XT 686 EF.xlsx")).toBe("XT 686 EF");
     expect(nameFromFilename("Variante.B.XLSM")).toBe("Variante.B");
+  });
+});
+
+describe("Zeitart (E44)", () => {
+  it("lässt die optionalen Spalten fehlen", () => {
+    const mapping = mapHeaders([
+      "Arbeitsgang-ID",
+      "Station",
+      "Arbeitsgang/Beschreibung",
+      "Zeit_min",
+      "Mitarbeiter",
+      "Reihenfolge",
+      "Vorgänger-IDs",
+    ]);
+    expect(mapping.ok && mapping.indexByKey).toMatchObject({
+      timeKind: null,
+      holdsStation: null,
+    });
+  });
+
+  it("übernimmt Prozesszeiten ohne Mitarbeiter und ohne Warnung", () => {
+    const raw = rows(
+      { id: "P" },
+      {
+        id: "L",
+        employee: null,
+        timeKind: "Prozess",
+        holdsStation: "ja",
+        predecessors: "P",
+        sequence: 2,
+      },
+      { id: "K", timeKind: "hand", holdsStation: "nein", predecessors: "L" },
+    );
+    const result = validateRows(raw);
+    expect(result.messages).toEqual([]);
+    const input = buildScenario(result.rows, { taktMin: 10, allowancePct: 0 });
+    expect(input.steps.find((s) => s.id === "L")).toMatchObject({
+      employeeId: null,
+      timeKind: "process",
+      holdsStation: true,
+    });
+    expect(input.steps.find((s) => s.id === "K")).not.toHaveProperty(
+      "timeKind",
+    );
+    expect(evaluateScenario(input).kpis.incomplete).toBe(false);
+  });
+
+  it("meldet unbekannte Werte und Widersprüche als Fehler", () => {
+    const errors = errorsOf(
+      rows(
+        { id: "A", timeKind: "Maschine" },
+        { id: "B", holdsStation: "vielleicht" },
+        { id: "C", holdsStation: "ja" },
+        { id: "D", timeKind: "Prozess" },
+      ),
+    );
+    expect(errors.map((e) => [e.rowNumber, e.column])).toEqual([
+      [2, "timeKind"],
+      [3, "holdsStation"],
+      [4, "holdsStation"],
+      [5, "employee"],
+    ]);
   });
 });

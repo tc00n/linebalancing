@@ -54,3 +54,33 @@ describe("axisTicks", () => {
     expect(axisTicks(0)).toEqual([0]);
   });
 });
+
+describe("Prozessspur (E44)", () => {
+  const input = scenario(
+    [
+      { id: "P", station: "S1", employee: "MA1", time: 2 },
+      {
+        id: "L",
+        station: "S1",
+        time: 5,
+        predecessors: ["P"],
+        process: true,
+      },
+      { id: "U", station: "S1", employee: null, time: 1 },
+    ],
+    { takt: 4 },
+  );
+  const [column] = buildColumns(input, evaluateScenario(input));
+
+  it("legt Prozesszeiten zeitlich korrekt in eine eigene Spur, nicht zu den nicht zugeordneten", () => {
+    expect(column.process).toEqual([
+      { kind: "process", stepId: "L", from: 2, to: 7 },
+    ]);
+    expect(column.unassigned.map((s) => "stepId" in s && s.stepId)).toEqual([
+      "U",
+    ]);
+    // Hält nicht die Station: Höhe aus dem Mitarbeiter, Achse bis zum Prozessende.
+    expect(column.height).toBe(2);
+    expect(axisMaximum([column], 4)).toBe(7);
+  });
+});

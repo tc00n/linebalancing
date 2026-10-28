@@ -339,6 +339,45 @@ try {
       );
     }
   });
+  await test("Prozesszeit gespeichert, mit Mitarbeiter oder als haltende Handzeit abgelehnt (E44)", async () => {
+    const version = (
+      await q("select version from public.scenarios where id=$1", [doc.id])
+    ).rows[0].version;
+    const process = structuredClone(doc);
+    Object.assign(process.input.steps[1], {
+      employeeId: null,
+      timeKind: "process",
+      holdsStation: true,
+    });
+    const saved = (
+      await q(
+        "select public.save_scenario($1,$2,$3,'50000000-0000-4000-8000-000000000001') doc",
+        [p, process, version],
+      )
+    ).rows[0].doc;
+    const [manual, flashOff] = saved.input.steps;
+    assert.equal(manual.timeKind, undefined);
+    assert.deepEqual(
+      [flashOff.timeKind, flashOff.holdsStation, flashOff.employeeId],
+      ["process", true, null],
+    );
+    const withEmployee = structuredClone(process);
+    withEmployee.input.steps[1].employeeId = "e1";
+    const heldManual = structuredClone(process);
+    delete heldManual.input.steps[1].timeKind;
+    for (const invalid of [withEmployee, heldManual]) {
+      await denied(
+        "select public.save_scenario($1,$2,$3,'50000000-0000-4000-8000-000000000001')",
+        [p, invalid, saved.version],
+        "23514",
+      );
+    }
+    // Zurueck zur Handzeit, damit die folgenden Tests den Ausgangsstand sehen.
+    await q(
+      "select public.save_scenario($1,$2,$3,'50000000-0000-4000-8000-000000000001')",
+      [p, doc, saved.version],
+    );
+  });
   const copy = {
     ...structuredClone(doc),
     id: "30000000-0000-4000-8000-000000000011",
