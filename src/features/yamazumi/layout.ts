@@ -80,7 +80,7 @@ export interface StepFilter {
 
 export const UNASSIGNED = "__unassigned__";
 /** Filterbezeichnung der Prozessspur; Prozesszeiten erscheinen nur ohne Mitarbeiterfilter. */
-const PROCESS = "__process__";
+export const PROCESS = "__process__";
 
 export const EMPTY_FILTER: StepFilter = {
   stationIds: new Set(),

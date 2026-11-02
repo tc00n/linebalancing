@@ -31,6 +31,7 @@ import {
   formatMinutes,
   formatPercent,
 } from "@/lib/format";
+import { barsMaximum, type BarSlot, type EmployeeBar } from "./employee-layout";
 import {
   axisMaximum,
   axisTicks,
@@ -40,6 +41,7 @@ import {
 } from "./layout";
 import { StepTooltip } from "./step-tooltip";
 
+/** Stationsansicht mit Spuren je Mitarbeiter (E9) oder Mitarbeiteransicht mit einem Balken je Person (E45). */
 export type ChartMode = "station" | "employee";
 
 export interface LabelFields {
@@ -60,7 +62,11 @@ interface YamazumiChartProps {
   readonly view: ScenarioView;
   readonly columns: readonly StationColumn[];
   readonly mode: ChartMode;
-  /** Breite einer Mitarbeiterspur in der Stationsansicht (F98). */
+  /** Mitarbeiteransicht (E45): Balken je Person; ohne Angabe gilt die Stationsansicht. */
+  readonly bars?: readonly EmployeeBar[];
+  /** Vergleich: gemeinsame Balkenfolge der Mitarbeiteransicht. */
+  readonly barSlots?: readonly BarSlot[];
+  /** Breite einer Mitarbeiterspur bzw. eines Mitarbeiterbalkens (F98). */
   readonly laneWidth: number;
   /** Zeitskala in Pixel je Minute (F98). */
   readonly pxPerMinute: number;
@@ -94,14 +100,26 @@ interface Hover {
   readonly y: number;
 }
 
+/** Ziel beim Ablegen: Station bzw. Spur, in der Mitarbeiteransicht der Balken einer Person. */
 interface DropData {
-  readonly stationId: string;
+  readonly stationId?: string;
   readonly employeeId?: string;
+  /** Mitarbeiterbalken (E45): Umzuordnung, die Station bleibt. */
+  readonly employeeIds?: readonly string[];
 }
 
-/** Spurbreite je Ansicht: in der Mitarbeiteransicht breiter (F102). */
-export function effectiveLaneWidth(laneWidth: number, mode: ChartMode): number {
-  return mode === "employee" ? Math.round(laneWidth * 2.2) : laneWidth;
+/** Stationsleiste links am Mitarbeiterbalken (E45). */
+const STRIP_WIDTH = 14;
+const BAR_GAP = 20;
+
+/** Breite eines Mitarbeiterbalkens samt Stationsleiste. */
+export function barColumnWidth(laneWidth: number): number {
+  return STRIP_WIDTH + 2 + laneWidth;
+}
+
+/** Gesamtbreite der Mitarbeiteransicht für „An Fenster anpassen“. */
+export function employeeBarsWidth(count: number, laneWidth: number): number {
+  return count * barColumnWidth(laneWidth) + Math.max(0, count - 1) * BAR_GAP;
 }
 
 /** Breite einer Stationsspalte; im Vergleich gilt das Maximum beider Seiten. */
@@ -131,7 +149,7 @@ const labelKey = (label: string) => label.toLocaleLowerCase("de");
 /** Eine Mitarbeiterspur hat Vorrang vor der Station, in der sie liegt. */
 const collisionDetection: CollisionDetection = (args) => {
   const hits = pointerWithin(args);
-  const lane = hits.find((h) => String(h.id).startsWith("lane:"));
+  const lane = hits.find((h) => /^(lane|bar):/.test(String(h.id)));
   return lane
     ? [lane]
     : hits.filter((h) => String(h.id).startsWith("station:"));
@@ -158,14 +176,14 @@ export function YamazumiChart({
 
   // F129: alle Ziele markieren, problematische gesondert.
   const dropWarnings = useMemo(() => {
-    if (!draggingId) return null;
+    if (!draggingId || props.mode === "employee") return null;
     return new Map(
       props.view.input.stations.map((s) => [
         s.id,
         violationsAfterMove(props.view.input, draggingId, s.id),
       ]),
     );
-  }, [draggingId, props.view.input]);
+  }, [draggingId, props.mode, props.view.input]);
 
   function onDragEnd(event: DragEndEvent) {
     setDraggingId(null);
@@ -173,7 +191,17 @@ export function YamazumiChart({
     const target = event.over?.data.current as DropData | undefined;
     const step = props.view.steps.get(stepId);
     if (!target || !step || !props.actions) return;
-    if (target.stationId !== step.stationId) {
+    if (target.employeeIds) {
+      // E45: auf einen anderen Mitarbeiterbalken gezogen; die Station bleibt (Springer nach E40).
+      if (
+        target.employeeIds.length > 0 &&
+        !(step.employeeId && target.employeeIds.includes(step.employeeId))
+      ) {
+        props.actions.onAssignEmployee(stepId, target.employeeIds[0]);
+      }
+      return;
+    }
+    if (target.stationId && target.stationId !== step.stationId) {
       // F61: Stationswechsel, Mitarbeiter wird bewusst danach zugewiesen.
       props.actions.onMoveStep(stepId, target.stationId);
     } else if (target.employeeId && target.employeeId !== step.employeeId) {
@@ -182,7 +210,11 @@ export function YamazumiChart({
   }
 
   const takt = props.view.input.taktMin;
-  const maximum = props.axisMaximum ?? axisMaximum(props.columns, takt);
+  const maximum =
+    props.axisMaximum ??
+    (props.mode === "employee" && props.bars
+      ? barsMaximum(props.bars, takt)
+      : axisMaximum(props.columns, takt));
   const ticks = axisTicks(maximum * 1.04);
   const top = Math.max(ticks.at(-1)!, maximum);
   const plotHeight = top * props.pxPerMinute + HEADROOM_PX;
@@ -293,7 +325,10 @@ interface ChartBodyProps extends Omit<
 }
 
 const ChartBody = memo(function ChartBody(props: ChartBodyProps) {
-  const laneWidth = effectiveLaneWidth(props.laneWidth, props.mode);
+  if (props.mode === "employee" && props.bars) {
+    return <EmployeeBarsBody {...props} bars={props.bars} />;
+  }
+  const laneWidth = props.laneWidth;
   const byLabel = new Map(
     props.columns.map((c) => [labelKey(c.station.label), c]),
   );
@@ -327,17 +362,18 @@ const ChartBody = memo(function ChartBody(props: ChartBodyProps) {
   );
 });
 
-/** Station, die es nur im anderen Szenario gibt (F111). */
+/** Station bzw. Mitarbeiter, den es nur im anderen Szenario gibt (F111, E45). */
 function MissingStation(props: {
   label: string;
   width: number;
   plotHeight: number;
+  kind?: string;
 }) {
   return (
     <section
       className="flex flex-col"
       style={{ width: props.width }}
-      aria-label={`Station ${props.label} (nicht vorhanden)`}
+      aria-label={`${props.kind ?? "Station"} ${props.label} (nicht vorhanden)`}
     >
       <div
         className="rounded-md border border-dashed border-border bg-secondary/40"
@@ -362,7 +398,7 @@ function StationColumnView(
     warnings: string[] | null;
   },
 ) {
-  const { column, laneWidth, pxPerMinute, mode, warnings } = props;
+  const { column, laneWidth, pxPerMinute, warnings } = props;
   const { setNodeRef, isOver } = useDroppable({
     id: `station:${column.station.id}`,
     data: { stationId: column.station.id } satisfies DropData,
@@ -500,7 +536,8 @@ function StationColumnView(
         )}
       </div>
 
-      {mode === "employee" && column.lanes.length > 0 && (
+      {/* E45: Die Stationsansicht beschriftet die Spuren mit „MA N“. */}
+      {column.lanes.length > 0 && (
         <div className="flex gap-[3px] pt-1">
           {column.lanes.map((lane) => {
             const empty = !lane.segments.some((s) => s.kind === "step");
@@ -574,6 +611,210 @@ function StationColumnView(
             title="Stationsbelegung: Stationshöhe / Takt"
           >
             {formatPercent(column.stationUtilization)}
+          </span>
+        )}
+      </footer>
+    </section>
+  );
+}
+
+/** Mitarbeiteransicht (E45): Balken je Person nebeneinander, im Vergleich nach gemeinsamer Folge. */
+function EmployeeBarsBody(
+  props: ChartBodyProps & { bars: readonly EmployeeBar[] },
+) {
+  const byKey = new Map(props.bars.map((b) => [b.key, b]));
+  const slots = props.barSlots ?? props.bars;
+  return (
+    <div className="relative flex" style={{ gap: BAR_GAP }}>
+      {slots.map((slot) => {
+        const bar = byKey.get(slot.key);
+        return bar ? (
+          <EmployeeBarView key={bar.key} {...props} bar={bar} />
+        ) : (
+          <MissingStation
+            key={`missing:${slot.key}`}
+            kind="Balken"
+            label={slot.label}
+            width={barColumnWidth(props.laneWidth)}
+            plotHeight={props.plotHeight}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function EmployeeBarView(
+  props: Omit<ChartBodyProps, "columns"> & { bar: EmployeeBar },
+) {
+  const { bar, pxPerMinute, laneWidth } = props;
+  const person = bar.kind === "person";
+  const { setNodeRef, isOver } = useDroppable({
+    id: `bar:${bar.key}`,
+    data: { employeeIds: bar.employeeIds } satisfies DropData,
+    disabled: !props.actions || !person,
+  });
+  const y = (minutes: number) => minutes * pxPerMinute;
+  const takt = props.view.input.taktMin;
+  const stationLabel = (id: string) => props.view.stations.get(id)!.label;
+  const stations = bar.stationIds.map(stationLabel).join(", ");
+  const dragging = props.draggedStep !== null;
+  const name =
+    bar.kind === "unassigned"
+      ? "ohne Mitarbeiter"
+      : bar.kind === "process"
+        ? "Prozesszeiten"
+        : bar.label;
+
+  return (
+    <section
+      className="flex flex-col"
+      style={{ width: barColumnWidth(laneWidth) }}
+      aria-label={`Balken ${name}`}
+    >
+      <div
+        className="relative flex gap-0.5"
+        style={{ height: props.plotHeight }}
+      >
+        {/* Stationsleiste: welcher Abschnitt des Balkens zu welcher Station gehört. */}
+        <div className="relative h-full" style={{ width: STRIP_WIDTH }}>
+          {bar.groups.map((group, i) => {
+            const height = y(group.to - group.from);
+            const label = stationLabel(group.stationId);
+            return (
+              <div
+                key={i}
+                className="absolute inset-x-0 flex items-center justify-center overflow-hidden rounded-sm border-l-2 border-nx-blue bg-secondary text-[10px] font-medium text-nx-blue"
+                style={{
+                  bottom: y(group.from),
+                  height: Math.max(1, height - 1),
+                }}
+                title={`Station ${label}`}
+              >
+                {height >= 24 && (
+                  <span
+                    className="whitespace-nowrap"
+                    style={{ writingMode: "vertical-rl", rotate: "180deg" }}
+                  >
+                    {label}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div
+          ref={setNodeRef}
+          className={`relative h-full rounded-sm outline-offset-2 transition-colors ${
+            person && dragging
+              ? "outline-2 outline-nx-blue/40 outline-dashed"
+              : ""
+          } ${person && isOver ? "bg-nx-blue/10" : ""}`}
+          style={{ width: laneWidth }}
+          title={
+            person
+              ? `${bar.label}: ${formatMinutes(bar.occupancy)} min (${stations || "ohne Station"})`
+              : `${name}: ${formatMinutes(bar.occupancy)} min, nicht eingerechnet`
+          }
+        >
+          {bar.segments.map((segment, i) => (
+            <SegmentView
+              key={i}
+              segment={segment}
+              view={props.view}
+              pxPerMinute={pxPerMinute}
+              labels={props.labels}
+              selected={
+                "stepId" in segment && segment.stepId === props.selectedStepId
+              }
+              moved={
+                "stepId" in segment && !!props.movedStepIds?.has(segment.stepId)
+              }
+              highlight={highlightOf(segment, props.highlightStepIds)}
+              // Prozesszeiten lassen sich keinem Mitarbeiter zuordnen (E44).
+              draggable={!!props.actions && segment.kind !== "process"}
+              onSelectStep={props.onSelectStep}
+              onHover={props.onHover}
+            />
+          ))}
+          {bar.groups.slice(1).map((group, i) => (
+            <div
+              key={i}
+              className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-nx-blue"
+              style={{ bottom: y(group.from) }}
+              aria-hidden
+            />
+          ))}
+          {bar.overTakt && bar.top > takt && (
+            // Teil oberhalb des Takts rot markieren (F106).
+            <div
+              className="pointer-events-none absolute inset-x-0 z-10 border-x-2 border-t-2 border-(--yz-over) bg-(--yz-over)/15"
+              style={{ bottom: y(takt), height: y(bar.top - takt) }}
+              aria-hidden
+            />
+          )}
+        </div>
+        {bar.top > 0 && (
+          <span
+            className={`pointer-events-none absolute z-10 rounded px-1 text-[11px] font-semibold tabular-nums ${
+              !person || bar.filtered
+                ? "bg-secondary text-muted-foreground"
+                : bar.overTakt
+                  ? "bg-nx-red text-white"
+                  : "bg-white text-nx-blue"
+            }`}
+            style={{ bottom: y(bar.top) + 2, left: STRIP_WIDTH + 2 }}
+            title={
+              bar.filtered
+                ? "Summe der sichtbaren Arbeitsgänge"
+                : person
+                  ? "Belegung"
+                  : "Summe, nicht eingerechnet"
+            }
+          >
+            {formatMinutes(bar.occupancy)}
+          </span>
+        )}
+      </div>
+
+      <footer
+        className={`mt-1 flex flex-col items-center border-t-2 pt-1.5 pb-2 text-center ${
+          !person
+            ? "border-dashed border-border"
+            : bar.overTakt
+              ? "border-nx-red"
+              : "border-nx-blue"
+        }`}
+      >
+        <span
+          className={`max-w-full truncate text-sm font-semibold ${
+            bar.overTakt ? "text-destructive" : ""
+          }`}
+          title={bar.label}
+        >
+          {bar.label.replace("Mitarbeiter ", "MA ")}
+        </span>
+        <span
+          className="max-w-full truncate text-[11px] text-muted-foreground"
+          title={stations}
+        >
+          {stations || "–"}
+        </span>
+        {person && !bar.filtered && (
+          <span
+            className={`text-[11px] whitespace-nowrap tabular-nums ${
+              bar.overTakt
+                ? "font-semibold text-destructive"
+                : "text-muted-foreground"
+            }`}
+            title="Belegung / Takt"
+          >
+            {formatPercent(bar.occupancy / takt)}
+          </span>
+        )}
+        {!person && (
+          <span className="text-[11px] text-muted-foreground">
+            nicht eingerechnet
           </span>
         )}
       </footer>

@@ -760,3 +760,9 @@ Getroffen im Rahmen der Entwicklung. Präzisieren P1, P3 und die offenen Punkte 
 | ID | Verbindliche Entscheidung | Umsetzungshinweis |
 |---|---|---|
 | F135 | Arbeitsgänge haben eine Zeitart: Handzeit (bindet einen Mitarbeiter) oder Prozesszeit (läuft ohne Mitarbeiter ab, z. B. Ablüften). Eine Prozesszeit hat keinen Mitarbeiter; je Prozesszeit wird festgelegt, ob sie die Station hält (Vorgabe: nein). Zeitart und Kennzeichen kommen aus der Importdatei und sind in der App änderbar (E44). | Nachfolger warten auf das Ende der Prozesszeit, der Mitarbeiter arbeitet währenddessen weiter. Nicht im Arbeitsinhalt, ohne Zuschlag, kein Hinweis „unvollständig“. In die Stationshöhe nur, wenn sie die Station hält. Eigene, gestrichelte Prozessspur im Diagramm. Importspalten „Zeitart“ und „Hält Station“ sind optional. Rechenregeln: docs/RECHENREGELN.md, Abschnitt 6b. |
+
+## 42 · Mitarbeiteransicht als Bedienerbalkendiagramm (28.10.2026)
+
+| ID | Verbindliche Entscheidung | Umsetzungshinweis |
+|---|---|---|
+| F136 | Ändert E9, F7 und F102 (E45): Die bisherige Mitarbeiteransicht (Spuren je Station mit „MA N“) ist die Stationsansicht. Die Mitarbeiteransicht zeigt einen Balken je Mitarbeiter (Person nach E40); Höhe = Belegung gegen den Takt, die Stationen gliedern den Balken. Balkenaufbau umschaltbar: gestapelte Summe oder zeitlich korrekt. Reihenfolge nach Linie, umschaltbar nach Belegung. Einen Arbeitsgang auf einen anderen Mitarbeiterbalken ziehen ordnet ihn um, die Station bleibt. | Segmente sind einzelne Arbeitsgänge in Kategoriefarbe, nach Station gruppiert mit Trennlinie und Stationsleiste, anklickbar. Über Takt rot (F106). Nicht zugeordnete Arbeitsgänge und Prozesszeiten (F135) als eigene Balken am Ende, nicht eingerechnet. Auch im Ist/Ziel-Vergleich (Abgleich über die Bezeichnung, fehlende Mitarbeiter als Leerplatz), im PNG/PDF-Export (aktuelle Ansicht) und mit Filtern nach E8 (Mitarbeiter ohne Treffer ausgeblendet). |

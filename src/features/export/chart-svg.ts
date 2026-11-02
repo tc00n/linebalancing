@@ -1,6 +1,10 @@
 import { textColorFor } from "@/domain/model/categories";
 import type { ScenarioView } from "@/features/workspace/scenario-view";
 import {
+  barsMaximum,
+  type EmployeeBar,
+} from "@/features/yamazumi/employee-layout";
+import {
   axisMaximum,
   axisTicks,
   type Segment,
@@ -26,6 +30,8 @@ export interface ChartExportInput {
   readonly footer: string;
   readonly view: ScenarioView;
   readonly columns: readonly StationColumn[];
+  /** Mitarbeiteransicht (E45): Balken je Person statt Stationsspalten. */
+  readonly bars?: readonly EmployeeBar[];
   readonly mode: ChartMode;
   readonly labels: LabelFields;
 }
@@ -53,6 +59,11 @@ const COLUMN_GAP = 28;
 const MIN_COLUMN_WIDTH = 64;
 const AXIS_WIDTH = 56;
 const PAD = 24;
+// Mitarbeiteransicht (E45): Stationsleiste links am Balken.
+const STRIP = 12;
+const BAR_WIDTH = 56;
+const BAR_COLUMN = STRIP + 2 + BAR_WIDTH;
+const BAR_GAP = 20;
 
 const escape = (text: string) =>
   text
@@ -82,12 +93,14 @@ function text(
 
 /**
  * Yamazumi als eigenständige SVG-Grafik für PNG und PDF (F45, F52, E18): Stationsbezeichnungen,
- * Taktlinie mit Wert, Achse, Stationshöhen und Legende. Zeigt dieselben Spalten wie das Diagramm.
+ * Taktlinie mit Wert, Achse, Stationshöhen und Legende. Zeigt dieselben Spalten bzw. in der
+ * Mitarbeiteransicht dieselben Balken wie das Diagramm (E45).
  */
 export function chartSvg(input: ChartExportInput) {
-  const { view, columns, mode } = input;
+  const { view, columns } = input;
+  const bars = input.mode === "employee" ? input.bars : undefined;
   const takt = view.input.taktMin;
-  const laneWidth = mode === "employee" ? 72 : 44;
+  const laneWidth = 44;
   const unassignedWidth = Math.round(laneWidth * 0.8);
   const lanesWidth = (c: StationColumn) =>
     c.lanes.length * laneWidth + Math.max(0, c.lanes.length - 1) * LANE_GAP;
@@ -102,19 +115,21 @@ export function chartSvg(input: ChartExportInput) {
         (c.unassigned.length ? 2 * LANE_GAP + unassignedWidth : 0),
     );
 
-  const maximum = axisMaximum(columns, takt);
+  const maximum = bars ? barsMaximum(bars, takt) : axisMaximum(columns, takt);
   const scale = PLOT_HEIGHT / (maximum * 1.04);
   const headerHeight = 30 + 20 + input.notes.length * 18 + 12;
   const plotTop = PAD + headerHeight + 24;
   const plotBottom = plotTop + PLOT_HEIGHT;
   const y = (minutes: number) => plotBottom - minutes * scale;
   const plotLeft = PAD + AXIS_WIDTH;
-  const plotWidth =
-    columns.reduce((t, c) => t + columnWidth(c), 0) +
-    Math.max(0, columns.length - 1) * COLUMN_GAP +
-    16;
+  const plotWidth = bars
+    ? bars.length * BAR_COLUMN + Math.max(0, bars.length - 1) * BAR_GAP + 16
+    : columns.reduce((t, c) => t + columnWidth(c), 0) +
+      Math.max(0, columns.length - 1) * COLUMN_GAP +
+      16;
   const width = Math.max(900, plotLeft + plotWidth + PAD);
-  const laneLabels = mode === "employee" ? 16 : 0;
+  // Stationsansicht: „MA N“ unter den Spuren (E45).
+  const laneLabels = bars ? 0 : 16;
   const legendTop = plotBottom + 8 + laneLabels + 58;
   const legend = legendLayout(view, legendTop, width);
   const height = legend.bottom + 28 + PAD;
@@ -222,28 +237,124 @@ export function chartSvg(input: ChartExportInput) {
     return `<rect x="${x}" y="${top}" width="${w}" height="${h}" fill="${fill}" ${stroke}/>${label}`;
   };
 
+  /** Balken einer Person bzw. „ohne MA“/„Prozess“ mit Stationsleiste und Fuß (E45). */
+  function employeeBar(bar: EmployeeBar, x: number): string[] {
+    const parts: string[] = [];
+    const person = bar.kind === "person";
+    const segX = x + STRIP + 2;
+    for (const group of bar.groups) {
+      const top = y(group.to);
+      const h = Math.max(1, (group.to - group.from) * scale - 1);
+      parts.push(
+        `<rect x="${x}" y="${top}" width="${STRIP}" height="${h}" fill="${C.grid}"/>`,
+        `<rect x="${x}" y="${top}" width="2" height="${h}" fill="${C.blue}"/>`,
+      );
+      const label = view.stations.get(group.stationId)!.label;
+      if (h >= 24)
+        parts.push(
+          `<text transform="translate(${x + STRIP / 2 + 4} ${top + h / 2}) rotate(-90)" font-size="9" font-weight="600" fill="${C.blue}" text-anchor="middle">${escape(fit(label, h - 4, 9))}</text>`,
+        );
+    }
+    bar.segments.forEach((s) => parts.push(segment(s, segX, BAR_WIDTH)));
+    for (const group of bar.groups.slice(1))
+      parts.push(
+        `<line x1="${segX}" x2="${segX + BAR_WIDTH}" y1="${y(group.from)}" y2="${y(group.from)}" stroke="${C.blue}" stroke-width="2"/>`,
+      );
+    if (bar.overTakt && bar.top > takt)
+      parts.push(
+        `<rect x="${segX}" y="${y(bar.top)}" width="${BAR_WIDTH}" height="${(bar.top - takt) * scale}" fill="${C.red}" fill-opacity="0.15" stroke="${C.red}" stroke-width="1.5"/>`,
+      );
+    if (bar.top > 0) {
+      const value = formatMinutes(bar.occupancy);
+      const highlight = person && !bar.filtered && bar.overTakt;
+      parts.push(
+        `<rect x="${segX}" y="${y(bar.top) - 18}" width="${value.length * 6.6 + 8}" height="15" rx="3" fill="${highlight ? C.red : "#ffffff"}"/>`,
+        text(segX + 4, y(bar.top) - 6.5, value, {
+          "font-size": 11,
+          "font-weight": 600,
+          fill: highlight
+            ? "#ffffff"
+            : person && !bar.filtered
+              ? C.blue
+              : C.muted,
+        }),
+      );
+    }
+    const footerTop = plotBottom + 4;
+    const center = x + BAR_COLUMN / 2;
+    const stations = bar.stationIds
+      .map((id) => view.stations.get(id)!.label)
+      .join(", ");
+    parts.push(
+      `<line x1="${x}" x2="${x + BAR_COLUMN}" y1="${footerTop}" y2="${footerTop}" stroke="${bar.overTakt ? C.red : person ? C.blue : C.grid}" stroke-width="2"${person ? "" : ' stroke-dasharray="4 3"'}/>`,
+      text(
+        center,
+        footerTop + 18,
+        fit(
+          bar.label.replace("Mitarbeiter ", "MA "),
+          BAR_COLUMN + BAR_GAP - 4,
+          13,
+        ),
+        {
+          "font-size": 13,
+          "font-weight": 700,
+          fill: bar.overTakt ? C.destructive : C.blue,
+          "text-anchor": "middle",
+        },
+      ),
+      text(
+        center,
+        footerTop + 33,
+        fit(stations || "–", BAR_COLUMN + BAR_GAP - 4, 11),
+        {
+          "font-size": 11,
+          fill: C.muted,
+          "text-anchor": "middle",
+        },
+      ),
+    );
+    if (!person || !bar.filtered)
+      parts.push(
+        text(
+          center,
+          footerTop + 47,
+          person ? formatPercent(bar.occupancy / takt) : "nicht eingerechnet",
+          {
+            "font-size": 11,
+            fill: bar.overTakt ? C.destructive : C.muted,
+            "font-weight": bar.overTakt ? 600 : 400,
+            "text-anchor": "middle",
+          },
+        ),
+      );
+    return parts;
+  }
+
   let x = plotLeft + 8;
-  for (const column of columns) {
+  for (const bar of bars ?? []) {
+    out.push(...employeeBar(bar, x));
+    x += BAR_COLUMN + BAR_GAP;
+  }
+  for (const column of bars ? [] : columns) {
     const w = columnWidth(column);
     const lanes = lanesWidth(column) + processWidth(column);
     // Spuren je Mitarbeiter, zeitlich korrekt nebeneinander (E9).
     column.lanes.forEach((lane, i) => {
       const laneX = x + i * (laneWidth + LANE_GAP);
       lane.segments.forEach((s) => out.push(segment(s, laneX, laneWidth)));
-      if (mode === "employee")
-        out.push(
-          text(
-            laneX + laneWidth / 2,
-            plotBottom + 14,
-            lane.employee.label.replace("Mitarbeiter ", "MA "),
-            {
-              "font-size": 11,
-              fill: lane.overTakt ? C.destructive : C.muted,
-              "font-weight": lane.overTakt ? 600 : 400,
-              "text-anchor": "middle",
-            },
-          ),
-        );
+      out.push(
+        text(
+          laneX + laneWidth / 2,
+          plotBottom + 14,
+          lane.employee.label.replace("Mitarbeiter ", "MA "),
+          {
+            "font-size": 11,
+            fill: lane.overTakt ? C.destructive : C.muted,
+            "font-weight": lane.overTakt ? 600 : 400,
+            "text-anchor": "middle",
+          },
+        ),
+      );
     });
     const processX = x + lanesWidth(column) + LANE_GAP;
     column.process.forEach((s) => out.push(segment(s, processX, laneWidth)));

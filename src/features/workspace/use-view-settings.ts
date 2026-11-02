@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import type {
+  BarArrangement,
+  BarOrder,
+} from "@/features/yamazumi/employee-layout";
+import type {
   ChartMode,
   LabelFields,
 } from "@/features/yamazumi/yamazumi-chart";
@@ -14,12 +18,17 @@ interface StoredView {
   mode: ChartMode;
   labels: LabelFields;
   laneWidth: number;
+  /** Mitarbeiteransicht (E45): Balkenaufbau und Reihenfolge. */
+  barArrangement: BarArrangement;
+  barOrder: BarOrder;
 }
 
 const DEFAULT_VIEW: StoredView = {
   mode: "station",
   labels: { id: true, description: false, duration: true },
   laneWidth: 36,
+  barArrangement: "stacked",
+  barOrder: "line",
 };
 
 /** Speicher kann gesperrt oder voll sein; dann gelten einfach die Standardwerte. */
@@ -66,6 +75,11 @@ export function useViewSettings(
     setLabels: (labels: LabelFields) => setView((v) => ({ ...v, labels })),
     laneWidth: view.laneWidth,
     setLaneWidth: (laneWidth: number) => setView((v) => ({ ...v, laneWidth })),
+    barArrangement: view.barArrangement,
+    setBarArrangement: (barArrangement: BarArrangement) =>
+      setView((v) => ({ ...v, barArrangement })),
+    barOrder: view.barOrder,
+    setBarOrder: (barOrder: BarOrder) => setView((v) => ({ ...v, barOrder })),
     pxPerMinute,
     setPxPerMinute,
   };

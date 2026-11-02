@@ -63,10 +63,7 @@ test("Excel importieren, korrigieren und als Yamazumi anzeigen", async ({
   });
 
   await page.keyboard.press("Escape");
-  await page
-    .getByRole("group", { name: "Ansicht" })
-    .getByRole("button", { name: "Mitarbeiter" })
-    .click();
+  // E45: Die Stationsansicht beschriftet die Spuren mit „MA N“.
   await expect(page.getByLabel("Station T17")).toContainText("MA 1");
   await page.screenshot({
     path: testInfo.outputPath("04-yamazumi-mitarbeiter.png"),

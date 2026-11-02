@@ -133,4 +133,50 @@ Offen: Mehrere gleichzeitige Prozesszeiten einer Station liegen in derselben Spu
 
 ## Mitarbeiteransicht
 
-**E45 – offen (28.10.2026):** Nutzer möchte die Funktion „Mitarbeiteransicht“ umsetzen lassen und hat darum gebeten, daran erinnert zu werden. Heute gibt es den Umschalter „Stationen | Mitarbeiter“ nach E9: Die Mitarbeiteransicht zeigt dieselben Spuren je Station, nur breiter und mit Beschriftung „MA N“ (F7, F92, F102, F106). Was darüber hinaus gewünscht ist (z. B. ein Balken je Person über alle Stationen, Sortierung nach Belegung, eigene Kennzahlen je Mitarbeiter), ist vor der Umsetzung mit dem Nutzer zu klären.
+**E45 – entschieden und umgesetzt (28.10.2026):** Nutzer möchte die Mitarbeiteransicht umsetzen (zunächst zurückgestellt, weil neue Zeiten vorlagen; am selben Tag wieder aufgenommen). Neue Anforderung F136.
+
+Festlegungen des Nutzers (ändern E9):
+
+- Die heutige Mitarbeiteransicht (Spuren je Station mit „MA N“) wird die **Stationsansicht**; die MA-Beschriftung bleibt.
+- Neue **Mitarbeiteransicht** als Bedienerbalkendiagramm: ein Balken je Mitarbeiter, Höhe = Belegung gegen den Takt, die Stationen gliedern den Balken.
+- Balkenaufbau **umschaltbar**: gestapelte Summe (Arbeitsgänge lückenlos, oben Wartezeit und Zuschlag) oder zeitlich korrekt (Arbeitsgänge an ihrer Startzeit).
+- Segmente: einzelne Arbeitsgänge in Kategoriefarbe, nach Station gruppiert mit Trennlinie und Beschriftung, anklickbar.
+- Reihenfolge: Linienreihenfolge (MA 1, MA 2 …), per Schalter nach Belegung absteigend.
+- Bearbeiten: Arbeitsgang auf einen anderen Mitarbeiterbalken ziehen = Umzuordnung, die Station bleibt.
+
+Restfragen am 28.10.2026 vom Nutzer entschieden (jeweils wie Vorschlag):
+
+- Nicht zugeordnete Arbeitsgänge und Prozesszeiten (E44) stehen als eigene Balken rechts neben den Mitarbeitern: „ohne Mitarbeiter“ schraffiert, „Prozesszeiten“ gestrichelt, beide nicht eingerechnet. Aus dem Balken „ohne Mitarbeiter“ lässt sich ein Arbeitsgang auf einen Mitarbeiter ziehen.
+- Auch im Ist/Ziel-Vergleich: Der Umschalter gilt für beide Diagramme mit gemeinsamer Skala; Abgleich der Mitarbeiter über ihre Bezeichnung, fehlende Mitarbeiter als Leerplatz; Markierung verschobener Arbeitsgänge wie bisher.
+- PNG/PDF-Export zeigt die aktuelle Ansicht (wie E18), also auch die Mitarbeiteransicht mit Balkenaufbau, Sortierung und Filter.
+- Filter wie E8: Berechnung mit allen Arbeitsgängen; je Mitarbeiter nur passende Arbeitsgänge lückenlos gestapelt, Wartezeit und Zuschlag ausgeblendet; Mitarbeiter ohne Treffer ausgeblendet.
+
+Umsetzung: Balken aus `src/features/yamazumi/employee-layout.ts` (rein, Unit-Tests `employee-layout.test.ts`), Darstellung in `yamazumi-chart.tsx`, Umschalter „Summe | Zeitlich“ und „Linie | Belegung“ im Arbeitsbereich (je Gerät gespeichert, E16). Stationsleiste links am Balken zeigt, welcher Abschnitt zu welcher Station gehört; im zeitlich korrekten Aufbau entsteht je Stationswechsel eines Springers ein eigener Abschnitt. Prozesszeiten und „ohne Mitarbeiter“ sind in beiden Aufbauten gestapelt, weil sie keiner Person folgen und sich Prozesszeiten mehrerer Stationen überlappen. Bei gleich benannten Personen (Szenarien vor E40) trägt der Balken die Stationen im Namen, z. B. „Mitarbeiter 1 (T17)“. „An Fenster anpassen“ begrenzt die Balkenbreite in der Mitarbeiteransicht auf 140 px. Prüfungen: 12 Unit-Tests für das Layout, 1 für den Export, Browsertest `employee-view.spec.ts` (Ziehen, Sortierung, Aufbau, Filter, Vergleich mit Leerplatz).
+
+Nicht umgesetzt (nicht verlangt): Ablegen auf dem Balken „ohne Mitarbeiter“ entfernt keine Zuordnung; Mitarbeiter hinzufügen oder entfernen geht weiterhin in der Stationsansicht.
+
+## Einsatz an anderen Stationen sichtbar machen
+
+**E46 – offen, als zukünftige Anpassung gewünscht (29.10.2026):** Nutzer möchte in der Stationsansicht besser sehen, wann und wo ein Mitarbeiter an anderen Stationen arbeitet (Springer nach E40). Heute ist die Zeit an anderen Stationen nur als Lücke mit gestrichelten Seitenlinien und durchsichtigem Hintergrund dargestellt (Segment „absence“); welche Station es ist, steht nur im Tooltip der Spurbeschriftung („auch an T17“).
+
+Wünsche des Nutzers:
+
+1. **Abwesenheit beschriften:** Der Block in der Lücke trägt die Station, an der der Mitarbeiter in dieser Zeit arbeitet, z. B. „T18“. Arbeitet er in einer Lücke nacheinander an mehreren Stationen, entsteht je Station ein eigener Block („T18“, „T19“).
+2. **Hervorheben beim Überfahren:** Fährt man mit der Maus über einen Mitarbeiter, werden alle seine Spuren an den anderen Stationen hervorgehoben. Anlass: Bei einem rot markierten (überlasteten) Mitarbeiter soll man sofort sehen, wo er noch eingesetzt ist und warum er überlastet ist.
+
+Vorschlag zur Umsetzung (noch nicht bestätigt):
+
+- Zu 1: Die Lücke wird nach den Arbeitsgängen der Person an anderen Stationen aufgeteilt; eine Wartezeit dort zählt zu der Station, an der sie entsteht. Beschriftung „T18“, im Tooltip „an T18: 0,76 min“; zu kleine Blöcke nur mit Tooltip. Gleiche Darstellung im PNG/PDF-Export.
+- Zu 2: Auslöser ist die Spur oder ihre Beschriftung „MA N“ (auch per Tastaturfokus). Alle Spuren derselben Person erhalten einen kräftigen blauen Rahmen und einen leichten Hintergrund, ihre Stationen eine Markierung im Fuß; die übrigen Spuren bleiben unverändert. Liegt eine Station außerhalb des sichtbaren Bereichs, nennt der Hinweis an der Spur sie trotzdem („auch an T20, T21“).
+- Zu klären: auch in der Mitarbeiteransicht (dort zeigt der Balken bereits alle Stationen) und im Ist/Ziel-Vergleich (Hervorhebung auf beiden Seiten über die Bezeichnung)?
+
+## Vorgänger und Nachfolger im Diagramm zeigen
+
+**E47 – offen, als zukünftige Anpassung gewünscht (29.10.2026):** Nutzer möchte beim Klick auf einen Arbeitsgang im Diagramm sehen, welche Arbeitsgänge seine Vorgänger und welche seine Nachfolger sind: farblich hervorgehoben und möglichst mit Pfeilen verbunden. Heute öffnet der Klick nur das Detailpanel, das die Vorgänger-IDs als Text nennt (F127); Nachfolger erscheinen nirgends direkt.
+
+Vorschlag zur Umsetzung (noch nicht bestätigt):
+
+- Beim ausgewählten Arbeitsgang: direkte Vorgänger und direkte Nachfolger (Arbeitsgänge, die ihn als Vorgänger nennen) mit zwei unterscheidbaren Rahmenfarben hervorheben, Rest unverändert; Legende ergänzen.
+- Pfeile als Überlagerung im Diagramm: vom Ende des Vorgängers zum Start des Arbeitsgangs bzw. zum Nachfolger. Verletzte Beziehungen (Nachfolger beginnt vor dem Ende des Vorgängers, F15) rot; Beziehungen über Stationsgrenzen gestrichelt, weil sie nach E1a zeitlich nicht wirken.
+- Liegt ein verbundener Arbeitsgang außerhalb des sichtbaren Bereichs oder ist er ausgefiltert (E8), zeigt das Detailpanel ihn in einer Liste „Vorgänger“ / „Nachfolger“ zum Anspringen.
+- Zu klären: nur direkte Beziehungen oder die ganze Kette (alle Vorgänger bis zum Anfang)? Auch in der Mitarbeiteransicht (E45), im Ist/Ziel-Vergleich und im PNG/PDF-Export? Auslöser nur Klick oder auch Überfahren mit der Maus (vgl. E46)?

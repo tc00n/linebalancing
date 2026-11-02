@@ -5,6 +5,7 @@ import { evaluateScenario } from "@/domain/calc/evaluate";
 import { defaultCategories } from "@/domain/model/categories";
 import { scenario } from "@/domain/testing/builders";
 import { createScenarioView } from "@/features/workspace/scenario-view";
+import { buildEmployeeBars } from "@/features/yamazumi/employee-layout";
 import { buildColumns } from "@/features/yamazumi/layout";
 import { formatPercent } from "@/lib/format";
 import { chartSvg } from "./chart-svg";
@@ -69,10 +70,26 @@ describe("Diagrammexport (F52, E18)", () => {
     expect(Math.max(...xs)).toBeLessThan(width - 100);
   });
 
-  it("beschriftet in der Mitarbeiteransicht die Spuren", () => {
-    const { svg } = chartSvg(input("employee"));
+  it("beschriftet in der Stationsansicht die Spuren (E45)", () => {
+    const { svg } = chartSvg(input());
     expect(svg).toContain(">MA 1</text>");
     expect(svg).toContain(">MA 2</text>");
+  });
+
+  it("zeigt in der Mitarbeiteransicht einen Balken je Mitarbeiter mit Belegung (E45)", () => {
+    const base = input("employee");
+    const bars = buildEmployeeBars(base.view.input, base.view.result, {
+      arrangement: "stacked",
+    });
+    const { svg } = chartSvg({ ...base, bars });
+    // Mitarbeiter 1: 3,5 min Arbeit + 1,0 Wartezeit + 0,35 Zuschlag, über Takt.
+    expect(svg).toContain(">4,85</text>");
+    expect(svg).toContain(`>${formatPercent(1.2125)}</text>`);
+    expect(svg).toContain(">MA 1</text>");
+    expect(svg).toContain(">ohne MA</text>");
+    expect(svg).toContain(">nicht eingerechnet</text>");
+    // Keine Stationsspalten mit Mitarbeiterzahl.
+    expect(svg).not.toContain(">2 MA</text>");
   });
 });
 

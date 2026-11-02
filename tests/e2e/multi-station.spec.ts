@@ -27,18 +27,17 @@ test("Mitarbeiter übernimmt Arbeitsgänge an einer weiteren Station (E40)", asy
   );
 
   await page.getByRole("link", { name: "Zum Diagramm" }).click();
-  // Spurbeschriftungen gibt es nur in der Mitarbeiteransicht.
-  await page
-    .getByRole("group", { name: "Ansicht" })
-    .getByRole("button", { name: "Mitarbeiter" })
-    .click();
-  const t18 = page.getByLabel("Station T18");
+  // Spurbeschriftungen stehen in der Stationsansicht (E45). Die verlassene Tabelle
+  // bleibt kurz im Speicher und trägt dieselbe Beschriftung, daher über die Region.
+  const t18 = page.getByRole("region", { name: "Station T18" });
   await expect(
     t18.getByTitle(/^Mitarbeiter 2: .* \(auch an T17\)$/),
   ).toBeVisible();
   // Anteilig nach Belegung: 0,76 von 3,76 min an T18.
   await expect(t18).toContainText("0,2 MA");
-  await expect(page.getByLabel("Station T17")).toContainText("1,8 MA");
+  await expect(page.getByRole("region", { name: "Station T17" })).toContainText(
+    "1,8 MA",
+  );
   await page.screenshot({
     path: testInfo.outputPath("mehrere-stationen.png"),
     fullPage: true,

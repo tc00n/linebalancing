@@ -45,7 +45,14 @@ import {
   type StepFilter,
 } from "@/features/yamazumi/layout";
 import {
-  effectiveLaneWidth,
+  alignBarSlots,
+  barsMaximum,
+  buildEmployeeBars,
+  type BarArrangement,
+  type BarOrder,
+} from "@/features/yamazumi/employee-layout";
+import {
+  employeeBarsWidth,
   stationColumnWidth,
   YamazumiChart,
   type ChartActions,
@@ -204,6 +211,7 @@ const LABEL_KEYS = ["id", "description", "duration"] as const;
 // Zeitskala auch für Stationen mit mehreren hundert Minuten.
 const MIN_LANE_WIDTH = 14;
 const MAX_LANE_WIDTH = 1200;
+const MAX_FIT_BAR_WIDTH = 140;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 300;
 
@@ -264,6 +272,10 @@ function ScenarioWorkspace(props: {
     setLabels,
     laneWidth,
     setLaneWidth,
+    barArrangement,
+    setBarArrangement,
+    barOrder,
+    setBarOrder,
     pxPerMinute,
     setPxPerMinute,
   } = useViewSettings(editable.id, () =>
@@ -395,12 +407,22 @@ function ScenarioWorkspace(props: {
   const violations = view.result.issues.filter(
     (i) => i.severity === "violation",
   );
-  const effectiveLane = effectiveLaneWidth(laneWidth, mode);
   const filtering = isFilterActive(filter);
   const mainColumns = applyFilter(main.columns, view.input, filter);
   const istColumns = istEvaluation?.ok
     ? applyFilter(istEvaluation.columns, istEvaluation.view.input, filter)
     : [];
+  // E45: Mitarbeiteransicht als Balken je Person, Filter nach E8.
+  const barsOf = (v: ScenarioView) =>
+    mode === "employee"
+      ? buildEmployeeBars(v.input, v.result, {
+          arrangement: barArrangement,
+          order: barOrder,
+          filter,
+        })
+      : undefined;
+  const mainBars = barsOf(view);
+  const istBars = istEvaluation?.ok ? barsOf(istEvaluation.view) : undefined;
 
   // E37: Suche hebt Treffer hervor, ändert aber keine Balken.
   const query = search.trim().toLocaleLowerCase("de");
@@ -438,7 +460,9 @@ function ScenarioWorkspace(props: {
       `Variante ${editable.variantName}`,
       `Takt ${formatMinutes(editor.doc.input.taktMin)} min`,
       `Zuschlag ${formatMinutes(editor.doc.input.allowancePct)} %`,
-      mode === "employee" ? "Mitarbeiteransicht" : "Stationsansicht",
+      mode === "employee"
+        ? `Mitarbeiteransicht (${barArrangement === "timed" ? "zeitlich" : "Summe"}, ${barOrder === "load" ? "nach Belegung" : "Linienreihenfolge"})`
+        : "Stationsansicht",
       `Stand ${stand}`,
     ].join(" · "),
     notes: [
@@ -452,6 +476,7 @@ function ScenarioWorkspace(props: {
     footer: `Exportiert am ${formatDateTime(new Date().toISOString())} · NEONEX Line Balancing`,
     view,
     columns: mainColumns,
+    bars: mainBars,
     mode,
     labels,
   });
@@ -473,8 +498,12 @@ function ScenarioWorkspace(props: {
     const slotCount = comparison
       ? comparison.labels.length
       : mainColumns.length;
+    const barCount = comparison?.barSlots
+      ? comparison.barSlots.length
+      : (mainBars?.length ?? 0);
     const needed = (w: number) => {
-      const lane = effectiveLaneWidth(w, mode);
+      if (mode === "employee") return employeeBarsWidth(barCount, w);
+      const lane = w;
       const widths = new Map<string, number>();
       for (const c of columnsForWidth) {
         const key = c.station.label.toLocaleLowerCase("de");
@@ -488,7 +517,8 @@ function ScenarioWorkspace(props: {
       return total + missing + 24 * Math.max(0, slotCount - 1);
     };
     let low = 14;
-    let high = MAX_LANE_WIDTH;
+    // E45: Mitarbeiterbalken bleiben bei wenigen Mitarbeitern lesbar schmal.
+    let high = mode === "employee" ? MAX_FIT_BAR_WIDTH : MAX_LANE_WIDTH;
     while (low < high) {
       const mid = Math.ceil((low + high) / 2);
       if (needed(mid) <= available) low = mid;
@@ -498,13 +528,16 @@ function ScenarioWorkspace(props: {
 
     const maximum = comparison
       ? comparison.axis
-      : axisMaximum(mainColumns, view.input.taktMin);
+      : mainBars
+        ? barsMaximum(mainBars, view.input.taktMin)
+        : axisMaximum(mainColumns, view.input.taktMin);
     const top = area.getBoundingClientRect().top;
     // Platz für Fußzeile, Legende und Abstand unterhalb des Diagramms.
     // Auch bei vielen Bedienelementen auf kleinen Fenstern lesbare Balken behalten.
     const availableHeight = Math.max(
       240,
-      window.innerHeight - top - (mode === "employee" ? 140 : 120),
+      // Fuß mit Bezeichnungen unter Spuren bzw. Balken.
+      window.innerHeight - top - 140,
     );
     setPxPerMinute(
       clamp(
@@ -528,7 +561,7 @@ function ScenarioWorkspace(props: {
               key,
               Math.max(
                 widths.get(key) ?? 0,
-                stationColumnWidth(column, effectiveLane),
+                stationColumnWidth(column, laneWidth),
               ),
             );
           }
@@ -545,10 +578,21 @@ function ScenarioWorkspace(props: {
                 ),
             ),
             widths,
-            axis: Math.max(
-              axisMaximum(istColumns, istInput.taktMin),
-              axisMaximum(mainColumns, zielInput.taktMin),
-            ),
+            // E45: Mitarbeiter über ihre Bezeichnung abgeglichen, fehlende als Leerplatz.
+            barSlots:
+              istBars && mainBars
+                ? alignBarSlots([istBars, mainBars], barOrder)
+                : undefined,
+            axis:
+              istBars && mainBars
+                ? Math.max(
+                    barsMaximum(istBars, istInput.taktMin),
+                    barsMaximum(mainBars, zielInput.taktMin),
+                  )
+                : Math.max(
+                    axisMaximum(istColumns, istInput.taktMin),
+                    axisMaximum(mainColumns, zielInput.taktMin),
+                  ),
             moved: sameScenario
               ? new Set<string>()
               : movedStepIds(istInput, zielInput),
@@ -784,6 +828,53 @@ function ScenarioWorkspace(props: {
             <ToggleGroupItem value="station">Stationen</ToggleGroupItem>
             <ToggleGroupItem value="employee">Mitarbeiter</ToggleGroupItem>
           </ToggleGroup>
+          {mode === "employee" && (
+            <>
+              <ToggleGroup
+                variant="outline"
+                size="sm"
+                spacing={0}
+                value={[barArrangement]}
+                onValueChange={(value) =>
+                  value[0] && setBarArrangement(value[0] as BarArrangement)
+                }
+                aria-label="Balkenaufbau"
+              >
+                <ToggleGroupItem
+                  value="stacked"
+                  title="Arbeitsgänge lückenlos je Station, oben Wartezeit und Zuschlag"
+                >
+                  Summe
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="timed"
+                  title="Arbeitsgänge an ihrer Startzeit, Wartezeit davor"
+                >
+                  Zeitlich
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <ToggleGroup
+                variant="outline"
+                size="sm"
+                spacing={0}
+                value={[barOrder]}
+                onValueChange={(value) =>
+                  value[0] && setBarOrder(value[0] as BarOrder)
+                }
+                aria-label="Reihenfolge"
+              >
+                <ToggleGroupItem
+                  value="line"
+                  title="MA 1, MA 2 … entlang der Linie"
+                >
+                  Linie
+                </ToggleGroupItem>
+                <ToggleGroupItem value="load" title="Höchste Belegung zuerst">
+                  Belegung
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </>
+          )}
 
           <NumberSetting
             label={compare ? "Takt Ziel [min]" : "Takt [min]"}
@@ -907,6 +998,8 @@ function ScenarioWorkspace(props: {
                 {...chartProps}
                 view={comparison.ist.view}
                 columns={istColumns}
+                bars={istBars}
+                barSlots={comparison.barSlots}
                 stationLabels={comparison.labels}
                 slotWidths={comparison.widths}
                 axisMaximum={comparison.axis}
@@ -925,6 +1018,8 @@ function ScenarioWorkspace(props: {
                 {...chartProps}
                 view={view}
                 columns={mainColumns}
+                bars={mainBars}
+                barSlots={comparison.barSlots}
                 stationLabels={comparison.labels}
                 slotWidths={comparison.widths}
                 axisMaximum={comparison.axis}
@@ -942,6 +1037,7 @@ function ScenarioWorkspace(props: {
             {...chartProps}
             view={view}
             columns={mainColumns}
+            bars={mainBars}
             selectedStepId={selected?.stepId ?? null}
             onSelectStep={(stepId) => setSelected({ side: editSide, stepId })}
             actions={readOnly ? undefined : actions}
