@@ -23,7 +23,7 @@ export async function exampleWorkbook(): Promise<Buffer> {
 /** Importiert das Beispiel inkl. Korrektur und landet im Arbeitsbereich. */
 export async function importExample(
   page: Page,
-  options: { allowance?: string } = {},
+  options: { allowance?: string; variantName?: string } = {},
 ) {
   await page.goto("/import");
   await expect(page.getByLabel("Excel-Datei (.xlsx)")).toBeEnabled();
@@ -36,6 +36,8 @@ export async function importExample(
   await station.fill("T18");
   await station.press("Enter");
   await expect(page.getByText("5 Arbeitsgänge ohne Fehler")).toBeVisible();
+  if (options.variantName)
+    await page.getByLabel("Variantenname").fill(options.variantName);
   await page.getByLabel("Taktzeit [min]").fill("4,00");
   await page.getByLabel("Zuschlag [%]").fill(options.allowance ?? "0");
   await page.getByRole("button", { name: "Szenario anlegen" }).click();

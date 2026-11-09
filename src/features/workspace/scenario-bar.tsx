@@ -9,10 +9,11 @@ export type Side = "ist" | "ziel";
 /**
  * Reiter Ist und Ziel mit je einer Szenarioauswahl (F103, F110, F114),
  * Vergleich-Schalter (F122) und Duplizieren (E20). Ist/Ziel sind Ansichtsrollen;
- * dasselbe Szenario darf auf beiden Seiten stehen (F115).
+ * dasselbe Szenario darf auf beiden Seiten stehen (F115). Szenarien aller Varianten
+ * sind wählbar, bei mehreren Varianten nach Variante gruppiert (E48).
  */
 export function ScenarioBar(props: {
-  siblings: readonly StoredScenario[];
+  choices: readonly StoredScenario[];
   istId: string;
   zielId: string;
   tab: Side;
@@ -22,6 +23,18 @@ export function ScenarioBar(props: {
   onToggleCompare: () => void;
   onDuplicate: () => void;
 }) {
+  const groups = new Map<string, StoredScenario[]>();
+  for (const s of props.choices)
+    groups.set(s.variantId, [...(groups.get(s.variantId) ?? []), s]);
+  const option = (s: StoredScenario) => (
+    <option key={s.id} value={s.id}>
+      {s.name}
+    </option>
+  );
+  const variantOf = (id: string) =>
+    props.choices.find((s) => s.id === id)?.variantId;
+  const crossVariant = variantOf(props.istId) !== variantOf(props.zielId);
+
   const tab = (side: Side, label: string, value: string) => {
     const active = props.compare || props.tab === side;
     return (
@@ -47,11 +60,16 @@ export function ScenarioBar(props: {
           value={value}
           onChange={(e) => props.onSelect(side, e.target.value)}
         >
-          {props.siblings.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
+          {groups.size > 1
+            ? [...groups.values()].map((members) => (
+                <optgroup
+                  key={members[0].variantId}
+                  label={members[0].variantName}
+                >
+                  {members.map(option)}
+                </optgroup>
+              ))
+            : props.choices.map(option)}
         </select>
       </div>
     );
@@ -83,6 +101,11 @@ export function ScenarioBar(props: {
         <CopyIcon data-icon="inline-start" />
         Duplizieren
       </Button>
+      {crossVariant && (
+        <span className="text-xs text-muted-foreground">
+          Ist und Ziel stammen aus verschiedenen Varianten.
+        </span>
+      )}
       {props.istId === props.zielId && (
         <span className="text-xs text-muted-foreground">
           Ist und Ziel zeigen dasselbe Szenario.

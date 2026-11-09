@@ -13,7 +13,7 @@ import type { ScenarioInput } from "@/domain/model/types";
  */
 export interface StoredScenario {
   readonly id: string;
-  /** Szenarien einer Variante teilen die ID; nur sie sind vergleichbar (E15, E20). */
+  /** Szenarien einer Variante teilen die ID (E20); verglichen werden darf variantenübergreifend (E48). */
   readonly variantId: string;
   /** Varianten- und Szenarioname starten mit dem Dateinamen (F88). */
   readonly variantName: string;

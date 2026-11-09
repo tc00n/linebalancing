@@ -83,3 +83,34 @@ test("Ziel duplizieren, umverteilen und mit dem Ist vergleichen", async ({
     page.getByRole("table", { name: "Kennzahlen Ist und Ziel" }),
   ).toBeVisible();
 });
+
+test("Ist und Ziel aus verschiedenen Varianten vergleichen (E48)", async ({
+  page,
+}) => {
+  // Zwei getrennte Importe, je als eigene Variante.
+  await importExample(page, { variantName: "XT Ist" });
+  await importExample(page, { variantName: "XT Ziel" });
+  const zielId = new URL(page.url()).searchParams.get("ist")!;
+  await page.goto("/");
+  await page
+    .getByRole("region", { name: "Variante XT Ist" })
+    .getByRole("link", { name: "Öffnen" })
+    .click();
+  await expect(page).toHaveURL(/\/szenario\?ist=/);
+
+  // Die Auswahl gruppiert nach Variante; das Ziel kommt aus der anderen Variante.
+  const select = page.getByLabel("Szenario für Ziel");
+  await expect(select.locator("optgroup")).toHaveCount(2);
+  await select.selectOption(zielId);
+  await expect(
+    page.getByText("Ist und Ziel stammen aus verschiedenen Varianten."),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Vergleich" }).click();
+  const ist = page.getByRole("region", { name: "Ist", exact: true });
+  const ziel = page.getByRole("region", { name: "Ziel", exact: true });
+  await expect(ist).toContainText("schreibgeschützt");
+  await expect(
+    ziel.getByRole("button", { name: "Arbeitsgang A, 2,00 min" }),
+  ).toBeVisible();
+});

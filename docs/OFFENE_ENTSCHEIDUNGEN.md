@@ -180,3 +180,9 @@ Vorschlag zur Umsetzung (noch nicht bestätigt):
 - Pfeile als Überlagerung im Diagramm: vom Ende des Vorgängers zum Start des Arbeitsgangs bzw. zum Nachfolger. Verletzte Beziehungen (Nachfolger beginnt vor dem Ende des Vorgängers, F15) rot; Beziehungen über Stationsgrenzen gestrichelt, weil sie nach E1a zeitlich nicht wirken.
 - Liegt ein verbundener Arbeitsgang außerhalb des sichtbaren Bereichs oder ist er ausgefiltert (E8), zeigt das Detailpanel ihn in einer Liste „Vorgänger“ / „Nachfolger“ zum Anspringen.
 - Zu klären: nur direkte Beziehungen oder die ganze Kette (alle Vorgänger bis zum Anfang)? Auch in der Mitarbeiteransicht (E45), im Ist/Ziel-Vergleich und im PNG/PDF-Export? Auslöser nur Klick oder auch Überfahren mit der Maus (vgl. E46)?
+
+## Ist und Ziel aus getrennten Excel-Dateien
+
+**E48 – entschieden und umgesetzt (09.11.2026):** Nutzer möchte Ist und Ziel als getrennte Excel-Dateien hochladen, statt das Ziel als Kopie anzulegen. Die Dateien haben dieselben Arbeitsgang-IDs, nur Station, Mitarbeiter oder Reihenfolge unterscheiden sich. Dafür gab es schon vorher „Neues Szenario zu bestehender Variante“ im Import (E20). Nutzerentscheidung: Zusätzlich darf der Vergleich Szenarien **verschiedener Varianten** nebeneinanderstellen. Das ändert E15, wonach nur Szenarien derselben Variante auswählbar waren. Neue Anforderung F137.
+
+Umsetzung: Die Auswahl „Szenario für Ist/Ziel“ zeigt alle Szenarien des Projekts, bei mehreren Varianten nach Variante gruppiert. Ohne Auswahl ist das Ziel weiterhin das nächste andere Szenario derselben Variante. Stehen Ist und Ziel in verschiedenen Varianten, erscheint der Hinweis „Ist und Ziel stammen aus verschiedenen Varianten.“ Der Abgleich bleibt wie in E15: Stationen über die Bezeichnung, Arbeitsgänge über die ID. Arbeitsgänge ohne Gegenstück zählen nicht als verschoben. Duplizieren legt die Kopie in der Variante des bearbeiteten Szenarios an. Keine Datenbankänderung. Browsertest in `compare.spec.ts`.

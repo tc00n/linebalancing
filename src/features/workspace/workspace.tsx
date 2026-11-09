@@ -171,14 +171,17 @@ export function Workspace() {
     );
   }
 
-  // E15: nur Szenarien derselben Variante; Ziel standardmäßig das nächste andere Szenario.
-  const siblings = loaded.scenarios
-    .filter((s) => s.variantId === ist.variantId)
-    .sort((a, b) => a.importedAt.localeCompare(b.importedAt));
+  // E48: Ziel aus jeder Variante wählbar; standardmäßig das nächste andere Szenario
+  // derselben Variante.
+  const choices = [...loaded.scenarios].sort(
+    (a, b) =>
+      a.variantName.localeCompare(b.variantName, "de") ||
+      a.importedAt.localeCompare(b.importedAt),
+  );
   const ziel =
-    requestedZiel?.variantId === ist.variantId
-      ? requestedZiel
-      : (siblings.find((s) => s.id !== ist.id) ?? ist);
+    requestedZiel ??
+    choices.find((s) => s.variantId === ist.variantId && s.id !== ist.id) ??
+    ist;
   const current: Params = { ...params, ist: ist.id, ziel: ziel.id };
   const navigate = (next: Partial<Params>) =>
     router.replace(`/szenario?${toQuery({ ...current, ...next })}`, {
@@ -197,7 +200,7 @@ export function Workspace() {
       editable={editable}
       ist={ist}
       ziel={ziel}
-      siblings={siblings}
+      choices={choices}
       params={current}
       navigate={navigate}
       reload={() => setReloads((n) => n + 1)}
@@ -236,7 +239,8 @@ function ScenarioWorkspace(props: {
   editable: StoredScenario;
   ist: StoredScenario;
   ziel: StoredScenario;
-  siblings: readonly StoredScenario[];
+  /** Alle Szenarien des Projekts, nach Variante sortiert (E48). */
+  choices: readonly StoredScenario[];
   params: Params;
   navigate: (next: Partial<Params>) => void;
   reload: () => void;
@@ -371,7 +375,7 @@ function ScenarioWorkspace(props: {
         input: editor.doc.input,
         categories: editor.doc.categories,
       },
-      props.siblings,
+      props.choices.filter((s) => s.variantId === editable.variantId),
     );
     try {
       await repository.save(copy);
@@ -680,7 +684,7 @@ function ScenarioWorkspace(props: {
             <>
               <span className="mx-1 h-6 w-px bg-border" aria-hidden />
               <ScenarioBar
-                siblings={props.siblings}
+                choices={props.choices}
                 istId={props.ist.id}
                 zielId={props.ziel.id}
                 tab={params.tab}
