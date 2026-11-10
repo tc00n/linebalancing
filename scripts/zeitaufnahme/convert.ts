@@ -4,6 +4,7 @@ import {
   type ColumnKey,
   type RequiredColumnKey,
 } from "@/domain/import/template";
+import { compareStationLabels } from "@/domain/model/stationOrder";
 import { normalizeCell } from "@/features/import/workbook";
 
 /**
@@ -11,10 +12,17 @@ import { normalizeCell } from "@/features/import/workbook";
  * (E24, F131). Quelle ist das Diagrammblatt mit einer Zeile je Arbeitsablauf
  * und ∑t = Summe über alle Mitarbeiter der Station. Festlegungen vom 26.10.2026:
  * - Zeit = ∑t, alle Schritte einer Station auf einen Mitarbeiter; die Nummer läuft
- *   über die Linie (erste Station „Mitarbeiter 1“, zweite „Mitarbeiter 2“ …).
+ *   in natürlicher Stationsreihenfolge über die Linie (erste Station „Mitarbeiter 1“ …).
  * - Zeilen ohne ∑t werden mit leerer Zeit übernommen (Import blockiert bis zur Nachpflege).
  * - Reihenfolge = Zeilenreihenfolge je Station; Vorgänger bleiben leer (keine erfundenen Abhängigkeiten).
+ * - Enthält die Quelle Blöcke mehrerer Varianten (z. B. Diesel-/Gas-Heizung), wird je
+ *   Variante eine Datei erzeugt; die anderen Blöcke werden über ihre Takt-Benennung ausgeschlossen.
  */
+
+export interface ConvertOptions {
+  /** Blöcke, deren Takt-Benennung einen dieser Texte enthält, werden nicht übernommen. */
+  readonly exclude?: readonly string[];
+}
 
 export interface ConvertedRow {
   /** Optionale Spalten (z. B. Zeitart, E44) bleiben leer. */
@@ -33,6 +41,7 @@ export interface Conversion {
   readonly sheetName: string;
   readonly rows: ConvertedRow[];
   readonly notes: string[];
+  readonly excluded: readonly string[];
 }
 
 const HEADERS = {
@@ -48,7 +57,11 @@ export function findDiagramSheet(workbook: Workbook): Worksheet | undefined {
   return workbook.worksheets.find((ws) => /diagramm/i.test(ws.name));
 }
 
-export function convertDiagramSheet(sheet: Worksheet): Conversion {
+export function convertDiagramSheet(
+  sheet: Worksheet,
+  options: ConvertOptions = {},
+): Conversion {
+  const excluded = options.exclude ?? [];
   const notes: string[] = [];
   const { headerRow, column } = locateHeader(sheet);
   const text = (row: number, key: keyof typeof HEADERS) => {
@@ -63,13 +76,34 @@ export function convertDiagramSheet(sheet: Worksheet): Conversion {
   const rows: ConvertedRow[] = [];
   const usedIds = new Set<string>();
   const sequence = new Map<string, number>();
-  const employeeOf = new Map<string, string>();
   let blockSum = 0;
   let blockStation = "";
+  const skipped: {
+    from: number;
+    to: number;
+    station: string;
+    label: string;
+  }[] = [];
 
   for (let r = headerRow + 1; r <= sheet.rowCount; r++) {
     const station = text(r, "station");
     const description = text(r, "description");
+    const label = text(r, "label");
+
+    if (station && excluded.some((part) => label.includes(part))) {
+      const last = skipped.at(-1);
+      if (
+        last?.to === r - 1 &&
+        last.label === label &&
+        last.station === station
+      )
+        last.to = r;
+      else skipped.push({ from: r, to: r, station, label });
+      // Die Summenzeile des ausgeschlossenen Blocks wird nicht geprüft.
+      blockStation = "";
+      blockSum = 0;
+      continue;
+    }
 
     if (!station) {
       // Summenzeile („Summe T17“) prüft die vorangehende Station über ihre Position.
@@ -105,8 +139,6 @@ export function convertDiagramSheet(sheet: Worksheet): Conversion {
     const id = uniqueId(stepId(station, aa, r), usedIds);
     const position = (sequence.get(station) ?? 0) + 10;
     sequence.set(station, position);
-    if (!employeeOf.has(station))
-      employeeOf.set(station, `Mitarbeiter ${employeeOf.size + 1}`);
 
     if (time === null) {
       notes.push(
@@ -125,15 +157,36 @@ export function convertDiagramSheet(sheet: Worksheet): Conversion {
         station,
         description,
         time,
-        employee: employeeOf.get(station)!,
+        employee: null,
         sequence: position,
         predecessors: null,
       },
-      source: { row: r, za: text(r, "za"), aa, label: text(r, "label") },
+      source: { row: r, za: text(r, "za"), aa, label },
     });
   }
+  for (const block of skipped) {
+    notes.push(
+      `Zeilen ${block.from}–${block.to} (${block.station}, „${block.label}“): andere Variante, nicht übernommen.`,
+    );
+  }
 
-  return { sheetName: sheet.name, rows, notes };
+  const employeeOf = new Map(
+    [...new Set(rows.map((row) => String(row.values.station)))]
+      .sort(compareStationLabels)
+      .map((station, i) => [station, `Mitarbeiter ${i + 1}`]),
+  );
+  return {
+    sheetName: sheet.name,
+    rows: rows.map((row) => ({
+      ...row,
+      values: {
+        ...row.values,
+        employee: employeeOf.get(String(row.values.station))!,
+      },
+    })),
+    notes,
+    excluded,
+  };
 }
 
 function locateHeader(sheet: Worksheet) {
@@ -159,12 +212,13 @@ function locateHeader(sheet: Worksheet) {
   );
 }
 
-/** „T19“ + „10 (A)“ → „T19-AA010A“; ohne AA: „T19-Z56“. */
+/** „T19“ + „10 (A)“ → „T19-AA010A“; ohne AA: „T19-Z56“; „T01 (SA)“ → „T01SA-…“. */
 export function stepId(station: string, aa: string, row: number): string {
-  if (!aa) return `${station}-Z${row}`;
+  const prefix = station.replace(/[\s()]+/g, "");
+  if (!aa) return `${prefix}-Z${row}`;
   const match = /^(\d+)\s*(?:\(\s*([A-Za-z])\s*\))?$/.exec(aa);
-  if (!match) return `${station}-AA${aa.replace(/\s+/g, "")}`;
-  return `${station}-AA${match[1].padStart(3, "0")}${(match[2] ?? "").toUpperCase()}`;
+  if (!match) return `${prefix}-AA${aa.replace(/\s+/g, "")}`;
+  return `${prefix}-AA${match[1].padStart(3, "0")}${(match[2] ?? "").toUpperCase()}`;
 }
 
 function uniqueId(id: string, used: Set<string>): string {
@@ -215,6 +269,10 @@ export function fillTemplate(
     "- Alle Arbeitsgänge einer Station sind einem Mitarbeiter zugeordnet, durchnummeriert über die Linie (erste Station „Mitarbeiter 1“, zweite „Mitarbeiter 2“ …). Stationshöhe = Summe ∑t; die Aufteilung auf mehrere Mitarbeiter je Station erfolgt in der App.",
     "- Reihenfolge = Zeilenreihenfolge je Station. Vorgänger-IDs leer: die Quelle enthält keine Abhängigkeiten, es werden keine erfunden.",
     "- Arbeitsgang-ID = Station + AA-Nummer (z. B. T19-AA010A).",
+    ...conversion.excluded.map(
+      (part) =>
+        `- Variante: Blöcke mit „${part}“ in der Takt-Benennung nicht übernommen.`,
+    ),
     "",
     `Hinweise (${conversion.notes.length}):`,
     ...conversion.notes.map((n) => `- ${n}`),

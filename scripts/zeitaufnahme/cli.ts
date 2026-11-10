@@ -5,16 +5,25 @@ import { validateRows } from "@/domain/import/validateRows";
 import { createTemplate, readWorkbook } from "@/features/import/workbook";
 import { convertDiagramSheet, fillTemplate, findDiagramSheet } from "./convert";
 
-// Aufruf: npx tsx scripts/zeitaufnahme/cli.ts <Zeitaufnahme.xlsx> <Importdatei.xlsx> [--force]
+const USAGE =
+  "Aufruf: npx tsx scripts/zeitaufnahme/cli.ts <Zeitaufnahme.xlsx> <Importdatei.xlsx> [--ohne <Takt-Benennung>]… [--force]";
+
 async function main() {
-  const [input, output, flag] = process.argv.slice(2);
-  if (!input || !output) {
-    console.error(
-      "Aufruf: npx tsx scripts/zeitaufnahme/cli.ts <Zeitaufnahme.xlsx> <Importdatei.xlsx> [--force]",
-    );
+  const positional: string[] = [];
+  const exclude: string[] = [];
+  let force = false;
+  const args = process.argv.slice(2);
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--force") force = true;
+    else if (args[i] === "--ohne" && args[i + 1]) exclude.push(args[++i]);
+    else positional.push(args[i]);
+  }
+  const [input, output] = positional;
+  if (!input || !output || positional.length > 2) {
+    console.error(USAGE);
     process.exit(2);
   }
-  if (existsSync(output) && flag !== "--force") {
+  if (existsSync(output) && !force) {
     console.error(`${output} existiert bereits. Mit --force überschreiben.`);
     process.exit(2);
   }
@@ -23,7 +32,7 @@ async function main() {
   await source.xlsx.readFile(input);
   const sheet = findDiagramSheet(source);
   if (!sheet) throw new Error("Kein Blatt mit „Diagramm“ im Namen gefunden.");
-  const conversion = convertDiagramSheet(sheet);
+  const conversion = convertDiagramSheet(sheet, { exclude });
 
   const target = new ExcelJS.Workbook();
   await target.xlsx.load(await createTemplate());

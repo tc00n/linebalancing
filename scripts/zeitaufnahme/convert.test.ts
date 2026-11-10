@@ -167,11 +167,69 @@ describe("Zeitaufnahme-Konverter (E24)", () => {
   });
 });
 
+// Varianten-Blöcke derselben Station und eine Sonderausstattungs-Station vor T1.
+function variantWorkbook() {
+  const workbook = new ExcelJS.Workbook();
+  const ws = workbook.addWorksheet("XY 100 - T1-T2 Diagramm");
+  ws.addRow(["ZA", null, "Takt-Benennung", "WC", "AA", "Arbeitsinhalt", "∑t"]);
+  ws.addRow([null, null, "Andienung", "T1 (SA)", 2, "Räder montieren", 5]);
+  ws.addRow([null, null, null, null, null, "Summe T1 (SA)", 5]);
+  ws.addRow([null, null, "Boden Diesel-Heizung", "T2", 2, "Tank Diesel", 3]);
+  ws.addRow([null, null, null, null, null, "Summe T2", 3]);
+  ws.addRow([null, null, "Boden Gas-Heizung", "T2", 2, "Tank Gas", 4]);
+  ws.addRow([null, null, "Boden Gas-Heizung", "T2", 4, "Leitung Gas", 1]);
+  ws.addRow([null, null, null, null, null, "Summe T2", 9]);
+  ws.addRow([null, null, "Andienung", "T1", 2, "FZ vortakten", 1]);
+  ws.addRow([null, null, null, null, null, "Summe T1", 1]);
+  return workbook;
+}
+
+describe("Zeitaufnahme-Konverter mit Varianten", () => {
+  const conversion = convertDiagramSheet(findDiagramSheet(variantWorkbook())!, {
+    exclude: ["Gas-Heizung"],
+  });
+
+  it("übernimmt nur die gewählte Variante und nummeriert Mitarbeiter nach Stationsreihenfolge", () => {
+    expect(
+      conversion.rows.map((r) => [
+        r.values.id,
+        r.values.station,
+        r.values.employee,
+      ]),
+    ).toEqual([
+      ["T1SA-AA002", "T1 (SA)", "Mitarbeiter 2"],
+      ["T2-AA002", "T2", "Mitarbeiter 3"],
+      ["T1-AA002", "T1", "Mitarbeiter 1"],
+    ]);
+    expect(conversion.excluded).toEqual(["Gas-Heizung"]);
+  });
+
+  it("protokolliert den ausgeschlossenen Block und prüft dessen Summenzeile nicht", () => {
+    expect(conversion.notes).toEqual([
+      "Zeilen 6–7 (T2, „Boden Gas-Heizung“): andere Variante, nicht übernommen.",
+    ]);
+  });
+
+  it("nennt die Variante im Konvertierungsprotokoll", async () => {
+    const template = new ExcelJS.Workbook();
+    await template.xlsx.load(await createTemplate());
+    fillTemplate(template, conversion, "XY 100.xlsx");
+    const lines = template
+      .getWorksheet("Konvertierungsprotokoll")!
+      .getColumn(1)
+      .values.filter((v): v is string => typeof v === "string");
+    expect(lines).toContain(
+      "- Variante: Blöcke mit „Gas-Heizung“ in der Takt-Benennung nicht übernommen.",
+    );
+  });
+});
+
 describe("stepId", () => {
   it("bildet IDs aus Station und AA", () => {
     expect(stepId("T17", "5", 6)).toBe("T17-AA005");
     expect(stepId("T19", "10 (b)", 9)).toBe("T19-AA010B");
     expect(stepId("T19", "", 56)).toBe("T19-Z56");
     expect(stepId("T9", "X 1", 3)).toBe("T9-AAX1");
+    expect(stepId("T01 (SA)", "2", 5)).toBe("T01SA-AA002");
   });
 });

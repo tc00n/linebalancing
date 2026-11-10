@@ -55,3 +55,9 @@ npx tsx scripts/zeitaufnahme/cli.ts "<Zeitaufnahme>.xlsx" "<Importdatei>.xlsx"
 ```
 
 Gelesen wird das Diagrammblatt (∑t je Arbeitsablauf). Die Importdatei enthält zusätzlich ein Blatt „Konvertierungsprotokoll“ mit Festlegungen und Lücken. Excel-Dateien sind vertraulich und per `.gitignore` vom Repo ausgeschlossen.
+
+Enthält die Zeitaufnahme Blöcke mehrerer Varianten (z. B. T06/T08 mit Diesel- und Gas-Heizung), wird je Variante eine Datei erzeugt und die andere über ihre Takt-Benennung ausgeschlossen (`--ohne` ist wiederholbar):
+
+```bash
+npx tsx scripts/zeitaufnahme/cli.ts "Zeitaufnahmen XT 686 EF - T01-T11.xlsx" "XT 686 EF Diesel - T01-T11.xlsx" --ohne Gas-Heizung
+```
