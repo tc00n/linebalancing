@@ -1,4 +1,5 @@
 import { findCycles } from "../checks/cycles";
+import { normalizeGroupId, scenarioGroupProblems } from "./groups";
 import { isProcess, personOf, type ScenarioInput } from "./types";
 
 /**
@@ -72,6 +73,12 @@ export function assertValidScenario(input: ScenarioInput): void {
     if (!Number.isFinite(step.sequence)) {
       problems.push(`Arbeitsgang ${step.id}: ungültige Reihenfolge.`);
     }
+    if (
+      step.groupId !== undefined &&
+      normalizeGroupId(step.groupId) !== step.groupId
+    ) {
+      problems.push(`Arbeitsgang ${step.id}: ungültige Gruppe.`);
+    }
     if (isProcess(step) && step.employeeId !== null) {
       problems.push(
         `Arbeitsgang ${step.id}: Prozesszeit darf keinem Mitarbeiter zugeordnet sein.`,
@@ -98,6 +105,11 @@ export function assertValidScenario(input: ScenarioInput): void {
 
   for (const cycle of findCycles(input.steps)) {
     problems.push(`Vorgängerkreis: ${cycle.join(", ")}.`);
+  }
+
+  // E42: gemeinsame Arbeitsgänge.
+  for (const problem of scenarioGroupProblems(input)) {
+    problems.push(problem.message);
   }
 
   if (problems.length > 0) throw new InvalidScenarioError(problems);

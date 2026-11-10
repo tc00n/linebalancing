@@ -1,4 +1,5 @@
 import { findCycles } from "../checks/cycles";
+import { findGroupProblems, normalizeGroupId } from "../model/groups";
 import { compareStationLabels } from "../model/stationOrder";
 import {
   cellText,
@@ -40,6 +41,8 @@ export interface ParsedRow {
   /** Prozesszeit ohne Mitarbeiter (E44). */
   readonly process: boolean;
   readonly holdsStation: boolean;
+  /** Gemeinsamer Arbeitsgang (E42); fehlt = keine Gruppe. */
+  readonly groupId?: string;
 }
 
 export interface ValidationResult {
@@ -142,6 +145,8 @@ export function validateRows(rawRows: readonly RawRow[]): ValidationResult {
         error(rowNumber, "sequence", "Reihenfolge darf nicht negativ sein.");
       }
 
+      const groupId = normalizeGroupId(cellText(values.group));
+
       return {
         rowNumber,
         id,
@@ -153,12 +158,14 @@ export function validateRows(rawRows: readonly RawRow[]): ValidationResult {
         predecessorIds: splitPredecessors(values.predecessors),
         process,
         holdsStation: process && holdsStation === true,
+        ...(groupId === undefined ? {} : { groupId }),
       };
     });
 
   checkIds(rows, error);
   checkPredecessors(rows, error);
   checkSharedEmployees(rows, warning);
+  checkGroups(rows, messages, error, warning);
 
   return {
     rows,
@@ -282,6 +289,58 @@ function checkPredecessors(rows: readonly ParsedRow[], error: Report) {
         "predecessors",
         `Vorgängerkreis zwischen ${cycle.join(", ")}.`,
       );
+    }
+  }
+}
+
+/**
+ * Gemeinsame Arbeitsgänge (E42): Widersprüche als Fehler in der Spalte
+ * „Gruppe“, solange IDs und Vorgänger sonst fehlerfrei sind; eine Gruppe mit
+ * nur einer Zeile als Hinweis.
+ */
+function checkGroups(
+  rows: readonly ParsedRow[],
+  messages: readonly ImportMessage[],
+  error: Report,
+  warning: Report,
+) {
+  const rowById = new Map(rows.map((r) => [r.id, r]));
+  const sizes = new Map<string, number>();
+  for (const row of rows) {
+    if (row.groupId === undefined) continue;
+    sizes.set(row.groupId, (sizes.get(row.groupId) ?? 0) + 1);
+  }
+  for (const row of rows) {
+    if (row.groupId !== undefined && sizes.get(row.groupId) === 1) {
+      warning(
+        row.rowNumber,
+        "group",
+        `Gruppe „${row.groupId}“ hat nur diese Zeile und wirkt deshalb nicht.`,
+      );
+    }
+  }
+  // Vorgängerfehler zuerst beheben; sonst wären die Gruppenmeldungen irreführend.
+  if (
+    messages.some(
+      (m) =>
+        m.severity === "error" &&
+        (m.column === "id" || m.column === "predecessors"),
+    )
+  )
+    return;
+  const problems = findGroupProblems(
+    rows.map((r) => ({
+      id: r.id,
+      groupId: r.groupId,
+      station: r.station,
+      person: r.employee,
+      process: r.process,
+      predecessorIds: r.predecessorIds,
+    })),
+  );
+  for (const problem of problems) {
+    for (const id of problem.stepIds) {
+      error(rowById.get(id)!.rowNumber, "group", problem.message);
     }
   }
 }

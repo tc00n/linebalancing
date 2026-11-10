@@ -378,6 +378,67 @@ try {
       [p, doc, saved.version],
     );
   });
+  await test("Gemeinsamer Arbeitsgang gespeichert, Widersprueche abgelehnt (E42)", async () => {
+    const version = (
+      await q("select version from public.scenarios where id=$1", [doc.id])
+    ).rows[0].version;
+    const grouped = structuredClone(doc);
+    grouped.input.employees.push({
+      id: "e2",
+      stationId: "s1",
+      label: "Mitarbeiter 2",
+    });
+    Object.assign(grouped.input.steps[0], { employeeId: "e1", groupId: "G" });
+    Object.assign(grouped.input.steps[1], {
+      employeeId: "e2",
+      predecessorIds: [],
+      groupId: "G",
+    });
+    const saved = (
+      await q(
+        "select public.save_scenario($1,$2,$3,'50000000-0000-4000-8000-000000000001') doc",
+        [p, grouped, version],
+      )
+    ).rows[0].doc;
+    assert.deepEqual(
+      saved.input.steps.map((s) => s.groupId),
+      ["G", "G"],
+    );
+    const samePerson = structuredClone(grouped);
+    samePerson.input.steps[1].employeeId = "e1";
+    const inside = structuredClone(grouped);
+    inside.input.steps[1].predecessorIds = ["A"];
+    const twoStations = structuredClone(grouped);
+    Object.assign(twoStations.input.steps[1], {
+      stationId: "s2",
+      employeeId: null,
+    });
+    const processInGroup = structuredClone(grouped);
+    Object.assign(processInGroup.input.steps[1], {
+      employeeId: null,
+      timeKind: "process",
+    });
+    const blank = structuredClone(grouped);
+    blank.input.steps[1].groupId = " ";
+    for (const invalid of [
+      samePerson,
+      inside,
+      twoStations,
+      processInGroup,
+      blank,
+    ]) {
+      await denied(
+        "select public.save_scenario($1,$2,$3,'50000000-0000-4000-8000-000000000001')",
+        [p, invalid, saved.version],
+        "23514",
+      );
+    }
+    // Ohne Gruppe zurueck, damit die folgenden Tests den Ausgangsstand sehen.
+    await q(
+      "select public.save_scenario($1,$2,$3,'50000000-0000-4000-8000-000000000001')",
+      [p, doc, saved.version],
+    );
+  });
   const copy = {
     ...structuredClone(doc),
     id: "30000000-0000-4000-8000-000000000011",

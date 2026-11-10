@@ -159,7 +159,8 @@ const collisionDetection: CollisionDetection = (args) => {
  * Yamazumi mit horizontal scrollbaren Stationen (F91), Taktlinie (F94),
  * Mitarbeiterspuren (E9), Wartezeit- und Zuschlagssegmenten (F63, F66, E2),
  * separater Warnspur für nicht zugeordnete Schritte (F67, E10) und
- * Drag-and-drop zwischen Stationen ohne Dialog (F28, F95).
+ * Drag-and-drop zwischen Stationen ohne Dialog (F28, F95); nur bei
+ * verletzten Vorgängerbeziehungen fragt der Editor vorher nach (E50, F139).
  */
 export function YamazumiChart({
   scrollRef,

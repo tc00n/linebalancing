@@ -527,3 +527,161 @@ describe("Prozesszeiten (E44, RECHENREGELN 6b)", () => {
     expect(() => evaluateScenario(broken)).toThrow(/Prozesszeit/);
   });
 });
+
+describe("Gemeinsame Arbeitsgänge (E42, RECHENREGELN 6c)", () => {
+  // MA1 hat vorher 2 min zu tun, MA2 ist sofort frei. G1/G2 ist ein gemeinsamer
+  // Arbeitsgang (MA1 Hauptteil 3 min, MA2 Helferteil 1 min).
+  const shared = (extra: Parameters<typeof scenario>[0] = []) =>
+    evaluateScenario(
+      scenario(
+        [
+          { id: "A", station: "S1", employee: "MA1", time: 2 },
+          { id: "G1", station: "S1", employee: "MA1", time: 3, group: "G" },
+          { id: "G2", station: "S1", employee: "MA2", time: 1, group: "G" },
+          ...extra,
+        ],
+        { takt: 10 },
+      ),
+    );
+
+  it("startet alle Zeilen gemeinsam, sobald der letzte Beteiligte frei ist", () => {
+    const result = shared();
+    expect(timeline(result, "S1/MA1")).toEqual([
+      ["A", 0, 2, 0],
+      ["G1", 2, 5, 0],
+    ]);
+    // MA2 wartet 2 min auf MA1 (Wartezeit, F63).
+    expect(timeline(result, "S1/MA2")).toEqual([["G2", 2, 3, 2]]);
+  });
+
+  it("Helfer ist nach seinem Teil frei; Nachfolger warten nur auf die genannte Zeile", () => {
+    const result = shared([
+      // H hängt nur vom Helferteil ab und läuft, während MA1 noch arbeitet.
+      {
+        id: "H",
+        station: "S1",
+        employee: "MA2",
+        time: 1,
+        predecessors: ["G2"],
+      },
+      // K hängt vom Hauptteil ab.
+      {
+        id: "K",
+        station: "S1",
+        employee: "MA2",
+        time: 1,
+        predecessors: ["G1"],
+      },
+    ]);
+    expect(timeline(result, "S1/MA2")).toEqual([
+      ["G2", 2, 3, 2],
+      ["H", 3, 4, 0],
+      ["K", 5, 6, 1],
+    ]);
+  });
+
+  it("wartet auf die Vorgänger aller Zeilen", () => {
+    const result = evaluateScenario(
+      scenario(
+        [
+          { id: "V", station: "S1", employee: "MA3", time: 4 },
+          { id: "G1", station: "S1", employee: "MA1", time: 1, group: "G" },
+          {
+            id: "G2",
+            station: "S1",
+            employee: "MA2",
+            time: 1,
+            group: "G",
+            predecessors: ["V"],
+          },
+        ],
+        { takt: 10 },
+      ),
+    );
+    expect(timeline(result, "S1/MA1")).toEqual([["G1", 4, 5, 4]]);
+    expect(timeline(result, "S1/MA2")).toEqual([["G2", 4, 5, 4]]);
+  });
+
+  it("plant ohne Mitarbeiter gebliebene Zeilen nicht ein, der Rest startet gemeinsam", () => {
+    const result = shared([
+      { id: "G3", station: "S1", employee: null, time: 1, group: "G" },
+    ]);
+    expect(timeline(result, "S1/MA2")).toEqual([["G2", 2, 3, 2]]);
+    expect(result.kpis.incomplete).toBe(true);
+  });
+
+  it("ohne Gruppe unverändert: MA2 erledigt seinen Teil sofort", () => {
+    const result = evaluateScenario(
+      scenario(
+        [
+          { id: "A", station: "S1", employee: "MA1", time: 2 },
+          { id: "G1", station: "S1", employee: "MA1", time: 3 },
+          { id: "G2", station: "S1", employee: "MA2", time: 1 },
+        ],
+        { takt: 10 },
+      ),
+    );
+    expect(timeline(result, "S1/MA2")).toEqual([["G2", 0, 1, 0]]);
+  });
+
+  it("weist widersprüchliche Gruppen als ungültige Eingabe zurück", () => {
+    const invalid = (specs: Parameters<typeof scenario>[0]) => () =>
+      evaluateScenario(scenario(specs, { takt: 10 }));
+    // Dieselbe Person zweimal.
+    expect(
+      invalid([
+        { id: "G1", station: "S1", employee: "MA1", time: 1, group: "G" },
+        { id: "G2", station: "S1", employee: "MA1", time: 1, group: "G" },
+      ]),
+    ).toThrow(InvalidScenarioError);
+    // Verschiedene Stationen.
+    expect(
+      invalid([
+        { id: "G1", station: "S1", employee: "MA1", time: 1, group: "G" },
+        { id: "G2", station: "S2", employee: "MA2", time: 1, group: "G" },
+      ]),
+    ).toThrow(/mehreren Stationen/);
+    // Vorgänger innerhalb der Gruppe.
+    expect(
+      invalid([
+        { id: "G1", station: "S1", employee: "MA1", time: 1, group: "G" },
+        {
+          id: "G2",
+          station: "S1",
+          employee: "MA2",
+          time: 1,
+          group: "G",
+          predecessors: ["G1"],
+        },
+      ]),
+    ).toThrow(/gemeinsam starten/);
+    // Umweg: X wartet auf G1, G2 wartet auf X.
+    expect(
+      invalid([
+        { id: "G1", station: "S1", employee: "MA1", time: 1, group: "G" },
+        {
+          id: "X",
+          station: "S1",
+          employee: "MA3",
+          time: 1,
+          predecessors: ["G1"],
+        },
+        {
+          id: "G2",
+          station: "S1",
+          employee: "MA2",
+          time: 1,
+          group: "G",
+          predecessors: ["X"],
+        },
+      ]),
+    ).toThrow(/Kreis/);
+    // Prozesszeit in der Gruppe.
+    expect(
+      invalid([
+        { id: "G1", station: "S1", employee: "MA1", time: 1, group: "G" },
+        { id: "G2", station: "S1", time: 1, group: "G", process: true },
+      ]),
+    ).toThrow(/Prozesszeit/);
+  });
+});

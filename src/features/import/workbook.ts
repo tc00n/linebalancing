@@ -151,6 +151,12 @@ const GUIDE_ROWS: [string, string, string, string][] = [
     "Nur bei Zeitart „Prozess“: „ja“ = das Produkt bleibt bis zum Ende der Prozesszeit an der Station, sie zählt in die Stationshöhe. „nein“ = sie läuft beim Weitertakten weiter. Leer = nein.",
     "nein",
   ],
+  [
+    "Gruppe",
+    "nein",
+    "Für Arbeitsgänge, die mehrere Mitarbeiter gleichzeitig ausführen: je Mitarbeiter eine Zeile mit seiner Zeit, alle mit derselben Gruppe. Die Zeilen starten gemeinsam, sobald alle Beteiligten frei und alle Vorgänger fertig sind; danach ist jeder wieder frei. Gleiche Station, verschiedene Mitarbeiter, nur Handzeiten. Leer = keine Gruppe.",
+    "SWD-FS",
+  ],
 ];
 
 /** Leeres Importtemplate mit Ausfüllanleitung (F89). */

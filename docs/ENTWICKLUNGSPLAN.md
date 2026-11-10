@@ -170,7 +170,7 @@ Jede Phase endet mit grünen Tests und einem Demo-Stand.
 
 - Szenariosperre: Erwerb beim Öffnen zur Bearbeitung, Heartbeat-Lease, Freigabe beim Verlassen (`pagehide` plus explizit), Ablauf serverseitig (F58/F64/E27). Ein zweiter Nutzer wird gewarnt und schreibgeschützt (F51).
 - Operationen: Station wechseln, wodurch der MA entfernt wird (F61/F95), MA zuweisen (F100), Vorgänger bearbeiten (F12), Reihenfolge (E3), Kategorie und Farbe (F27/F93/F97), Takt (F59), Zuschlag mit Validierung (F60).
-- DnD zwischen Stationen ohne Dialog. Beim Ziehen werden alle Ziele markiert, Ziele mit Restriktionsproblemen gesondert (F28/F95/F129). Sofortige Neuberechnung (F11/F50).
+- DnD zwischen Stationen ohne Dialog, außer bei verletzten Vorgängerbeziehungen: dann Rückfrage vor dem Verschieben (E50/F139). Beim Ziehen werden alle Ziele markiert, Ziele mit Restriktionsproblemen gesondert (F28/F95/F129). Sofortige Neuberechnung (F11/F50).
 - Konfliktübersicht und Kennzeichnung „Szenario konfliktbehaftet“ (F8/F15). Keine UI zum Anlegen von Stationen oder Schritten (F29).
 - Autosave über `apply_scenario_ops` mit Versionsprüfung (F25). Statussymbole gespeichert, ausstehend, Fehler, gesperrt (F119). Letzte Änderung mit Bearbeiter (F38).
 - **Anforderungen:** Basis 10/11/15/19/20, F1, F8, F11, F12, F15, F17 (UI), F23, F25, F27, F28, F48, F50, F51, F58, F59, F60, F61, F64, F93, F95, F97, F100, F119, F127, F129.
@@ -280,3 +280,7 @@ Stand 28.10.2026, F136/E45: Mitarbeiteransicht als Bedienerbalkendiagramm. Die b
 Stand 09.11.2026, F137/E48: Ist und Ziel sind aus allen Varianten des Projekts wählbar, damit getrennt importierte Ist- und Ziel-Dateien verglichen werden können. Die Auswahl ist nach Variante gruppiert, ein Hinweis zeigt verschiedene Varianten an. Keine Datenbankänderung. Prüfungen: Typprüfung, ESLint, 171 Unit-Tests und alle 15 Browsertests grün.
 
 Stand 10.11.2026, F138/E49: Export „Arbeitsfolge je Mitarbeiter (Excel)“ im Arbeitsbereich und in der Tabellenansicht. Je Mitarbeiter die Arbeitsgänge in zeitlicher Reihenfolge mit Station, Start, Ende und Wartezeit; nicht zugeordnete Arbeitsgänge und Prozesszeiten am Ende. Keine Datenbankänderung. Prüfungen: Typprüfung, ESLint, 175 Unit-Tests und alle 15 Browsertests grün.
+
+Stand 10.11.2026, F139/E50: Würde ein Stationswechsel Vorgängerbeziehungen verletzen, fragt die App vor dem Verschieben nach („Trotzdem verschieben?“); Abbrechen ändert nichts. Gilt für Drag-and-drop, Detailpanel und Tabellenansicht. Keine Datenbankänderung. Prüfungen: Typprüfung, ESLint, 176 Unit-Tests und alle 15 Browsertests grün.
+
+Stand 10.11.2026, F140/E42: Gemeinsame Arbeitsgänge mehrerer Mitarbeiter über die Spalte bzw. das Feld „Gruppe“. Gemeinsamer Start, danach ist jeder frei; Verschieben nimmt die Gruppe mit; Widersprüche werden in Import, App und Datenbank abgelehnt. Migration `202611100001_shared_steps.sql`. Prüfungen: Typprüfung, ESLint, 191 Unit-Tests, 51 Datenbanktests (in Testtransaktion) und alle 16 Browsertests grün.

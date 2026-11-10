@@ -56,6 +56,12 @@ export interface Step {
    * beim Weitertakten weiter.
    */
   readonly holdsStation?: boolean;
+  /**
+   * Gemeinsamer Arbeitsgang (E42): Alle Handzeiten mit derselben Gruppe liegen
+   * an derselben Station, haben verschiedene Mitarbeiter und starten
+   * gemeinsam. Fehlt = keine Gruppe.
+   */
+  readonly groupId?: string;
 }
 
 /** Prozesszeit ohne Mitarbeiter (E44). */

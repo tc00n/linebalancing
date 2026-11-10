@@ -778,3 +778,15 @@ Getroffen im Rahmen der Entwicklung. Präzisieren P1, P3 und die offenen Punkte 
 | ID | Verbindliche Entscheidung | Umsetzungshinweis |
 |---|---|---|
 | F138 | Je Szenario lässt sich eine Liste herunterladen, welcher Mitarbeiter in welcher Reihenfolge welche Arbeitsgänge an welcher Station ausführt (E49). | Excel-Datei aus dem Menü „Export“. Eine Zeile je Arbeitsgang mit Mitarbeiter, Nr., Station, ID, Beschreibung, Zeit, Start, Ende, Wartezeit, Hinweis. Mitarbeiter in Linienreihenfolge, je Mitarbeiter zeitlich über alle Stationen (E40); nicht zugeordnete Arbeitsgänge und Prozesszeiten (F135) am Ende ohne Nummer. |
+
+## 45 · Bestätigung vor problematischem Verschieben (10.11.2026)
+
+| ID | Verbindliche Entscheidung | Umsetzungshinweis |
+|---|---|---|
+| F139 | Ändert F95 für einen Fall (E50): Würde ein Stationswechsel Vorgängerbeziehungen verletzen, wird erst nach Bestätigung verschoben. Ohne Verletzung bleibt es beim direkten Verschieben ohne Dialog. | Rückfrage nennt die verletzten Beziehungen. Abbrechen ändert nichts. Gilt für Drag-and-drop, Detailpanel und Tabellenansicht. Markierung beim Ziehen (F129) bleibt. |
+
+## 46 · Gemeinsame Arbeitsgänge mehrerer Mitarbeiter (10.11.2026)
+
+| ID | Verbindliche Entscheidung | Umsetzungshinweis |
+|---|---|---|
+| F140 | Ergänzt F19/F21 (E42): Zeilen eines Arbeitsgangs, den mehrere Mitarbeiter gleichzeitig ausführen, erhalten dieselbe Gruppe. Sie starten gemeinsam; jeder ist danach nach seiner eigenen Zeit wieder frei, Nachfolger warten nur auf die genannten Zeilen. | Optionale Importspalte „Gruppe“, in Detailpanel und Tabelle änderbar. Gleiche Station, verschiedene Personen, nur Handzeiten, keine Vorgänger innerhalb der Gruppe; Verstöße werden abgelehnt (Import, App, Datenbank). Verschieben nimmt die ganze Gruppe mit, nur die gezogene Zeile verliert den Mitarbeiter (F61). Rechenregeln: docs/RECHENREGELN.md, Abschnitt 6c. |

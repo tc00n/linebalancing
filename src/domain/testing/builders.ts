@@ -14,6 +14,8 @@ export interface StepSpec {
   process?: boolean;
   /** Prozesszeit hält die Station (E44). */
   holdsStation?: boolean;
+  /** Gemeinsamer Arbeitsgang (E42). */
+  group?: string;
 }
 
 export function scenario(
@@ -61,6 +63,7 @@ export function scenario(
       predecessorIds: spec.predecessors ?? [],
       ...(spec.process ? { timeKind: "process" as const } : {}),
       ...(spec.holdsStation ? { holdsStation: true } : {}),
+      ...(spec.group ? { groupId: spec.group } : {}),
     };
   });
   options.idleEmployees?.forEach(addEmployee);

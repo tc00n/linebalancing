@@ -115,6 +115,26 @@ Station S1, Takt 4,00 min, Zuschlag 10 %. Mitarbeiter 1: A (2,00), C (1,50, Vorg
 
 **E40 – entschieden und umgesetzt (26.10.2026):** Mitarbeiter werden über die Linie durchnummeriert (T17 → Mitarbeiter 1, T18 → Mitarbeiter 2 …), und jeder Mitarbeiter kann Arbeitsgänge an mehreren Stationen übernehmen (F134), ohne dafür eigens als Springer gekennzeichnet zu sein. Nutzerentscheidungen: Arbeitsgänge eines Mitarbeiters laufen nacheinander, auch über Stationen hinweg; keine Wegezeit; Verschieben auf eine andere Station entfernt den Mitarbeiter weiterhin (F61); Mitarbeiter an mehreren Stationen zählen bei der Mitarbeiterzahl je Station anteilig nach Belegung, im Szenario einmal. Im Import ist dieselbe Bezeichnung an mehreren Stationen dieselbe Person. Szenarien vor E40 rechnen unverändert (jede Spur eine eigene Person). Rechenregeln: [RECHENREGELN.md](RECHENREGELN.md), Abschnitt 6a. Datenbank: Migration `202610260004_springer.sql`.
 
+## Gemeinsame Arbeitsgänge mehrerer Mitarbeiter
+
+**E42 – entschieden und umgesetzt (10.11.2026; Wunsch vom 27.10.2026):** Nutzer wünscht, dass die App Arbeitsgänge kennt, die mehrere Mitarbeiter gleichzeitig ausführen (z. B. T17 „SWD FS auf Unterboden setzen“ mit Mitarbeiter 1, 8 und 12). Heute wird ein solcher Arbeitsgang nach F19 in eine Zeile je Mitarbeiter aufgeteilt (`-U1`, `-U2`), und jede Zeile wird unabhängig eingeplant. Dass die Zeilen gleichzeitig laufen müssen, weiß die App nicht. Ein Helfer kann seinen Anteil deshalb rechnerisch lange vor oder nach dem Hauptmitarbeiter erledigen, ohne Warnung.
+
+Behelf bis zur Umsetzung: Alle Zeilen der gemeinsamen Tätigkeit erhalten dieselben Vorgänger, und der Folgeschritt nennt alle Zeilen als Vorgänger. Gleichzeitiger Start ist damit nur gesichert, wenn alle Beteiligten zu dem Zeitpunkt frei sind.
+
+Vorschlag: optionale Template-Spalte „Gruppe“ (Parallelitätskennzeichen nach F21). Alle Zeilen einer Gruppe starten gemeinsam, sobald der letzte Beteiligte frei ist und alle Vorgänger fertig sind; Folgeschritte warten auf das Ende der ganzen Gruppe. Die Wartezeit der früher freien Beteiligten erscheint als Wartezeit. Ändert das Importtemplate (E23) und die Rechenregeln ([RECHENREGELN.md](RECHENREGELN.md), Abschnitte 3 und 6a); Verschieben einzelner Gruppenzeilen auf andere Stationen ist mitzuklären.
+
+Nutzerentscheidung vom 10.11.2026, neue Anforderung F140, Regeln in [RECHENREGELN.md](RECHENREGELN.md) Abschnitt 6c:
+
+- Optionale Spalte „Gruppe“ im Importtemplate, in der App im Detailpanel und in der Tabelle änderbar.
+- Die Zeilen einer Gruppe starten gemeinsam. Danach ist jeder Beteiligte nach seiner eigenen Zeit frei; Nachfolger warten nur auf die Zeilen, die sie als Vorgänger nennen (Nutzer: die unterstützenden Mitarbeiter können schon etwas anderes machen, das nicht von der Hauptarbeit abhängt).
+- Verschieben einer Zeile nimmt die ganze Gruppe mit. Nur die gezogene Zeile verliert ihren Mitarbeiter (F61); die übrigen behalten ihn und arbeiten an der neuen Station (Spur nach E40).
+- Zeilen ohne Mitarbeiter werden nicht eingeplant, der Rest startet gemeinsam.
+- Eine Person darf in einer Gruppe nur einmal vorkommen (Rückfrage des Nutzers: Die Hauptarbeit auf den unterstützenden Mitarbeiter zu legen, geht nicht). Ebenso abgelehnt: Prozesszeit in einer Gruppe, Zeilen an mehreren Stationen, Vorgänger innerhalb der Gruppe, auch über Umwege.
+
+Umsetzung: Prüfungen in `src/domain/model/groups.ts`, Planung in `src/domain/calc/schedule.ts`, Operation `setGroup` und Verschieben in `src/domain/ops/operations.ts`, Import in `validateRows.ts`. Tooltip und Detailpanel zeigen „startet gemeinsam mit …“. Excel-Export im Importformat mit Spalte „Gruppe“. Migration `202611100001_shared_steps.sql` mit Datenbanktest. Tests: `evaluate.test.ts`, `operations.test.ts`, `import.test.ts`, Browsertest `tests/e2e/shared-steps.spec.ts`.
+
+Nicht umgesetzt (mögliche Ergänzungen): eigene Markierung gemeinsamer Arbeitsgänge im Diagramm und im PNG/PDF-Export, Hinweis in der Arbeitsfolge je Mitarbeiter (E49), automatische Gruppenbildung im Zeitaufnahme-Konverter (`scripts/zeitaufnahme/`) aus den Zeilen `-U1`, `-U2`.
+
 ## Prozesszeiten ohne Mitarbeiter
 
 **E44 – entschieden und umgesetzt (28.10.2026):** Zeiten wie das Ablüften (T17-AA006) binden keinen Mitarbeiter; er kann währenddessen andere Tätigkeiten ausführen, die nicht davon abhängen. Neue Anforderung F135.
@@ -202,3 +222,11 @@ Umsetzung (Ausgestaltung durch das Entwicklungsteam, Änderungswünsche offen):
 Code: `src/features/export/work-sequence.ts` (Unit-Tests `work-sequence.test.ts`), Menü in `export-menu.tsx`, Browsertest in `tests/e2e/export.spec.ts`. Keine Datenbankänderung.
 
 Mögliche Ergänzungen (nicht verlangt): PDF zum Aushängen an der Station, ein Blatt je Mitarbeiter, Zuschlag je Mitarbeiter.
+
+## Bestätigung vor problematischem Verschieben
+
+**E50 – entschieden und umgesetzt (10.11.2026):** Nutzer möchte beim Verschieben nicht nur einen kleinen Hinweis (gestrichelte Markierung und Tooltip nach F129), sondern eine echte Warnung; verschoben wird erst nach Bestätigung. Neue Anforderung F139. Ändert F95 nur für diesen Fall: Verschieben ohne Verletzung bleibt ohne Dialog.
+
+Umsetzung: Würde ein Stationswechsel Vorgängerbeziehungen verletzen (dieselbe Prüfung wie die Markierung beim Ziehen, `violationsAfterMove`), erscheint vor dem Verschieben eine Rückfrage mit den betroffenen Beziehungen („B → C“) und „Trotzdem verschieben?“. Abbrechen lässt den Arbeitsgang an seiner Station, ohne Eintrag in Rückgängig/Speichern. Gilt für Drag-and-drop im Diagramm, die Stationsauswahl im Detailpanel und in der Tabellenansicht (zentral in `use-scenario-editor.ts`). Text aus `moveWarning` in `src/domain/ops/movePreview.ts` (Unit-Test in `operations.test.ts`), Browsertest in `tests/e2e/table.spec.ts`. Keine Datenbankänderung. Umordnen auf einen anderen Mitarbeiterbalken (E45) wechselt die Station nicht und fragt deshalb nicht nach.
+
+Mögliche Ergänzung (nicht verlangt): eigener Dialog im Corporate Design statt des Browser-Dialogs.

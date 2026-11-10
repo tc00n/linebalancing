@@ -39,7 +39,7 @@ type SortKey =
 
 const idCollator = new Intl.Collator("de", { numeric: true });
 /** Spaltenzahl der Tabelle, für Stationsköpfe und Hinweiszeilen. */
-const COLUMNS = 11;
+const COLUMNS = 12;
 const cellSelect =
   "h-7 rounded-md border border-input bg-white px-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60";
 
@@ -143,6 +143,13 @@ export function StepTable(props: {
               Zeitart
             </th>
             {header("employee", "Mitarbeiter")}
+            <th
+              scope="col"
+              className="px-2 py-2 font-medium"
+              title="Gemeinsamer Arbeitsgang (E42): Zeilen mit derselben Gruppe starten gemeinsam."
+            >
+              Gruppe
+            </th>
             {header("category", "Kategorie")}
             {header("sequence", "Reihenfolge")}
             <th scope="col" className="px-2 py-2 font-medium">
@@ -303,6 +310,17 @@ export function StepTable(props: {
                       )}
                     </td>
                     <td className="px-2 py-1">
+                      {process ? (
+                        <span className="px-1.5 text-muted-foreground">–</span>
+                      ) : (
+                        <GroupCell
+                          step={step}
+                          onApply={props.onApply}
+                          disabled={props.readOnly}
+                        />
+                      )}
+                    </td>
+                    <td className="px-2 py-1">
                       <select
                         aria-label={`Kategorie von ${step.id}`}
                         disabled={props.readOnly}
@@ -450,6 +468,50 @@ function PredecessorCell(props: {
             type: "setPredecessors",
             stepId: props.step.id,
             predecessorIds: ids,
+          });
+          setError(result);
+          if (result) e.target.value = shown;
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
+      />
+      {error && (
+        <span className="text-xs text-destructive" role="alert">
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Gemeinsamer Arbeitsgang (E42); widersprüchliche Gruppen werden abgelehnt. */
+function GroupCell(props: {
+  step: Step;
+  onApply: (op: Operation) => string | null;
+  disabled?: boolean;
+}) {
+  const shown = props.step.groupId ?? "";
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className="flex min-w-24 flex-col gap-0.5">
+      <Input
+        key={shown}
+        defaultValue={shown}
+        aria-label={`Gruppe von ${props.step.id}`}
+        disabled={props.disabled}
+        aria-invalid={error !== null}
+        placeholder="keine"
+        className="h-7"
+        onBlur={(e) => {
+          if (e.target.value.trim() === shown) {
+            setError(null);
+            return;
+          }
+          const result = props.onApply({
+            type: "setGroup",
+            stepId: props.step.id,
+            groupId: e.target.value,
           });
           setError(result);
           if (result) e.target.value = shown;

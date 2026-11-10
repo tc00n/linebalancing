@@ -15,10 +15,11 @@ test("Arbeitsgänge in der Tabellenansicht bearbeiten (F132)", async ({
     path: testInfo.outputPath("00-stationen.png"),
     fullPage: true,
   });
-  // ID, Beschreibung und Zeit sind keine Eingabefelder (F17, F69).
+  // ID, Beschreibung und Zeit sind keine Eingabefelder (F17, F69);
+  // Textfelder nur für Gruppe (E42), Reihenfolge und Vorgänger.
   await expect(
     table.getByRole("row", { name: /^A / }).getByRole("textbox"),
-  ).toHaveCount(2);
+  ).toHaveCount(3);
 
   // Mitarbeiter wechseln: C von Mitarbeiter 1 zu Mitarbeiter 2 → C hat keine Wartezeit mehr.
   await page
@@ -28,7 +29,19 @@ test("Arbeitsgänge in der Tabellenansicht bearbeiten (F132)", async ({
     "3,00 – 4,50",
   );
 
-  // Stationswechsel entfernt den Mitarbeiter (F61).
+  // E50: Verletzt der Stationswechsel Vorgängerbeziehungen, wird erst nach Bestätigung verschoben.
+  const messages: string[] = [];
+  page.once("dialog", (dialog) => {
+    messages.push(dialog.message());
+    void dialog.dismiss();
+  });
+  await page.getByLabel("Station von B").selectOption({ label: "T18" });
+  await expect(page.getByLabel("Station von B")).toHaveValue("station:T17");
+  expect(messages).toEqual([
+    "Wenn B an Station T18 verschoben wird, sind diese Vorgängerbeziehungen verletzt:\nB → C\n\nTrotzdem verschieben?",
+  ]);
+
+  // Stationswechsel ohne Verletzung: keine Rückfrage; der Mitarbeiter wird entfernt (F61).
   await page.getByLabel("Station von A").selectOption({ label: "T18" });
   await expect(page.getByLabel("Mitarbeiter von A")).toHaveValue("");
 

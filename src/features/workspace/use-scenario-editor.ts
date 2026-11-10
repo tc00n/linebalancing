@@ -4,6 +4,7 @@ import { useScenarioRepository } from "@/features/projects/use-scenario-reposito
 import { useEffect, useRef, useState } from "react";
 import { ScenarioSaveQueue } from "@/data/scenario-save-queue";
 import { type StoredScenario } from "@/data/scenarioRepository";
+import { moveWarning } from "@/domain/ops/movePreview";
 import {
   applyOperation,
   type EditableScenario,
@@ -15,6 +16,9 @@ export type SaveStatus = "saved" | "saving" | "failed" | "locked";
 
 const READ_ONLY =
   "Schreibgeschützt: Das Szenario wird gerade an anderer Stelle bearbeitet.";
+
+/** Rückgabe von `apply`, wenn das Verschieben nicht bestätigt wurde (E50). */
+const MOVE_CANCELLED = "Verschieben abgebrochen.";
 
 const HISTORY_LIMIT = 100;
 
@@ -75,6 +79,11 @@ export function useScenarioEditor(initial: StoredScenario, readOnly = false) {
   /** Wendet eine Änderung an; liefert die Fehlermeldung oder null. */
   function apply(op: Operation): string | null {
     if (readOnly) return READ_ONLY;
+    // E50: Verschieben mit Restriktionsverletzung nur nach Bestätigung.
+    if (op.type === "moveStep") {
+      const warning = moveWarning(history.doc.input, op.stepId, op.stationId);
+      if (warning && !window.confirm(warning)) return MOVE_CANCELLED;
+    }
     const result = applyOperation(history.doc, op);
     if (!result.ok) {
       setError(result.error);

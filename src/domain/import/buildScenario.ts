@@ -46,6 +46,7 @@ export function buildScenario(
       categoryId: DEFAULT_CATEGORY_ID, // E11
       ...(row.process ? { timeKind: "process" as const } : {}),
       ...(row.holdsStation ? { holdsStation: true } : {}),
+      ...(row.groupId === undefined ? {} : { groupId: row.groupId }),
     };
   });
 

@@ -22,7 +22,7 @@ export interface ScheduledStep {
 
 /**
  * Ablaufplanung aller zugeordneten Schritte und Prozesszeiten (docs/RECHENREGELN.md,
- * Abschnitte 3, 6a und 6b).
+ * Abschnitte 3, 6a, 6b und 6c).
  * Jede Station ist ein eigener Taktzyklus ab 0 (E1a); geplant wird gemeinsam über
  * alle Stationen, weil ein Springer (E40) linienweit nur eine Tätigkeit zugleich
  * ausführt. Ohne Springer ist das Ergebnis identisch mit der Planung je Station.
@@ -55,25 +55,45 @@ export function scheduleScenario(input: ScenarioInput): ScheduledStep[] {
       ? 0
       : (personFree.get(person.get(step.employeeId)!) ?? 0);
   const done = new Map<string, ScheduledStep>();
-  const pending = new Set(steps);
+
+  // E42 (6c): Die zugeordneten Zeilen einer Gruppe sind eine Einheit mit gemeinsamem Start.
+  const units: Step[][] = [];
+  const groups = new Map<string, Step[]>();
+  for (const step of steps) {
+    if (step.groupId === undefined) {
+      units.push([step]);
+      continue;
+    }
+    const members = groups.get(step.groupId);
+    if (members) members.push(step);
+    else {
+      const created = [step];
+      groups.set(step.groupId, created);
+      units.push(created);
+    }
+  }
+  const lead = (unit: readonly Step[]) =>
+    unit.reduce((a, b) => (tieBreak(b, a) < 0 ? b : a));
+  const pending = new Set(units);
   const result: ScheduledStep[] = [];
 
   while (pending.size > 0) {
-    let best: { step: Step; start: Minutes } | undefined;
+    let best: { unit: Step[]; lead: Step; start: Minutes } | undefined;
 
-    for (const step of pending) {
-      const predecessors = timingPredecessors.get(step.id)!;
+    for (const unit of pending) {
+      const predecessors = unit.flatMap((s) => timingPredecessors.get(s.id)!);
       if (!predecessors.every((p) => done.has(p))) continue;
       const start = Math.max(
-        freeAt(step),
+        ...unit.map(freeAt),
         ...predecessors.map((p) => done.get(p)!.end),
       );
+      const first = lead(unit);
       if (
         !best ||
         isBefore(start, best.start) ||
-        (nearlyEqual(start, best.start) && tieBreak(step, best.step) < 0)
+        (nearlyEqual(start, best.start) && tieBreak(first, best.lead) < 0)
       ) {
-        best = { step, start };
+        best = { unit, lead: first, start };
       }
     }
 
@@ -83,24 +103,26 @@ export function scheduleScenario(input: ScenarioInput): ScheduledStep[] {
       );
     }
 
-    const { step, start } = best;
-    const free = freeAt(step);
-    const scheduled: ScheduledStep = {
-      stepId: step.id,
-      stationId: step.stationId,
-      employeeId: step.employeeId,
-      start,
-      end: start + step.timeMin,
-      // Vor einer Prozesszeit wartet niemand.
-      waitBefore:
-        step.employeeId !== null && exceeds(start, free) ? start - free : 0,
-    };
-    if (step.employeeId !== null) {
-      personFree.set(person.get(step.employeeId)!, scheduled.end);
+    const { unit, start } = best;
+    for (const step of unit) {
+      const free = freeAt(step);
+      const scheduled: ScheduledStep = {
+        stepId: step.id,
+        stationId: step.stationId,
+        employeeId: step.employeeId,
+        start,
+        end: start + step.timeMin,
+        // Vor einer Prozesszeit wartet niemand; in einer Gruppe wartet, wer früher frei ist.
+        waitBefore:
+          step.employeeId !== null && exceeds(start, free) ? start - free : 0,
+      };
+      if (step.employeeId !== null) {
+        personFree.set(person.get(step.employeeId)!, scheduled.end);
+      }
+      done.set(step.id, scheduled);
+      result.push(scheduled);
     }
-    done.set(step.id, scheduled);
-    pending.delete(step);
-    result.push(scheduled);
+    pending.delete(unit);
   }
 
   return result;

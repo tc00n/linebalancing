@@ -21,6 +21,7 @@ const base: Values = {
   predecessors: null,
   timeKind: null,
   holdsStation: null,
+  group: null,
 };
 const rows = (...values: Partial<Values>[]): RawRow[] =>
   values.map((v, i) => ({ rowNumber: i + 2, values: { ...base, ...v } }));
@@ -121,6 +122,7 @@ describe("validateRows", () => {
           predecessors: null,
           timeKind: null,
           holdsStation: null,
+          group: null,
         },
       },
     ]);
@@ -338,6 +340,67 @@ describe("Zeitart (E44)", () => {
       [3, "holdsStation"],
       [4, "holdsStation"],
       [5, "employee"],
+    ]);
+  });
+});
+
+describe("Gruppe (E42)", () => {
+  const shared = (...extra: Partial<Values>[]) =>
+    rows(
+      { id: "G1", employee: "Mitarbeiter 1", group: " SWD " },
+      { id: "G2", employee: "Mitarbeiter 8", group: "SWD", sequence: 2 },
+      ...extra,
+    );
+
+  it("liest die optionale Spalte und übernimmt die Gruppe ins Szenario", () => {
+    const result = validateRows(shared());
+    expect(result.hasErrors).toBe(false);
+    const input = buildScenario(result.rows, { taktMin: 10, allowancePct: 0 });
+    expect(input.steps.map((s) => s.groupId)).toEqual(["SWD", "SWD"]);
+    // Gemeinsamer Start: Mitarbeiter 8 hat davor nichts zu tun, startet aber mit Mitarbeiter 1.
+    const result2 = evaluateScenario(input);
+    expect(
+      result2.employees.flatMap((e) => e.steps.map((s) => s.start)),
+    ).toEqual([0, 0]);
+  });
+
+  it("Dateien ohne Spalte „Gruppe“ bleiben gültig", () => {
+    const mapping = mapHeaders([
+      "Arbeitsgang-ID",
+      "Station",
+      "Arbeitsgang/Beschreibung",
+      "Zeit_min",
+      "Mitarbeiter",
+      "Reihenfolge",
+      "Vorgänger-IDs",
+    ]);
+    expect(mapping.ok && mapping.indexByKey.group).toBeNull();
+  });
+
+  it("meldet widersprüchliche Gruppen in der Spalte „Gruppe“", () => {
+    expect(
+      errorsOf(
+        shared({ id: "G3", employee: "Mitarbeiter 1", group: "SWD" }),
+      ).map((m) => [m.rowNumber, m.column]),
+    ).toEqual([
+      [2, "group"],
+      [4, "group"],
+    ]);
+    expect(
+      errorsOf(
+        rows(
+          { id: "G1", group: "X" },
+          { id: "G2", employee: "Mitarbeiter 2", station: "T18", group: "X" },
+        ),
+      )[0].message,
+    ).toContain("mehreren Stationen (T17, T18)");
+  });
+
+  it("weist auf Gruppen mit nur einer Zeile hin", () => {
+    const result = validateRows(rows({ id: "A", group: "allein" }));
+    expect(result.hasErrors).toBe(false);
+    expect(result.messages).toEqual([
+      expect.objectContaining({ severity: "warning", column: "group" }),
     ]);
   });
 });

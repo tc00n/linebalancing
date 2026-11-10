@@ -1,5 +1,6 @@
 "use client";
 
+import { groupMembersOf } from "@/domain/model/groups";
 import { isProcess } from "@/domain/model/types";
 import {
   describeIssue,
@@ -57,6 +58,21 @@ export function StepTooltip(props: {
           <>
             <dt className="text-muted-foreground">Mitarbeiter</dt>
             <dd>{employee?.label ?? "nicht zugeordnet"}</dd>
+          </>
+        )}
+        {step.groupId !== undefined && (
+          <>
+            <dt className="text-muted-foreground">Gemeinsam mit</dt>
+            <dd>
+              {groupMembersOf(view.input.steps, step)
+                .filter((s) => s.id !== step.id)
+                .map(
+                  (s) =>
+                    `${s.id} (${s.employeeId ? (view.employees.get(s.employeeId)?.label ?? "") : "nicht zugeordnet"})`,
+                )
+                .join(", ") || "–"}{" "}
+              · Gruppe „{step.groupId}“
+            </dd>
           </>
         )}
         {scheduled && (

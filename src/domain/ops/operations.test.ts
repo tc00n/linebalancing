@@ -4,7 +4,7 @@ import { defaultCategories } from "../model/categories";
 import { assertValidScenario } from "../model/validate";
 import { scenarioArbitrary } from "../testing/arbitraries";
 import { scenario } from "../testing/builders";
-import { violationsAfterMove } from "./movePreview";
+import { moveWarning, violationsAfterMove } from "./movePreview";
 import {
   applyOperation,
   type EditableScenario,
@@ -213,6 +213,33 @@ describe("Operationen (Phase 5)", () => {
     expect(violationsAfterMove(input, "B", "S3")).toEqual(["B → C"]);
     expect(violationsAfterMove(input, "B", "S2")).toEqual([]);
   });
+
+  it("verlangt vor problematischem Verschieben eine Bestätigung (E50)", () => {
+    const input = scenario(
+      [
+        { id: "B", station: "S1", employee: "MA1", time: 1 },
+        {
+          id: "C",
+          station: "S2",
+          employee: "MA1",
+          time: 1,
+          predecessors: ["B"],
+        },
+      ],
+      { emptyStations: ["S3"] },
+    );
+    const s3 = input.stations.find((s) => s.label === "S3")!.id;
+    const s2 = input.stations.find((s) => s.label === "S2")!.id;
+    const s1 = input.stations.find((s) => s.label === "S1")!.id;
+    expect(moveWarning(input, "B", s3)).toBe(
+      "Wenn B an Station S3 verschoben wird, sind diese Vorgängerbeziehungen verletzt:\n" +
+        "B → C\n\nTrotzdem verschieben?",
+    );
+    expect(moveWarning(input, "B", s2)).toBeNull();
+    // Gleiche Station oder unbekannter Arbeitsgang: keine Rückfrage.
+    expect(moveWarning(input, "B", s1)).toBeNull();
+    expect(moveWarning(input, "X", s3)).toBeNull();
+  });
 });
 
 describe("Invarianten über beliebige Operationsfolgen", () => {
@@ -254,6 +281,16 @@ describe("Invarianten über beliebige Operationsfolgen", () => {
         type: fc.constant("setSequence" as const),
         stepId: pick(steps, "-"),
         sequence: fc.integer({ min: 0, max: 9 }),
+      }),
+      fc.record({
+        type: fc.constant("setGroup" as const),
+        stepId: pick(steps, "-"),
+        groupId: fc.option(fc.constantFrom("G", "H"), { nil: null }),
+      }),
+      fc.record({
+        type: fc.constant("setTimeKind" as const),
+        stepId: pick(steps, "-"),
+        timeKind: fc.constantFrom("manual" as const, "process" as const),
       }),
     );
   };
@@ -339,5 +376,123 @@ describe("Zeitart (E44)", () => {
       ...step(editable(), "A"),
       employeeId: null,
     });
+  });
+});
+
+describe("Gemeinsame Arbeitsgänge (E42)", () => {
+  // T17-Beispiel verkleinert: G1 Hauptarbeit (MA1), G2 Unterstützung (MA2).
+  const grouped = () =>
+    editable(
+      scenario(
+        [
+          { id: "G1", station: "S1", employee: "MA1", time: 3, group: "G" },
+          { id: "G2", station: "S1", employee: "MA2", time: 1, group: "G" },
+          { id: "X", station: "S1", employee: "MA3", time: 1 },
+        ],
+        { emptyStations: ["S2"] },
+      ),
+    );
+
+  it("lehnt ab, die Hauptarbeit dem unterstützenden Mitarbeiter zu geben", () => {
+    expect(
+      apply(
+        { type: "assignEmployee", stepId: "G1", employeeId: "S1/MA2" },
+        grouped(),
+      ),
+    ).toEqual({
+      ok: false,
+      error:
+        "Gruppe „G“: MA2 ist mehrfach eingetragen (G1, G2). Gleichzeitig kann jeder nur eine Tätigkeit ausführen.",
+    });
+  });
+
+  it("Verschieben nimmt die ganze Gruppe mit; nur die gezogene Zeile verliert den Mitarbeiter", () => {
+    const moved = ok(
+      { type: "moveStep", stepId: "G1", stationId: "S2" },
+      grouped(),
+    );
+    expect(step(moved, "G1")).toMatchObject({
+      stationId: "S2",
+      employeeId: null,
+    });
+    // MA2 bekommt an S2 eine Spur (E40) und behält seine Unterstützung.
+    expect(step(moved, "G2")).toMatchObject({
+      stationId: "S2",
+      employeeId: "S2/MA2",
+    });
+    expect(moved.input.employees).toContainEqual(
+      expect.objectContaining({
+        id: "S2/MA2",
+        stationId: "S2",
+        personId: "S1/MA2",
+      }),
+    );
+    expect(step(moved, "X").stationId).toBe("S1");
+    assertValidScenario(moved.input);
+  });
+
+  it("setzt und entfernt die Gruppe; Leerzeichen zählen nicht", () => {
+    const joined = ok(
+      { type: "setGroup", stepId: "X", groupId: "  G " },
+      grouped(),
+    );
+    expect(step(joined, "X").groupId).toBe("G");
+    const left = ok({ type: "setGroup", stepId: "X", groupId: "" }, joined);
+    expect("groupId" in step(left, "X")).toBe(false);
+  });
+
+  it("lehnt widersprüchliche Gruppen ab", () => {
+    // Vorgänger innerhalb der Gruppe.
+    expect(
+      apply(
+        { type: "setPredecessors", stepId: "G2", predecessorIds: ["G1"] },
+        grouped(),
+      ),
+    ).toMatchObject({
+      ok: false,
+      error: expect.stringContaining("gemeinsam starten"),
+    });
+    // Prozesszeit in der Gruppe.
+    expect(
+      apply(
+        { type: "setTimeKind", stepId: "G2", timeKind: "process" },
+        grouped(),
+      ),
+    ).toMatchObject({
+      ok: false,
+      error: expect.stringContaining("Handzeiten"),
+    });
+    // Gruppe an einer anderen Station.
+    const elsewhere = ok(
+      { type: "moveStep", stepId: "X", stationId: "S2" },
+      grouped(),
+    );
+    expect(
+      apply({ type: "setGroup", stepId: "X", groupId: "G" }, elsewhere),
+    ).toMatchObject({
+      ok: false,
+      error: expect.stringContaining("mehreren Stationen"),
+    });
+  });
+
+  it("Rückfrage nennt die mitziehenden Zeilen (E50)", () => {
+    const input = scenario(
+      [
+        { id: "G1", station: "S1", employee: "MA1", time: 1, group: "G" },
+        { id: "G2", station: "S1", employee: "MA2", time: 1, group: "G" },
+        {
+          id: "C",
+          station: "S2",
+          employee: "MA3",
+          time: 1,
+          predecessors: ["G2"],
+        },
+      ],
+      { emptyStations: ["S3"] },
+    );
+    expect(moveWarning(input, "G1", "S3")).toBe(
+      "Wenn G1 mit G2 (Gruppe „G“) an Station S3 verschoben wird, sind diese Vorgängerbeziehungen verletzt:\n" +
+        "G2 → C\n\nTrotzdem verschieben?",
+    );
   });
 });

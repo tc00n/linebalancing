@@ -1,6 +1,6 @@
 # Rechenregeln
 
-**Stand:** 26.10.2026 · Verbindliche Grundlage für den Rechenkern (`src/domain/calc/`). Quellen: 01_ANFORDERUNGEN (F/P-Nummern) und die Entscheidungen E1–E7, E14 und E34 in [`OFFENE_ENTSCHEIDUNGEN.md`](OFFENE_ENTSCHEIDUNGEN.md). Mitarbeiter an mehreren Stationen (E40, F134) siehe Abschnitt 6a, Prozesszeiten (E44, F135) Abschnitt 6b. Noch offen und hier nicht geregelt: E8 (Filter).
+**Stand:** 26.10.2026 · Verbindliche Grundlage für den Rechenkern (`src/domain/calc/`). Quellen: 01_ANFORDERUNGEN (F/P-Nummern) und die Entscheidungen E1–E7, E14 und E34 in [`OFFENE_ENTSCHEIDUNGEN.md`](OFFENE_ENTSCHEIDUNGEN.md). Mitarbeiter an mehreren Stationen (E40, F134) siehe Abschnitt 6a, Prozesszeiten (E44, F135) Abschnitt 6b, gemeinsame Arbeitsgänge (E42, F140) Abschnitt 6c. Noch offen und hier nicht geregelt: E8 (Filter).
 
 ## 1 · Einheiten und Genauigkeit
 
@@ -129,6 +129,26 @@ Entscheidung des Nutzers vom 28.10.2026: Zeiten wie das Ablüften laufen ohne Mi
 
 - Prozesszeiten zählen nicht zur produktiven Zeit, zum Zuschlag, zur Belegung, zur Personalauslastung oder zum Gesamtarbeitsinhalt.
 - Stationshöhe = max(größte Belegung eines Mitarbeiters der Station; Ende jeder Prozesszeit der Station, die die Station hält). Eine Prozesszeit, die die Station nicht hält, verändert die Stationshöhe nur indirekt über die Wartezeit ihrer Nachfolger.
+
+## 6c · Gemeinsame Arbeitsgänge mehrerer Mitarbeiter (E42, F140)
+
+Entscheidung des Nutzers vom 10.11.2026: Ein Arbeitsgang, den mehrere Mitarbeiter gleichzeitig ausführen (z. B. T17 „SWD FS auf Unterboden setzen“ mit Mitarbeiter 1, 8 und 12), bleibt nach F19 eine Zeile je Mitarbeiter mit eigener Zeit. Die Zeilen erhalten dieselbe **Gruppe**. Ohne Gruppen bleiben alle Ergebnisse unverändert.
+
+**Modell**
+
+- Eine Gruppe ist ein Text je Arbeitsgang (Importspalte „Gruppe“, in der App änderbar). Leer = keine Gruppe.
+- Alle Zeilen einer Gruppe sind Handzeiten, liegen an derselben Station und haben verschiedene Personen (E40). Keine Zeile darf Vorgänger einer anderen Zeile derselben Gruppe sein, auch nicht über Umwege (der Vorgängergraph mit einem Knoten je Gruppe ist kreisfrei).
+- Verstöße sind beim Import Fehler in der Spalte „Gruppe“; in der App wird die Änderung abgelehnt, die Datenbank prüft dasselbe. Eine Gruppe mit nur einer Zeile ist zulässig (Hinweis beim Import) und wirkt nicht.
+- Verschieben einer Zeile auf eine andere Station nimmt alle Zeilen der Gruppe mit. Die gezogene Zeile verliert ihren Mitarbeiter (F61), die übrigen behalten ihn; der Mitarbeiter erhält bei Bedarf eine Spur an der neuen Station (E40).
+
+**Ablaufplanung (ergänzt Abschnitte 3 und 6a)**
+
+- Die zugeordneten Zeilen einer Gruppe werden als Einheit eingeplant. Bereit ist die Einheit, wenn die zeitlich wirksamen Vorgänger aller Zeilen eingeplant sind.
+- Gemeinsamer Start = max(Zeitpunkt, an dem jeder Beteiligte frei ist; Ende aller zeitlich wirksamen Vorgänger aller Zeilen). Jede Zeile endet nach ihrer eigenen Zeit; danach ist der Beteiligte wieder frei.
+- Wer früher frei ist, wartet bis zum gemeinsamen Start; die Lücke ist Wartezeit (Abschnitt 4).
+- Nachfolger warten nur auf die Zeilen, die sie als Vorgänger nennen. Ein Helfer kann nach seinem Teil also Tätigkeiten ausführen, die nicht von der Hauptarbeit abhängen.
+- Auswahl unter bereiten Einheiten wie in 6a; beim Gleichstand zählt die Zeile der Gruppe mit der kleinsten Reihenfolge.
+- Zeilen ohne Mitarbeiter werden wie bisher nicht eingeplant (F109); die übrigen Zeilen starten weiterhin gemeinsam.
 
 ## 7 · Verbindlicher Testfall
 

@@ -49,6 +49,7 @@ export function exportRows(view: ScenarioView, meta: ExportMeta) {
       predecessors: step.predecessorIds.join("; "),
       timeKind: isProcess(step) ? "Prozess" : "Hand",
       holdsStation: isProcess(step) ? (step.holdsStation ? "ja" : "nein") : "",
+      group: step.groupId ?? "",
     };
     return [
       ...COLUMNS.map((c) => template[c.key]),

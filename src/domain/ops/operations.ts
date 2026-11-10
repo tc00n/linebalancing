@@ -1,6 +1,11 @@
 import { findCycles } from "../checks/cycles";
 import type { Category } from "../model/categories";
 import {
+  groupMembersOf,
+  normalizeGroupId,
+  scenarioGroupProblems,
+} from "../model/groups";
+import {
   isProcess,
   personOf,
   type Employee,
@@ -53,6 +58,12 @@ export type Operation =
       /** Nur Prozesszeit; fehlt = bisheriger Wert bleibt. */
       readonly holdsStation?: boolean;
     }
+  /** E42: gemeinsamer Arbeitsgang; null bzw. leer = keine Gruppe. */
+  | {
+      readonly type: "setGroup";
+      readonly stepId: string;
+      readonly groupId: string | null;
+    }
   | {
       readonly type: "setHoldsStation";
       readonly stepId: string;
@@ -75,6 +86,17 @@ export type OperationResult =
   | { readonly ok: false; readonly error: string };
 
 export function applyOperation(
+  scenario: EditableScenario,
+  op: Operation,
+): OperationResult {
+  const result = applyUnchecked(scenario, op);
+  if (!result.ok || result.scenario === scenario) return result;
+  // E42: Keine Änderung darf eine Gruppe widersprüchlich machen.
+  const problem = scenarioGroupProblems(result.scenario.input)[0];
+  return problem ? { ok: false, error: problem.message } : result;
+}
+
+function applyUnchecked(
   scenario: EditableScenario,
   op: Operation,
 ): OperationResult {
@@ -101,12 +123,24 @@ export function applyOperation(
         return fail("Zielstation existiert nicht.");
       }
       if (step.stationId === op.stationId) return { ok: true, scenario };
-      // F61: nach Stationswechsel zunächst keinem Mitarbeiter zugeordnet.
-      return updateStep(op.stepId, (s) => ({
-        ...s,
-        stationId: op.stationId,
-        employeeId: null,
-      }));
+      // E42: Die ganze Gruppe zieht mit; die übrigen Zeilen behalten ihren Mitarbeiter (Spur nach E40).
+      const others = new Set(
+        groupMembersOf(input.steps, step)
+          .filter((s) => s.id !== step.id)
+          .map((s) => s.id),
+      );
+      let employees = input.employees;
+      const steps = input.steps.map((s) => {
+        // F61: nach Stationswechsel zunächst keinem Mitarbeiter zugeordnet.
+        if (s.id === step.id)
+          return { ...s, stationId: op.stationId, employeeId: null };
+        if (!others.has(s.id)) return s;
+        if (s.employeeId === null) return { ...s, stationId: op.stationId };
+        const lane = laneAt(employees, s.employeeId, op.stationId);
+        employees = lane.employees;
+        return { ...s, stationId: op.stationId, employeeId: lane.id };
+      });
+      return withInput({ steps, employees });
     }
 
     case "assignEmployee": {
@@ -125,15 +159,9 @@ export function applyOperation(
         }));
       }
       // E40: Mitarbeiter einer anderen Station arbeitet hier als Springer.
-      const person = personOf(employee);
-      const lane =
-        input.employees.find(
-          (e) => personOf(e) === person && e.stationId === step.stationId,
-        ) ?? springerLane(input.employees, employee, step.stationId);
+      const lane = laneAt(input.employees, employee.id, step.stationId);
       return withInput({
-        employees: input.employees.includes(lane)
-          ? input.employees
-          : [...input.employees, lane],
+        employees: lane.employees,
         steps: input.steps.map((s) =>
           s.id === op.stepId ? { ...s, employeeId: lane.id } : s,
         ),
@@ -208,6 +236,19 @@ export function applyOperation(
               ...(holds ? { holdsStation: true } : {}),
             }
           : withoutTimeKind(s);
+      });
+    }
+
+    case "setGroup": {
+      const step = needStep(op.stepId);
+      if (!step) return fail(`Arbeitsgang ${op.stepId} existiert nicht.`);
+      const groupId = normalizeGroupId(op.groupId);
+      if (groupId === step.groupId) return { ok: true, scenario };
+      return updateStep(op.stepId, (s) => {
+        const copy: { -readonly [K in keyof Step]: Step[K] } = { ...s };
+        if (groupId === undefined) delete copy.groupId;
+        else copy.groupId = groupId;
+        return copy;
       });
     }
 
@@ -298,6 +339,23 @@ function withoutTimeKind(step: Step): Step {
   delete copy.timeKind;
   delete copy.holdsStation;
   return copy;
+}
+
+/** Spur der Person hinter `employeeId` an einer Station; legt sie bei Bedarf an (E40). */
+function laneAt(
+  employees: readonly Employee[],
+  employeeId: string,
+  stationId: string,
+): { id: string; employees: readonly Employee[] } {
+  const employee = employees.find((e) => e.id === employeeId)!;
+  if (employee.stationId === stationId) return { id: employee.id, employees };
+  const person = personOf(employee);
+  const existing = employees.find(
+    (e) => personOf(e) === person && e.stationId === stationId,
+  );
+  if (existing) return { id: existing.id, employees };
+  const lane = springerLane(employees, employee, stationId);
+  return { id: lane.id, employees: [...employees, lane] };
 }
 
 /** Neue Spur einer Person an einer weiteren Station (E40). */

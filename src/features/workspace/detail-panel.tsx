@@ -5,6 +5,7 @@ import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { parseGermanNumber } from "@/domain/import/cells";
+import { groupMembersOf } from "@/domain/model/groups";
 import { sortStations } from "@/domain/model/stationOrder";
 import { isProcess } from "@/domain/model/types";
 import type { Operation } from "@/domain/ops/operations";
@@ -18,7 +19,7 @@ const selectClass =
 /**
  * Detailpanel als Overlay rechts über dem Diagramm (F33, F123, F126).
  * Nicht modal, damit Drag-and-drop bedienbar bleibt. Editierbar sind
- * Station, Zeitart, Mitarbeiter, Kategorie, Reihenfolge und Vorgänger (E13, F127, E44);
+ * Station, Zeitart, Mitarbeiter, Gruppe, Kategorie, Reihenfolge und Vorgänger (E13, F127, E44, E42);
  * importierte Zeit und Arbeitsgang-ID bleiben schreibgeschützt (F17, F69).
  */
 export function DetailPanel(props: {
@@ -36,6 +37,7 @@ export function DetailPanel(props: {
   const ids = useId();
   const [predecessorError, setPredecessorError] = useState<string | null>(null);
   const [newPredecessor, setNewPredecessor] = useState("");
+  const [groupError, setGroupError] = useState<string | null>(null);
   if (!step) return null;
 
   const readOnly = !props.onApply;
@@ -45,6 +47,17 @@ export function DetailPanel(props: {
   const scheduled = view.scheduled.get(step.id);
   const issues = view.issuesByStep.get(step.id) ?? [];
   const successors = view.successors.get(step.id) ?? [];
+  // E42: übrige Zeilen des gemeinsamen Arbeitsgangs und vorhandene Gruppen der Station.
+  const partners = groupMembersOf(view.input.steps, step).filter(
+    (s) => s.id !== step.id,
+  );
+  const stationGroups = [
+    ...new Set(
+      view.input.steps
+        .filter((s) => s.stationId === step.stationId && s.groupId)
+        .map((s) => s.groupId!),
+    ),
+  ].sort();
 
   function setPredecessors(predecessorIds: string[]) {
     const error = apply({
@@ -205,6 +218,70 @@ export function DetailPanel(props: {
                     stationId={step.stationId}
                   />
                 </select>
+              </dd>
+
+              <dt className="self-start pt-1.5">
+                <label
+                  htmlFor={`${ids}-group`}
+                  className="text-muted-foreground"
+                >
+                  Gruppe
+                </label>
+              </dt>
+              <dd className="flex flex-col gap-1.5">
+                <Input
+                  id={`${ids}-group`}
+                  key={`${step.id}-${step.groupId ?? ""}`}
+                  defaultValue={step.groupId ?? ""}
+                  placeholder="keine"
+                  list={`${ids}-groups`}
+                  className="h-8"
+                  disabled={readOnly}
+                  title="Gemeinsamer Arbeitsgang: Zeilen mit derselben Gruppe starten gemeinsam."
+                  onBlur={(e) => {
+                    if (e.target.value.trim() === (step.groupId ?? "")) return;
+                    const error = apply({
+                      type: "setGroup",
+                      stepId: step.id,
+                      groupId: e.target.value,
+                    });
+                    setGroupError(error);
+                    if (error) e.target.value = step.groupId ?? "";
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                  }}
+                />
+                <datalist id={`${ids}-groups`}>
+                  {stationGroups.map((g) => (
+                    <option key={g} value={g} />
+                  ))}
+                </datalist>
+                {partners.length > 0 && (
+                  <span className="flex flex-wrap items-center gap-1 text-xs">
+                    <span className="text-muted-foreground">
+                      startet gemeinsam mit
+                    </span>
+                    {partners.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        className="rounded-md bg-secondary px-1.5 py-0.5 font-medium hover:bg-nx-steel"
+                        onClick={() => props.onSelectStep(s.id)}
+                      >
+                        {s.id}
+                        {s.employeeId
+                          ? ` · ${view.employees.get(s.employeeId)?.label ?? ""}`
+                          : " · nicht zugeordnet"}
+                      </button>
+                    ))}
+                  </span>
+                )}
+                {groupError && (
+                  <p className="text-xs text-destructive" role="alert">
+                    {groupError}
+                  </p>
+                )}
               </dd>
             </>
           )}

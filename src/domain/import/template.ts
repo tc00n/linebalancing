@@ -14,6 +14,8 @@ export const COLUMNS = [
   // E44: optional, damit Dateien von vor E44 weiter importierbar sind.
   { key: "timeKind", header: "Zeitart", optional: true },
   { key: "holdsStation", header: "Hält Station", optional: true },
+  // E42: gemeinsamer Arbeitsgang mehrerer Mitarbeiter, optional.
+  { key: "group", header: "Gruppe", optional: true },
 ] as const;
 
 export type ColumnKey = (typeof COLUMNS)[number]["key"];
