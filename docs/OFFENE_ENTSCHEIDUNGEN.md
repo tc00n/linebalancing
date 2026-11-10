@@ -186,3 +186,19 @@ Vorschlag zur Umsetzung (noch nicht bestätigt):
 **E48 – entschieden und umgesetzt (09.11.2026):** Nutzer möchte Ist und Ziel als getrennte Excel-Dateien hochladen, statt das Ziel als Kopie anzulegen. Die Dateien haben dieselben Arbeitsgang-IDs, nur Station, Mitarbeiter oder Reihenfolge unterscheiden sich. Dafür gab es schon vorher „Neues Szenario zu bestehender Variante“ im Import (E20). Nutzerentscheidung: Zusätzlich darf der Vergleich Szenarien **verschiedener Varianten** nebeneinanderstellen. Das ändert E15, wonach nur Szenarien derselben Variante auswählbar waren. Neue Anforderung F137.
 
 Umsetzung: Die Auswahl „Szenario für Ist/Ziel“ zeigt alle Szenarien des Projekts, bei mehreren Varianten nach Variante gruppiert. Ohne Auswahl ist das Ziel weiterhin das nächste andere Szenario derselben Variante. Stehen Ist und Ziel in verschiedenen Varianten, erscheint der Hinweis „Ist und Ziel stammen aus verschiedenen Varianten.“ Der Abgleich bleibt wie in E15: Stationen über die Bezeichnung, Arbeitsgänge über die ID. Arbeitsgänge ohne Gegenstück zählen nicht als verschoben. Duplizieren legt die Kopie in der Variante des bearbeiteten Szenarios an. Keine Datenbankänderung. Browsertest in `compare.spec.ts`.
+
+## Arbeitsfolge je Mitarbeiter
+
+**E49 – entschieden und umgesetzt (10.11.2026):** Nutzer möchte pro Szenario eine Liste herunterladen, in der steht, welcher Mitarbeiter in welcher Reihenfolge welche Tätigkeiten an welcher Station ausführt. Neue Anforderung F138.
+
+Umsetzung (Ausgestaltung durch das Entwicklungsteam, Änderungswünsche offen):
+
+- Menüpunkt „Arbeitsfolge je Mitarbeiter (Excel)“ im Menü „Export“ des Arbeitsbereichs und der Tabellenansicht; Datei `<Szenario> – Arbeitsfolge.xlsx`, Blatt „Arbeitsfolge“ mit Titel, Stand und Autofilter.
+- Eine Zeile je Arbeitsgang: Mitarbeiter, Nr. (Reihenfolge je Mitarbeiter), Station, Arbeitsgang-ID, Beschreibung, Zeit, Start, Ende, Wartezeit davor, Hinweis. Zeiten ungerundet mit Anzeigeformat 0,00 (P2).
+- Mitarbeiter in Linienreihenfolge wie in der Mitarbeiteransicht (E45); je Mitarbeiter zeitlich korrekt über alle Einsatzstationen (Springer nach E40), d. h. die Station kann innerhalb der Folge wechseln.
+- Am Ende ohne Nummer: nicht zugeordnete Arbeitsgänge („ohne Mitarbeiter“, nicht eingeplant, mit Hinweis) und Prozesszeiten („Prozesszeit (ohne Mitarbeiter)“, mit Start und Ende).
+- Unabhängig von Filter und Ansicht immer das ganze Szenario.
+
+Code: `src/features/export/work-sequence.ts` (Unit-Tests `work-sequence.test.ts`), Menü in `export-menu.tsx`, Browsertest in `tests/e2e/export.spec.ts`. Keine Datenbankänderung.
+
+Mögliche Ergänzungen (nicht verlangt): PDF zum Aushängen an der Station, ein Blatt je Mitarbeiter, Zuschlag je Mitarbeiter.

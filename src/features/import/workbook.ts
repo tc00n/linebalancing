@@ -196,8 +196,8 @@ export function columnWidth(key: ColumnKey): number {
   return key === "description" ? 48 : key === "predecessors" ? 22 : 18;
 }
 
-export function styleHeader(sheet: Worksheet) {
-  const header = sheet.getRow(1);
+export function styleHeader(sheet: Worksheet, row = 1) {
+  const header = sheet.getRow(row);
   header.font = { bold: true, color: { argb: "FFFFFFFF" } };
   header.fill = {
     type: "pattern",

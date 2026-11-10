@@ -6,6 +6,7 @@ import {
   FileImageIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
+  ListOrderedIcon,
 } from "lucide-react";
 import { useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
@@ -23,10 +24,12 @@ import {
   safeFilename,
 } from "./chart-export";
 import { createExcelExport } from "./excel-export";
+import { createWorkSequenceExport } from "./work-sequence";
 
 /**
  * Export des bearbeiteten Szenarios (F35, F45): Excel im Format der Importvorlage (E19),
- * Diagramm als PNG oder PDF (E18). Ohne `chart` nur Excel, z. B. in der Tabellenansicht.
+ * Arbeitsfolge je Mitarbeiter als Excel (E49), Diagramm als PNG oder PDF (E18). Ohne `chart`
+ * nur die Excel-Exporte, z. B. in der Tabellenansicht.
  */
 export function ExportMenu(props: {
   view: ScenarioView;
@@ -85,6 +88,26 @@ export function ExportMenu(props: {
         >
           <FileSpreadsheetIcon className="size-4" />
           Excel (Importvorlage)
+        </button>
+        <button
+          type="button"
+          className={item}
+          disabled={busy}
+          onClick={() =>
+            run(async () =>
+              downloadFile(
+                await createWorkSequenceExport(props.view, {
+                  scenarioName: props.scenarioName,
+                  stand: props.stand,
+                }),
+                `${name} – Arbeitsfolge.xlsx`,
+                XLSX_MIME,
+              ),
+            )
+          }
+        >
+          <ListOrderedIcon className="size-4" />
+          Arbeitsfolge je Mitarbeiter (Excel)
         </button>
         {props.chart && (
           <>

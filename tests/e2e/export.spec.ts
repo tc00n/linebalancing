@@ -47,6 +47,23 @@ test("Excel- und Diagrammexport (F35, F45, F52, E18, E19)", async ({
   ]);
   expect(rows).toContainEqual(["D", "T18", "Prüfen", 0.76, "", 4, "C"]);
 
+  // E49: Arbeitsfolge je Mitarbeiter, Kopfzeile in Zeile 3.
+  const sequence = await download(page, "Arbeitsfolge je Mitarbeiter (Excel)");
+  expect(sequence.name).toBe("Beispiel XT – Arbeitsfolge.xlsx");
+  const sequenceBook = new ExcelJS.Workbook();
+  await sequenceBook.xlsx.load(new Uint8Array(sequence.data).buffer);
+  const sheet = sequenceBook.getWorksheet("Arbeitsfolge")!;
+  expect(sheet.getCell("A1").value).toBe(
+    "Arbeitsfolge je Mitarbeiter – Beispiel XT",
+  );
+  const list = sheet
+    .getRows(4, sheet.rowCount - 3)!
+    .map((r) => (r.values as unknown[]).slice(1, 5));
+  const ma1 = list.filter((r) => r[0] === "Mitarbeiter 1");
+  expect(ma1.map((r) => r[1])).toEqual(ma1.map((_, i) => i + 1));
+  expect(ma1).toContainEqual(["Mitarbeiter 1", expect.any(Number), "T17", "B"]);
+  expect(list).toContainEqual(["ohne Mitarbeiter", undefined, "T18", "D"]);
+
   const png = await download(page, "Diagramm als PNG");
   expect(png.name).toBe("Beispiel XT – Yamazumi.png");
   expect(

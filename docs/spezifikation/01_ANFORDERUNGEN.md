@@ -772,3 +772,9 @@ Getroffen im Rahmen der Entwicklung. Präzisieren P1, P3 und die offenen Punkte 
 | ID | Verbindliche Entscheidung | Umsetzungshinweis |
 |---|---|---|
 | F137 | Ändert E15 (E48): Ist und Ziel dürfen Szenarien verschiedener Varianten zeigen, z. B. zwei getrennt importierte Excel-Dateien. | Szenarioauswahl nach Variante gruppiert, Hinweis bei verschiedenen Varianten. Abgleich unverändert: Stationen über die Bezeichnung (F111), Arbeitsgänge über die ID (F113/F116). |
+
+## 44 · Arbeitsfolge je Mitarbeiter (10.11.2026)
+
+| ID | Verbindliche Entscheidung | Umsetzungshinweis |
+|---|---|---|
+| F138 | Je Szenario lässt sich eine Liste herunterladen, welcher Mitarbeiter in welcher Reihenfolge welche Arbeitsgänge an welcher Station ausführt (E49). | Excel-Datei aus dem Menü „Export“. Eine Zeile je Arbeitsgang mit Mitarbeiter, Nr., Station, ID, Beschreibung, Zeit, Start, Ende, Wartezeit, Hinweis. Mitarbeiter in Linienreihenfolge, je Mitarbeiter zeitlich über alle Stationen (E40); nicht zugeordnete Arbeitsgänge und Prozesszeiten (F135) am Ende ohne Nummer. |
