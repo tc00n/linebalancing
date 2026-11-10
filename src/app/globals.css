@@ -33,6 +33,7 @@
   --color-chart-5: var(--chart-5);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-warning-strong: var(--warning-strong);
   --color-nx-blue: var(--nx-blue);
   --color-nx-red: var(--nx-red);
   --color-nx-steel: var(--nx-steel);
@@ -77,6 +78,8 @@
   --destructive: #c8372a;
   --warning: #d97706;
   --warning-foreground: #ffffff;
+  /* U8: Warnfarbe für Text und kleine Symbole, 5,0 : 1 auf Weiß (--warning nur 3,2 : 1). */
+  --warning-strong: #b45309;
   --border: #d6dae1;
   --input: #d6dae1;
   --ring: rgba(0, 60, 115, 0.45);
@@ -99,6 +102,8 @@
   --yz-process: #e3ecf5;
   --yz-takt: var(--nx-red);
   --yz-over: var(--nx-red);
+  /* U8: Wertmarken mit weißer Schrift (Takt, Überlast) dunkler als NEONEX-Rot, 5,2 : 1. */
+  --yz-over-label: var(--destructive);
   --yz-grid: #e3e8ee;
   /* Verschobene Arbeitsgänge im Vergleich (F113); bewusst keine Kategorie- oder Warnfarbe. */
   --yz-moved: #2563eb;
@@ -118,5 +123,64 @@
   h2,
   h3 {
     @apply font-heading;
+  }
+
+  /*
+   * U11: Native Bedienelemente einheitlich im NEONEX-Stil statt im Browserstil.
+   * Sie bleiben native Elemente (Tastatur, Screenreader, Browsertests unverändert).
+   */
+  select:not([multiple]) {
+    appearance: none;
+    /* Vorrang vor px-…-Klassen, sonst liegt der Pfeil über dem Text. */
+    padding-right: 1.75rem !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23003c73' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1rem;
+  }
+  input[type="radio"] {
+    appearance: none;
+    flex-shrink: 0;
+    width: 1rem;
+    height: 1rem;
+    border: 1px solid var(--input);
+    border-radius: 9999px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: border-width 0.1s;
+  }
+  input[type="radio"]:checked {
+    border: 5px solid var(--nx-blue);
+  }
+  input[type="radio"]:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--nx-blue) 45%, transparent);
+    outline-offset: 1px;
+  }
+  input[type="radio"]:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+  details > summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    list-style: none;
+  }
+  details > summary::-webkit-details-marker {
+    display: none;
+  }
+  details > summary::before {
+    content: "";
+    flex-shrink: 0;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform 0.15s;
+  }
+  details[open] > summary::before {
+    transform: rotate(45deg);
   }
 }

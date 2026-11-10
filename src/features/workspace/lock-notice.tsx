@@ -1,4 +1,5 @@
 "use client";
+import { useConfirm } from "@/components/confirm-dialog";
 import { InfoIcon, LockIcon, XCircleIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
@@ -34,6 +35,7 @@ export function LockNotice(props: {
   onReload: () => void;
 }) {
   const { lock } = props;
+  const confirm = useConfirm();
   if (lock.status === "gone") {
     return (
       <Alert variant="destructive">
@@ -49,12 +51,14 @@ export function LockNotice(props: {
   if (lock.status !== "blocked" && lock.status !== "lost") return null;
 
   const holder = lock.holder ?? "jemand anderes";
-  const takeover = () => {
+  const takeover = async () => {
     const confirmed =
       lock.sameUser ||
-      window.confirm(
-        `Bearbeitung von ${holder} übernehmen? ${holder} kann danach nicht mehr speichern; bereits gespeicherte Änderungen bleiben erhalten.`,
-      );
+      (await confirm({
+        title: `Bearbeitung von ${holder} übernehmen?`,
+        description: `${holder} kann danach nicht mehr speichern; bereits gespeicherte Änderungen bleiben erhalten.`,
+        confirmLabel: "Bearbeitung übernehmen",
+      }));
     if (confirmed) void lock.takeover();
   };
   const text = lock.sameUser

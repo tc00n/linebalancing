@@ -205,7 +205,7 @@ export function DetailPanel(props: {
               <dd>
                 <select
                   id={`${ids}-employee`}
-                  className={`${selectClass} ${step.employeeId ? "" : "border-warning text-warning"}`}
+                  className={`${selectClass} ${step.employeeId ? "" : "border-warning text-warning-strong"}`}
                   value={step.employeeId ?? ""}
                   disabled={readOnly}
                   onChange={(e) =>
@@ -506,7 +506,7 @@ export function DetailPanel(props: {
                   className={`flex gap-1.5 ${
                     issue.severity === "violation"
                       ? "text-destructive"
-                      : "text-warning"
+                      : "text-warning-strong"
                   }`}
                 >
                   <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" />

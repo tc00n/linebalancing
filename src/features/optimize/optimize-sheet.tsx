@@ -1,5 +1,6 @@
 "use client";
 
+import { describeChanges } from "./changes";
 import { LoaderIcon, WandSparklesIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -224,8 +225,26 @@ export function OptimizeSheet(props: {
                   `, ${result.removedEmployees} Mitarbeiter frei`}
                 .
               </p>
+              {/* U13: welche Arbeitsgänge sich wie ändern. */}
+              {(() => {
+                const changes = describeChanges(
+                  props.input,
+                  result.input,
+                  stationId,
+                );
+                return changes.length > 0 ? (
+                  <ul
+                    aria-label="Änderungen"
+                    className="flex flex-col gap-0.5 rounded-md bg-secondary px-3 py-2 text-nx-blue tabular-nums"
+                  >
+                    {changes.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                ) : null;
+              })()}
               {result.after.unqualified > 0 && (
-                <p className="text-warning">
+                <p className="text-warning-strong">
                   Für{" "}
                   {result.after.unqualified === 1
                     ? "einen Arbeitsgang"
@@ -294,14 +313,15 @@ function ResultTable(props: {
             <td className="py-1 text-right tabular-nums">
               {value(props.before)}
             </td>
-            <td
-              className={`py-1 text-right font-semibold tabular-nums ${
-                label === "Stationshöhe" && props.after.height > props.taktMin
-                  ? "text-destructive"
-                  : ""
-              }`}
-            >
+            <td className="py-1 text-right font-semibold tabular-nums">
               {value(props.after)}
+              {/* U13: Rot nur mit Erklärung – „über Takt“, nicht „schlechter als vorher“. */}
+              {label === "Stationshöhe" &&
+                props.after.height > props.taktMin && (
+                  <span className="block text-xs font-medium text-destructive">
+                    über Takt
+                  </span>
+                )}
             </td>
           </tr>
         ))}

@@ -30,16 +30,16 @@ test("Arbeitsgänge in der Tabellenansicht bearbeiten (F132)", async ({
   );
 
   // E50: Verletzt der Stationswechsel Vorgängerbeziehungen, wird erst nach Bestätigung verschoben.
-  const messages: string[] = [];
-  page.once("dialog", (dialog) => {
-    messages.push(dialog.message());
-    void dialog.dismiss();
-  });
+  // U5: Rückfrage im App-Dialog, verletzte Beziehungen als Liste.
   await page.getByLabel("Station von B").selectOption({ label: "T18" });
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toContainText("Vorgängerbeziehungen verletzt");
+  await expect(dialog).toContainText(
+    "Wenn B an Station T18 verschoben wird, sind diese Vorgängerbeziehungen verletzt:",
+  );
+  await expect(dialog.getByRole("listitem")).toHaveText(["B → C"]);
+  await dialog.getByRole("button", { name: "Abbrechen" }).click();
   await expect(page.getByLabel("Station von B")).toHaveValue("station:T17");
-  expect(messages).toEqual([
-    "Wenn B an Station T18 verschoben wird, sind diese Vorgängerbeziehungen verletzt:\nB → C\n\nTrotzdem verschieben?",
-  ]);
 
   // Stationswechsel ohne Verletzung: keine Rückfrage; der Mitarbeiter wird entfernt (F61).
   await page.getByLabel("Station von A").selectOption({ label: "T18" });

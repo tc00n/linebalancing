@@ -1,4 +1,5 @@
 "use client";
+import { useConfirm } from "@/components/confirm-dialog";
 
 import {
   ChevronDownIcon,
@@ -40,6 +41,7 @@ export function ExportMenu(props: {
 }) {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+  const confirm = useConfirm();
   const name = safeFilename(props.scenarioName);
 
   async function run(work: () => Promise<void>) {
@@ -48,9 +50,13 @@ export function ExportMenu(props: {
     try {
       await work();
     } catch (error) {
-      window.alert(
-        error instanceof Error ? error.message : "Export fehlgeschlagen.",
-      );
+      void confirm({
+        title: "Export fehlgeschlagen",
+        description:
+          error instanceof Error ? error.message : "Bitte erneut versuchen.",
+        confirmLabel: "Schließen",
+        notice: true,
+      });
     } finally {
       setBusy(false);
     }

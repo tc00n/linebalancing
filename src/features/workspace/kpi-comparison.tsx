@@ -75,50 +75,79 @@ export function KpiComparison(props: {
     },
   ];
 
+  const columns = [
+    ...rows,
+    {
+      label: "Verschobene Arbeitsgänge",
+      ist: null,
+      ziel: props.movedCount,
+      format: (v: number | null) => String(v ?? "–"),
+      delta: () => "",
+    } satisfies Row,
+  ];
+  const lines: {
+    label: string;
+    cell: (row: Row) => string;
+    className: string;
+  }[] = [
+    { label: "Ist", cell: (r) => r.format(r.ist), className: "" },
+    {
+      label: "Ziel",
+      cell: (r) => r.format(r.ziel),
+      className: "font-semibold",
+    },
+    {
+      label: "Veränderung",
+      cell: (r) =>
+        r.ist !== null && r.ziel !== null ? r.delta(r.ist, r.ziel) : "",
+      className: "text-muted-foreground",
+    },
+  ];
+
+  // U4: Kennzahlen als Spalten, Ist/Ziel/Veränderung als Zeilen – drei statt acht Zeilen,
+  // damit die Diagramme auf dem Laptop im ersten Bild stehen.
   return (
     <div className="overflow-x-auto rounded-lg border bg-white shadow-nx-sm">
       <table className="w-full text-sm" aria-label="Kennzahlen Ist und Ziel">
-        <thead className="bg-secondary text-left text-xs text-muted-foreground">
+        <thead className="bg-secondary text-xs text-muted-foreground">
           <tr>
-            <th className="px-3 py-2 font-medium">Kennzahl</th>
-            <th className="px-3 py-2 text-right font-medium">Ist</th>
-            <th className="px-3 py-2 text-right font-medium">Ziel</th>
-            <th className="px-3 py-2 text-right font-medium">Veränderung</th>
+            <th className="px-3 py-1.5 text-left font-medium">
+              <span className="sr-only">Stand</span>
+            </th>
+            {columns.map((c) => (
+              <th
+                key={c.label}
+                scope="col"
+                className="px-3 py-1.5 text-right font-medium"
+              >
+                {c.label}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.label} className="border-t">
-              <th scope="row" className="px-3 py-1.5 text-left font-normal">
-                {row.label}
+          {lines.map((line) => (
+            <tr key={line.label} className="border-t">
+              <th
+                scope="row"
+                className="px-3 py-1 text-left text-xs font-medium text-muted-foreground"
+              >
+                {line.label}
               </th>
-              <td className="px-3 py-1.5 text-right tabular-nums">
-                {row.format(row.ist)}
-              </td>
-              <td className="px-3 py-1.5 text-right font-semibold tabular-nums">
-                {row.format(row.ziel)}
-              </td>
-              <td className="px-3 py-1.5 text-right text-muted-foreground tabular-nums">
-                {row.ist !== null && row.ziel !== null
-                  ? row.delta(row.ist, row.ziel)
-                  : "–"}
-              </td>
+              {columns.map((c) => (
+                <td
+                  key={c.label}
+                  className={`px-3 py-1 text-right whitespace-nowrap tabular-nums ${line.className}`}
+                >
+                  {line.cell(c)}
+                </td>
+              ))}
             </tr>
           ))}
-          <tr className="border-t">
-            <th scope="row" className="px-3 py-1.5 text-left font-normal">
-              Verschobene Arbeitsgänge
-            </th>
-            <td className="px-3 py-1.5 text-right text-muted-foreground">–</td>
-            <td className="px-3 py-1.5 text-right font-semibold tabular-nums">
-              {props.movedCount}
-            </td>
-            <td />
-          </tr>
         </tbody>
       </table>
       {(k(props.ist).incomplete || k(props.ziel).incomplete) && (
-        <p className="border-t px-3 py-1.5 text-xs text-warning">
+        <p className="border-t px-3 py-1.5 text-xs text-warning-strong">
           Unvollständig: Arbeitsgänge ohne Mitarbeiter sind in den Kennzahlen
           nicht enthalten
           {k(props.ist).incomplete &&

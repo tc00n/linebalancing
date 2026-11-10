@@ -4,6 +4,7 @@ import {
   createBrowserRepository,
   type StoredScenario,
 } from "@/data/scenarioRepository";
+import { useConfirm } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { useScenarioRepository } from "./use-scenario-repository";
 import { useProjectSession } from "./project-session";
@@ -17,6 +18,7 @@ export function LocalScenarios({
   const [local, setLocal] = useState<StoredScenario[]>([]),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
+  const confirm = useConfirm();
   useEffect(() => {
     if (!project.local)
       createBrowserRepository()
@@ -28,11 +30,11 @@ export function LocalScenarios({
   }, [project.local]);
   async function transfer() {
     if (
-      !window.confirm(
-        "Lokale Szenarien in das aktive Projekt \u201e" +
-          project.name +
-          "\u201c kopieren? Die Browserdaten bleiben erhalten.",
-      )
+      !(await confirm({
+        title: `Lokale Szenarien in das Projekt \u201e${project.name}\u201c kopieren?`,
+        description: "Die Daten in diesem Browser bleiben erhalten.",
+        confirmLabel: "Kopieren",
+      }))
     )
       return;
     setBusy(true);

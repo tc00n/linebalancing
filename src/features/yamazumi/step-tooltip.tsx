@@ -107,7 +107,7 @@ export function StepTooltip(props: {
               className={
                 issue.severity === "violation"
                   ? "text-destructive"
-                  : "text-warning"
+                  : "text-warning-strong"
               }
             >
               {describeIssue(issue, view)}

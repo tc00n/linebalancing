@@ -14,7 +14,9 @@ import {
 } from "@dnd-kit/core";
 import { ArrowLeftRightIcon, PlusIcon, XIcon } from "lucide-react";
 import {
+  createContext,
   memo,
+  useContext,
   useCallback,
   useMemo,
   useState,
@@ -26,10 +28,13 @@ import { violationsAfterMove } from "@/domain/ops/movePreview";
 import type { ScenarioView } from "@/features/workspace/scenario-view";
 import {
   chartStepId,
+  charsThatFit,
+  employeeShortLabel,
   formatAxis,
   formatHeadcount,
   formatMinutes,
   formatPercent,
+  segmentLabel,
 } from "@/lib/format";
 import { barsMaximum, type BarSlot, type EmployeeBar } from "./employee-layout";
 import {
@@ -146,6 +151,43 @@ function processLaneWidth(column: StationColumn, laneWidth: number): number {
 
 const labelKey = (label: string) => label.toLocaleLowerCase("de");
 
+/**
+ * U1: Schriftgrößen wachsen mit dem Diagramm, damit Werte am Workshop-Bildschirm lesbar bleiben
+ * (F125, F91). Grundlage ist die Höhe der Zeichenfläche; Beschriftungen in Balken richten sich
+ * zusätzlich nach der Spurbreite.
+ */
+export interface ChartFonts {
+  /** Werte, Achse, Spurnamen, Belegung. */
+  readonly small: number;
+  /** Stations- und Mitarbeiternamen unter den Balken. */
+  readonly name: number;
+  /** Beschriftung in den Arbeitsgängen. */
+  readonly segment: number;
+}
+
+export function chartFonts(plotHeight: number, laneWidth: number): ChartFonts {
+  const scale = Math.min(1.6, Math.max(1, plotHeight / 560));
+  return {
+    small: Math.round(11 * scale),
+    name: Math.round(14 * scale),
+    segment: Math.round(
+      Math.min(10 * scale * 1.4, 18, Math.max(10, laneWidth / 8)),
+    ),
+  };
+}
+
+const FontContext = createContext<ChartFonts>({
+  small: 11,
+  name: 14,
+  segment: 10,
+});
+
+/** Schriftgröße, mit der ein Text in eine Breite passt; null, wenn er auch bei 9 px nicht passt. */
+function fittingFont(text: string, width: number, base: number): number | null {
+  const font = Math.min(base, width / (text.length * 0.6));
+  return font >= 9 ? Math.floor(font) : null;
+}
+
 /** Eine Mitarbeiterspur hat Vorrang vor der Station, in der sie liegt. */
 const collisionDetection: CollisionDetection = (args) => {
   const hits = pointerWithin(args);
@@ -221,97 +263,105 @@ export function YamazumiChart({
   const plotHeight = top * props.pxPerMinute + HEADROOM_PX;
   const y = (minutes: number) => minutes * props.pxPerMinute;
   const dragged = draggingId ? props.view.steps.get(draggingId) : undefined;
+  const fonts = chartFonts(plotHeight, props.laneWidth);
+  // Achse und Takt-Marke bleiben in der festen Achsbreite.
+  const axisFont = Math.min(fonts.small, 15);
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={collisionDetection}
-      onDragStart={(e) => {
-        setHover(null);
-        setDraggingId(String(e.active.id));
-      }}
-      onDragCancel={() => setDraggingId(null)}
-      onDragEnd={onDragEnd}
-    >
-      <div className="relative flex overflow-hidden rounded-xl border bg-white shadow-nx-sm">
-        {/* Zeitachse bleibt beim horizontalen Scrollen stehen (F91). */}
-        <div
-          className="relative shrink-0 border-r bg-white"
-          style={{ width: AXIS_WIDTH }}
-        >
-          <div className="relative" style={{ height: plotHeight }}>
-            {ticks.map((t) => (
-              <span
-                key={t}
-                className="absolute right-2 translate-y-1/2 text-[11px] text-muted-foreground tabular-nums"
-                style={{ bottom: y(t) }}
-              >
-                {formatAxis(t)}
-              </span>
-            ))}
-            <span
-              className="absolute right-1 z-10 translate-y-1/2 rounded-md bg-nx-red px-1.5 py-0.5 text-[11px] leading-tight font-semibold text-white tabular-nums"
-              style={{ bottom: y(takt) }}
-            >
-              Takt
-              <br />
-              {formatMinutes(takt)}
-            </span>
-          </div>
-          <div className="px-2 pt-2 text-right text-[11px] text-muted-foreground">
-            min
-          </div>
-        </div>
-
-        <div
-          ref={scrollRef}
-          onScroll={onScroll}
-          className="relative min-w-0 flex-1 overflow-x-auto"
-        >
-          <div className="relative w-max min-w-full px-4">
-            <div
-              className="pointer-events-none absolute inset-x-0 top-0"
-              style={{ height: plotHeight }}
-              aria-hidden
-            >
+    <FontContext.Provider value={fonts}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={collisionDetection}
+        onDragStart={(e) => {
+          setHover(null);
+          setDraggingId(String(e.active.id));
+        }}
+        onDragCancel={() => setDraggingId(null)}
+        onDragEnd={onDragEnd}
+      >
+        <div className="relative flex overflow-hidden rounded-xl border bg-white shadow-nx-sm">
+          {/* Zeitachse bleibt beim horizontalen Scrollen stehen (F91). */}
+          <div
+            className="relative shrink-0 border-r bg-white"
+            style={{ width: AXIS_WIDTH }}
+          >
+            <div className="relative" style={{ height: plotHeight }}>
               {ticks.map((t) => (
-                <div
+                <span
                   key={t}
-                  className="absolute inset-x-0 border-t border-(--yz-grid)"
-                  style={{ bottom: y(t) }}
-                />
+                  className="absolute right-2 translate-y-1/2 text-muted-foreground tabular-nums"
+                  style={{ bottom: y(t), fontSize: axisFont }}
+                >
+                  {formatAxis(t)}
+                </span>
               ))}
+              <span
+                className="absolute right-1 z-10 translate-y-1/2 rounded-md bg-(--yz-over-label) px-1.5 py-0.5 leading-tight font-semibold text-white tabular-nums"
+                style={{ bottom: y(takt), fontSize: axisFont }}
+              >
+                Takt
+                <br />
+                {formatMinutes(takt)}
+              </span>
+            </div>
+            <div
+              className="px-2 pt-2 text-right text-muted-foreground"
+              style={{ fontSize: axisFont }}
+            >
+              min
+            </div>
+          </div>
+
+          <div
+            ref={scrollRef}
+            onScroll={onScroll}
+            className="relative min-w-0 flex-1 overflow-x-auto"
+          >
+            <div className="relative w-max min-w-full px-4">
               <div
-                className="absolute inset-x-0 z-20 border-t-2 border-dashed border-(--yz-takt)"
-                style={{ bottom: y(takt) }}
+                className="pointer-events-none absolute inset-x-0 top-0"
+                style={{ height: plotHeight }}
+                aria-hidden
+              >
+                {ticks.map((t) => (
+                  <div
+                    key={t}
+                    className="absolute inset-x-0 border-t border-(--yz-grid)"
+                    style={{ bottom: y(t) }}
+                  />
+                ))}
+                <div
+                  className="absolute inset-x-0 z-20 border-t-2 border-dashed border-(--yz-takt)"
+                  style={{ bottom: y(takt) }}
+                />
+              </div>
+
+              <ChartBody
+                {...props}
+                plotHeight={plotHeight}
+                onHover={onHover}
+                draggedStep={
+                  dragged
+                    ? { id: dragged.id, stationId: dragged.stationId }
+                    : null
+                }
+                dropWarnings={dropWarnings}
               />
             </div>
-
-            <ChartBody
-              {...props}
-              plotHeight={plotHeight}
-              onHover={onHover}
-              draggedStep={
-                dragged
-                  ? { id: dragged.id, stationId: dragged.stationId }
-                  : null
-              }
-              dropWarnings={dropWarnings}
-            />
           </div>
+
+          {hover && !draggingId && <StepTooltip view={props.view} {...hover} />}
         </div>
 
-        {hover && !draggingId && <StepTooltip view={props.view} {...hover} />}
-      </div>
-
-      <DragOverlay dropAnimation={null}>
-        {dragged && (
-          <div className="rounded-md bg-nx-blue px-2 py-1 text-xs font-medium text-white shadow-nx">
-            {dragged.id} · {formatMinutes(dragged.timeMin)} min
-          </div>
-        )}
-      </DragOverlay>
-    </DndContext>
+        <DragOverlay dropAnimation={null}>
+          {dragged && (
+            <div className="rounded-md bg-nx-blue px-2 py-1 text-xs font-medium text-white shadow-nx">
+              {dragged.id} · {formatMinutes(dragged.timeMin)} min
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
+    </FontContext.Provider>
   );
 }
 
@@ -400,6 +450,7 @@ function StationColumnView(
   },
 ) {
   const { column, laneWidth, pxPerMinute, warnings } = props;
+  const fonts = useContext(FontContext);
   const { setNodeRef, isOver } = useDroppable({
     id: `station:${column.station.id}`,
     data: { stationId: column.station.id } satisfies DropData,
@@ -461,6 +512,7 @@ function StationColumnView(
                   segment={segment}
                   view={props.view}
                   pxPerMinute={pxPerMinute}
+                  laneWidth={laneWidth}
                   labels={props.labels}
                   selected={
                     "stepId" in segment &&
@@ -491,6 +543,7 @@ function StationColumnView(
                     segment={segment}
                     view={props.view}
                     pxPerMinute={pxPerMinute}
+                    laneWidth={unassignedWidth}
                     labels={props.labels}
                     selected={
                       "stepId" in segment &&
@@ -518,13 +571,14 @@ function StationColumnView(
             aria-hidden
           >
             <span
-              className={`absolute -top-5 left-0 rounded px-1 text-[11px] font-semibold tabular-nums ${
+              className={`absolute bottom-full left-0 mb-0.5 rounded px-1 leading-tight font-semibold tabular-nums ${
                 column.filtered
                   ? "bg-secondary text-muted-foreground"
                   : column.overTakt
-                    ? "bg-nx-red text-white"
+                    ? "bg-(--yz-over-label) text-white"
                     : "bg-white text-nx-blue"
               }`}
+              style={{ fontSize: fonts.small }}
               title={
                 column.filtered
                   ? "Summe der sichtbaren Arbeitsgänge"
@@ -543,21 +597,27 @@ function StationColumnView(
           {column.lanes.map((lane) => {
             const empty = !lane.segments.some((s) => s.kind === "step");
             const elsewhere = lane.otherStations.map((s) => s.label).join(", ");
+            const removable = empty && !!props.actions;
+            // U3: „MA 25“, bei schmalen Spuren nur „25“ – nie ineinanderlaufend.
+            const name = employeeShortLabel(
+              lane.employee.label,
+              charsThatFit(laneWidth - (removable ? 16 : 2), fonts.small),
+            );
             return (
               <span
                 key={lane.employee.id}
-                className={`flex items-center justify-center gap-0.5 truncate text-[11px] ${
+                className={`flex items-center justify-center gap-0.5 overflow-hidden whitespace-nowrap ${
                   lane.overTakt
                     ? "font-semibold text-destructive"
                     : "text-muted-foreground"
                 }`}
-                style={{ width: laneWidth }}
+                style={{ width: laneWidth, fontSize: fonts.small }}
                 title={`${lane.employee.label}: ${formatMinutes(lane.occupancy)} min${
                   elsewhere ? ` (auch an ${elsewhere})` : ""
                 }`}
               >
-                {lane.employee.label.replace("Mitarbeiter ", "MA ")}
-                {empty && props.actions && (
+                {name}
+                {removable && (
                   <button
                     type="button"
                     className="rounded p-0.5 hover:bg-secondary"
@@ -582,13 +642,17 @@ function StationColumnView(
         }`}
       >
         <span
-          className="max-w-full truncate text-sm font-semibold"
+          className="max-w-full truncate font-semibold"
+          style={{ fontSize: fonts.name }}
           title={column.station.label}
         >
           {column.station.label}
         </span>
         {/* Zwei Zeilen, damit schmale Stationen nicht in die Nachbarspalte laufen. */}
-        <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
+        <span
+          className="flex items-center gap-0.5 text-muted-foreground"
+          style={{ fontSize: fonts.small }}
+        >
           {formatHeadcount(column.employeeCount)} MA
           {props.actions && (
             <button
@@ -604,11 +668,19 @@ function StationColumnView(
         </span>
         {column.lanes.length > 0 && !column.filtered && (
           <span
-            className={`text-[11px] whitespace-nowrap tabular-nums ${
+            className={`whitespace-nowrap tabular-nums ${
               column.overTakt
                 ? "font-semibold text-destructive"
                 : "text-muted-foreground"
             }`}
+            style={{
+              fontSize:
+                fittingFont(
+                  formatPercent(column.stationUtilization),
+                  width,
+                  fonts.small,
+                ) ?? 9,
+            }}
             title="Stationsbelegung: Stationshöhe / Takt"
           >
             {formatPercent(column.stationUtilization)}
@@ -649,7 +721,10 @@ function EmployeeBarView(
   props: Omit<ChartBodyProps, "columns"> & { bar: EmployeeBar },
 ) {
   const { bar, pxPerMinute, laneWidth } = props;
+  const fonts = useContext(FontContext);
   const person = bar.kind === "person";
+  // U2: Breite samt halbem Abstand zum Nachbarn; Namen und Werte nie ineinanderlaufend.
+  const footerWidth = barColumnWidth(laneWidth) + BAR_GAP - 4;
   const { setNodeRef, isOver } = useDroppable({
     id: `bar:${bar.key}`,
     data: { employeeIds: bar.employeeIds } satisfies DropData,
@@ -724,6 +799,7 @@ function EmployeeBarView(
               segment={segment}
               view={props.view}
               pxPerMinute={pxPerMinute}
+              laneWidth={laneWidth}
               labels={props.labels}
               selected={
                 "stepId" in segment && segment.stepId === props.selectedStepId
@@ -757,14 +833,18 @@ function EmployeeBarView(
         </div>
         {bar.top > 0 && (
           <span
-            className={`pointer-events-none absolute z-10 rounded px-1 text-[11px] font-semibold tabular-nums ${
+            className={`pointer-events-none absolute z-10 rounded px-1 leading-tight font-semibold whitespace-nowrap tabular-nums ${
               !person || bar.filtered
                 ? "bg-secondary text-muted-foreground"
                 : bar.overTakt
-                  ? "bg-nx-red text-white"
+                  ? "bg-(--yz-over-label) text-white"
                   : "bg-white text-nx-blue"
             }`}
-            style={{ bottom: y(bar.top) + 2, left: STRIP_WIDTH + 2 }}
+            style={{
+              bottom: y(bar.top) + 2,
+              left: STRIP_WIDTH + 2,
+              fontSize: fonts.small,
+            }}
             title={
               bar.filtered
                 ? "Summe der sichtbaren Arbeitsgänge"
@@ -788,38 +868,69 @@ function EmployeeBarView(
         }`}
       >
         <span
-          className={`max-w-full truncate text-sm font-semibold ${
+          className={`font-semibold whitespace-nowrap ${
             bar.overTakt ? "text-destructive" : ""
           }`}
+          style={{ fontSize: fonts.name }}
           title={bar.label}
         >
-          {bar.label.replace("Mitarbeiter ", "MA ")}
+          {person
+            ? employeeShortLabel(
+                bar.label,
+                charsThatFit(footerWidth, fonts.name),
+              )
+            : bar.label}
         </span>
         <span
-          className="max-w-full truncate text-[11px] text-muted-foreground"
+          className="max-w-full truncate text-muted-foreground"
+          style={{ fontSize: fonts.small }}
           title={stations}
         >
           {stations || "–"}
         </span>
         {person && !bar.filtered && (
-          <span
-            className={`text-[11px] whitespace-nowrap tabular-nums ${
+          <FittingText
+            text={formatPercent(bar.occupancy / takt)}
+            width={footerWidth}
+            base={fonts.small}
+            className={`whitespace-nowrap tabular-nums ${
               bar.overTakt
                 ? "font-semibold text-destructive"
                 : "text-muted-foreground"
             }`}
             title="Belegung / Takt"
-          >
-            {formatPercent(bar.occupancy / takt)}
-          </span>
+          />
         )}
         {!person && (
-          <span className="text-[11px] text-muted-foreground">
+          <span
+            className="whitespace-nowrap text-muted-foreground"
+            style={{ fontSize: fonts.small }}
+          >
             nicht eingerechnet
           </span>
         )}
       </footer>
     </section>
+  );
+}
+
+/** Text in passender Größe; passt er auch klein nicht, steht er nur im Tooltip (U2). */
+function FittingText(props: {
+  text: string;
+  width: number;
+  base: number;
+  className: string;
+  title: string;
+}) {
+  const font = fittingFont(props.text, props.width, props.base);
+  return (
+    <span
+      className={props.className}
+      style={font ? { fontSize: font } : { fontSize: 9, visibility: "hidden" }}
+      title={`${props.title}: ${props.text}`}
+    >
+      {props.text}
+    </span>
   );
 }
 
@@ -854,6 +965,7 @@ function LaneView(
           segment={segment}
           view={props.view}
           pxPerMinute={props.pxPerMinute}
+          laneWidth={props.laneWidth}
           labels={props.labels}
           selected={
             "stepId" in segment && segment.stepId === props.selectedStepId
@@ -886,6 +998,8 @@ interface SegmentProps {
   segment: Segment;
   view: ScenarioView;
   pxPerMinute: number;
+  /** Breite der Spur, für das Einpassen der Beschriftung (U3). */
+  laneWidth: number;
   labels: LabelFields;
   selected: boolean;
   moved: boolean;
@@ -962,6 +1076,7 @@ function StepSegment(
   },
 ) {
   const { segment, style } = props;
+  const fonts = useContext(FontContext);
   const step = props.view.steps.get(segment.stepId)!;
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: step.id,
@@ -972,12 +1087,24 @@ function StepSegment(
   const category = step.categoryId
     ? props.view.categoryById.get(step.categoryId)
     : undefined;
-  const parts = [
-    props.labels.id &&
-      chartStepId(step.id, props.view.stations.get(step.stationId)!.label),
-    props.labels.description && step.description,
-    props.labels.duration && formatMinutes(step.timeMin),
-  ].filter(Boolean);
+  const shortId = chartStepId(
+    step.id,
+    props.view.stations.get(step.stationId)!.label,
+  );
+  // U3: Bei schmalen Spuren hat die ID Vorrang, mit dem unterscheidenden Ende („…010“ statt „AA…“).
+  const label = segmentLabel(
+    {
+      id: props.labels.id ? shortId : undefined,
+      description: props.labels.description ? step.description : undefined,
+      duration: props.labels.duration ? formatMinutes(step.timeMin) : undefined,
+    },
+    charsThatFit(props.laneWidth - 4, fonts.segment),
+  );
+  // U6: Hinweise am Arbeitsgang (z. B. nicht qualifiziert, Vorgänger verletzt) auch im Diagramm zeigen.
+  // „Kein Mitarbeiter“ hat bereits eine eigene Darstellung.
+  const warnings = (props.view.issuesByStep.get(step.id) ?? []).filter(
+    (issue) => issue.kind !== "step_unassigned",
+  );
 
   const colors = props.selected
     ? { backgroundColor: "var(--yz-step-selected)", color: "#ffffff" }
@@ -1019,17 +1146,23 @@ function StepSegment(
       // obwohl er per Klick (Details) bedienbar bleibt.
       {...(props.draggable ? attributes : {})}
       {...listeners}
-      className={`absolute inset-x-0 touch-none overflow-hidden border-t border-white px-0.5 text-left text-[10px] leading-[1.15] outline-none hover:brightness-95 ${FOCUS_RING} ${
+      className={`absolute inset-x-0 touch-none overflow-hidden border-t border-white px-0.5 text-left leading-[1.15] outline-none hover:brightness-95 ${FOCUS_RING} ${
         props.draggable
           ? "cursor-grab active:cursor-grabbing"
           : "cursor-pointer"
       } ${props.selected ? "z-10" : ""} ${isDragging ? "opacity-40" : ""} ${
         props.moved ? "pl-1.5" : ""
       }`}
-      style={{ ...style, ...colors, ...movedStyle, ...matchStyle }}
+      style={{
+        ...style,
+        ...colors,
+        ...movedStyle,
+        ...matchStyle,
+        fontSize: fonts.segment,
+      }}
       aria-label={`Arbeitsgang ${step.id}, ${formatMinutes(step.timeMin)} min${
         unassigned ? ", nicht zugeordnet" : process ? ", Prozesszeit" : ""
-      }${props.moved ? ", verschoben" : ""}`}
+      }${props.moved ? ", verschoben" : ""}${warnings.length ? ", mit Hinweis" : ""}`}
       onClick={() => props.onSelectStep(step.id)}
       onPointerEnter={(e) =>
         props.onHover({ stepId: step.id, x: e.clientX, y: e.clientY })
@@ -1039,12 +1172,23 @@ function StepSegment(
       }
       onPointerLeave={() => props.onHover(null)}
     >
-      {style.height >= 12 && (parts.length > 0 || props.moved) && (
+      {warnings.length > 0 && (
+        <span
+          // Über der Überlast-Fläche (z-10) sichtbar; wächst mit der Beschriftung.
+          className="pointer-events-none absolute top-0 right-0 z-20 size-0 border-t-(--warning-strong) border-l-transparent"
+          style={{
+            borderTopWidth: fonts.segment + 6,
+            borderLeftWidth: fonts.segment + 6,
+          }}
+          aria-hidden
+        />
+      )}
+      {style.height >= fonts.segment * 1.2 && (label || props.moved) && (
         <span className="flex items-center gap-0.5 truncate">
           {props.moved && (
             <ArrowLeftRightIcon className="size-2.5 shrink-0" aria-hidden />
           )}
-          <span className="truncate">{parts.join(" · ")}</span>
+          <span className="truncate">{label}</span>
         </span>
       )}
     </button>

@@ -94,7 +94,7 @@ function Kpi(props: {
         {props.label}
         {props.incomplete && (
           <span
-            className="inline-flex items-center gap-0.5 font-medium text-warning"
+            className="inline-flex items-center gap-0.5 font-medium text-warning-strong"
             title="Unvollständig: Arbeitsgänge ohne Mitarbeiter sind nicht enthalten."
           >
             <AlertTriangleIcon className="size-3" />

@@ -55,9 +55,13 @@ test("Ziel duplizieren, umverteilen und mit dem Ist vergleichen", async ({
     ist.getByRole("button", { name: "Arbeitsgang A, 2,00 min" }),
   ).toBeVisible();
   const table = page.getByRole("table", { name: "Kennzahlen Ist und Ziel" });
+  // U4: Kennzahlen als Spalten; „Verschobene Arbeitsgänge“ ist die letzte.
+  await expect(table.getByRole("columnheader").last()).toHaveText(
+    "Verschobene Arbeitsgänge",
+  );
   await expect(
-    table.getByRole("row", { name: /Verschobene Arbeitsgänge/ }),
-  ).toContainText("1");
+    table.getByRole("row", { name: /^Ziel/ }).getByRole("cell").last(),
+  ).toHaveText("1");
 
   // Gleiche Stationsfolge auf beiden Seiten (F111) und kein Bearbeiten im Ist.
   await expect(

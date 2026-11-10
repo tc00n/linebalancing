@@ -6,7 +6,7 @@ import {
   Loader2Icon,
   LockIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { parseGermanNumber } from "@/domain/import/cells";
@@ -67,33 +67,56 @@ export function NumberSetting(props: {
   disabled?: boolean;
 }) {
   const shown = formatMinutes(props.value);
-  const [invalid, setInvalid] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const messageId = useId();
   return (
-    <label className="flex items-center gap-2 text-sm">
+    <label className="relative flex items-center gap-2 text-sm">
       <span className="text-muted-foreground">{props.label}</span>
       <Input
         key={shown}
         defaultValue={shown}
         inputMode="decimal"
-        aria-invalid={invalid}
+        aria-invalid={error !== null}
+        aria-describedby={error ? messageId : undefined}
         disabled={props.disabled}
         className="h-8 w-20 tabular-nums"
         onBlur={(e) => {
           const parsed = parseGermanNumber(e.target.value);
-          const error = parsed.ok
+          // U7: Ungültiges nicht stillschweigend verwerfen, sondern sagen, was fehlt.
+          // Die Eingabe bleibt zum Korrigieren stehen; gerechnet wird weiter mit dem alten Wert.
+          const next = parsed.ok
             ? parsed.value === props.value
               ? null
               : props.onCommit(parsed.value)
-            : "ungültig";
-          setInvalid(error !== null);
-          if (error) e.target.value = shown;
+            : invalidNumberMessage(e.target.value);
+          setError(next);
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") {
+            e.currentTarget.value = shown;
+            setError(null);
+          }
         }}
       />
+      {error && (
+        <span
+          id={messageId}
+          role="alert"
+          className="absolute top-full right-0 z-30 mt-1 w-max max-w-64 rounded-md border border-destructive/30 bg-white px-2 py-1 text-xs text-destructive shadow-nx-sm"
+        >
+          Nicht übernommen, es gilt weiter {shown}. {error}
+        </span>
+      )}
     </label>
   );
+}
+
+/** Meldung für Eingaben, die keine Zahl im deutschen Format sind (F80). */
+export function invalidNumberMessage(text: string): string {
+  if (/^\s*-?\d+\.\d+\s*$/.test(text))
+    return `Bitte mit Komma eingeben, z. B. ${text.trim().replace(".", ",")}.`;
+  return "Bitte eine Zahl mit Komma eingeben, z. B. 1,50.";
 }
 
 const SLIDER_STEPS = 1000;
@@ -229,6 +252,13 @@ export function Legend(props: {
       <span className="flex items-center gap-1.5">
         <span className="inline-block size-3 border-2 border-(--yz-over) bg-(--yz-over)/15" />
         über Takt
+      </span>
+      {/* U6: Arbeitsgänge mit Hinweis (z. B. nicht qualifiziert, Vorgänger verletzt). */}
+      <span className="flex items-center gap-1.5">
+        <span className="relative inline-block size-3 rounded-sm bg-nx-steel">
+          <span className="absolute top-0 right-0 size-0 border-t-[7px] border-l-[7px] border-t-(--warning-strong) border-l-transparent" />
+        </span>
+        mit Hinweis
       </span>
       {/* G7: Abkürzung unter den Stationen und in der Mitarbeiteransicht erklären. */}
       <span>MA = Mitarbeiter</span>

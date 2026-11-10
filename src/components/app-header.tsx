@@ -1,9 +1,17 @@
+import { AppNav } from "@/components/app-nav";
 import { ProjectControls } from "@/features/projects/project-controls";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export function AppHeader({ children }: { children?: ReactNode }) {
+export function AppHeader({
+  children,
+  nav = true,
+}: {
+  children?: ReactNode;
+  /** Ohne Navigation, z. B. auf der Anmeldeseite. */
+  nav?: boolean;
+}) {
   return (
     <header className="sticky top-0 z-30 border-b bg-white">
       <div className="flex h-14 items-center gap-4 px-4 sm:px-6">
@@ -20,6 +28,7 @@ export function AppHeader({ children }: { children?: ReactNode }) {
             Line Balancing
           </span>
         </Link>
+        {nav && <AppNav />}
         <div className="ml-auto flex items-center gap-2">
           {children}
           <ProjectControls />

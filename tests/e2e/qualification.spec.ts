@@ -27,21 +27,20 @@ test("Qualifikation ankreuzen, Rückfrage und Korrektur durch den Verteilungsvor
     employee.locator("option", { hasText: "Mitarbeiter 2" }),
   ).toHaveText("Mitarbeiter 2 (T17) – nicht qualifiziert");
 
-  // Abbrechen: C bleibt bei Mitarbeiter 1.
-  const messages: string[] = [];
-  page.once("dialog", (dialog) => {
-    messages.push(dialog.message());
-    void dialog.dismiss();
-  });
+  // Abbrechen: C bleibt bei Mitarbeiter 1 (U5: Rückfrage im App-Dialog).
   await employee.selectOption({ index: 2 });
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toContainText("Nicht als qualifiziert eingetragen");
+  await expect(dialog).toContainText(
+    "Mitarbeiter 2 ist für C nicht als qualifiziert eingetragen (qualifiziert: Mitarbeiter 1).",
+  );
+  await dialog.getByRole("button", { name: "Abbrechen" }).click();
+  await expect(dialog).toBeHidden();
   await expect(employee).toHaveValue("station:T17/Mitarbeiter 1");
-  expect(messages).toEqual([
-    "Mitarbeiter 2 ist für C nicht als qualifiziert eingetragen (qualifiziert: Mitarbeiter 1).\n\nTrotzdem zuordnen?",
-  ]);
 
   // Bestätigen: Zuordnung mit dauerhafter Warnung.
-  page.once("dialog", (dialog) => void dialog.accept());
   await employee.selectOption({ index: 2 });
+  await dialog.getByRole("button", { name: "Trotzdem zuordnen" }).click();
   await expect(employee).toHaveValue("station:T17/Mitarbeiter 2");
   await expect(table).toContainText(
     "Mitarbeiter 2 ist für diesen Arbeitsgang nicht als qualifiziert eingetragen",

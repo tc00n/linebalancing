@@ -1,4 +1,5 @@
 "use client";
+import { useConfirm } from "@/components/confirm-dialog";
 import { useScenarioRepository } from "@/features/projects/use-scenario-repository";
 
 import {
@@ -253,6 +254,7 @@ function ScenarioWorkspace(props: {
   const lock = useScenarioLock(editable.id);
   const readOnly = lock.status !== "held";
   const editor = useScenarioEditor(editable, readOnly);
+  const confirm = useConfirm();
   useLockFollowUp(lock, editor.saveStatus, props.reload);
   const repository = useScenarioRepository();
   const compare = params.compare;
@@ -385,9 +387,13 @@ function ScenarioWorkspace(props: {
       await repository.save(copy);
       props.navigate({ ziel: copy.id, tab: "ziel" });
     } catch (error) {
-      window.alert(
-        error instanceof Error ? error.message : "Duplizieren fehlgeschlagen.",
-      );
+      void confirm({
+        title: "Duplizieren fehlgeschlagen",
+        description:
+          error instanceof Error ? error.message : "Bitte erneut versuchen.",
+        confirmLabel: "Schließen",
+        notice: true,
+      });
     }
   }
 
@@ -416,9 +422,13 @@ function ScenarioWorkspace(props: {
         compare: true,
       });
     } catch (error) {
-      window.alert(
-        error instanceof Error ? error.message : "Anlegen fehlgeschlagen.",
-      );
+      void confirm({
+        title: "Vorschlag konnte nicht angelegt werden",
+        description:
+          error instanceof Error ? error.message : "Bitte erneut versuchen.",
+        confirmLabel: "Schließen",
+        notice: true,
+      });
     }
   }
 
@@ -756,7 +766,7 @@ function ScenarioWorkspace(props: {
                 href={"/personalplanung?szenario=" + editable.id}
                 className={buttonVariants({ variant: "outline", size: "sm" })}
               >
-                Personalabgleich
+                Personalplanung
               </Link>
               {/* F132: Tabellenansicht des bearbeiteten Szenarios; Rückweg zur aktuellen Ansicht. */}
               <Link
@@ -765,12 +775,6 @@ function ScenarioWorkspace(props: {
               >
                 <TableIcon data-icon="inline-start" />
                 Tabelle
-              </Link>
-              <Link
-                href="/"
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-              >
-                Szenarien
               </Link>
             </div>
           )}
@@ -818,7 +822,7 @@ function ScenarioWorkspace(props: {
       {/* G1: einzeilig; die Kennzahlen tragen die Markierung „unvollständig“ zusätzlich. */}
       {!compare && kpis.incomplete && (
         <p className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/5 px-3 py-1.5 text-sm">
-          <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-warning" />
+          <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-warning-strong" />
           <span>
             <strong className="font-medium">Ergebnis unvollständig:</strong>{" "}
             {kpis.unassignedStepCount} Arbeitsgänge (

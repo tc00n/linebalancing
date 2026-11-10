@@ -26,7 +26,7 @@ export function IssuesList(props: {
             {issue.severity === "violation" ? (
               <XCircleIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
             ) : (
-              <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-warning" />
+              <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-warning-strong" />
             )}
             <span className="w-20 shrink-0 font-medium">{issue.stepId}</span>
             <span>{describeIssue(issue, props.view)}</span>

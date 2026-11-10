@@ -3,7 +3,7 @@ import { LoginForm } from "@/features/auth/login-form";
 export default function LoginPage() {
   return (
     <>
-      <AppHeader />
+      <AppHeader nav={false} />
       <main className="flex-1">
         <LoginForm />
       </main>

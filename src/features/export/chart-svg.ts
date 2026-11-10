@@ -16,10 +16,13 @@ import type {
 } from "@/features/yamazumi/yamazumi-chart";
 import {
   chartStepId,
+  charsThatFit,
+  employeeShortLabel,
   formatAxis,
   formatHeadcount,
   formatMinutes,
   formatPercent,
+  segmentLabel,
 } from "@/lib/format";
 
 export interface ChartExportInput {
@@ -50,6 +53,9 @@ const C = {
   unassigned: "#f0d0aa",
   unassignedStripe: "#e8ad69",
   process: "#e3ecf5",
+  // U8: dunklere Stufen für weiße Schrift auf Rot bzw. Warnzeichen.
+  overLabel: "#c8372a",
+  warningStrong: "#b45309",
 };
 const FONT = "Inter, Arial, Helvetica, sans-serif";
 
@@ -61,9 +67,12 @@ const AXIS_WIDTH = 56;
 const PAD = 24;
 // Mitarbeiteransicht (E45): Stationsleiste links am Balken.
 const STRIP = 12;
-const BAR_WIDTH = 56;
-const BAR_COLUMN = STRIP + 2 + BAR_WIDTH;
+const MIN_BAR_WIDTH = 56;
 const BAR_GAP = 20;
+// U9: Die Grafik wird mindestens so breit; Spuren und Balken verteilen sich auf die Breite.
+const TARGET_WIDTH = 1400;
+const MIN_LANE_WIDTH = 44;
+const MAX_LANE_WIDTH = 400;
 
 const escape = (text: string) =>
   text
@@ -100,7 +109,46 @@ export function chartSvg(input: ChartExportInput) {
   const { view, columns } = input;
   const bars = input.mode === "employee" ? input.bars : undefined;
   const takt = view.input.taktMin;
-  const laneWidth = 44;
+  const plotLeft = PAD + AXIS_WIDTH;
+  const available = TARGET_WIDTH - plotLeft - PAD - 16;
+  const clampLane = (w: number) =>
+    Math.max(MIN_LANE_WIDTH, Math.min(MAX_LANE_WIDTH, Math.floor(w)));
+  // U9: Spurbreite so wählen, dass die Stationen die Bildbreite füllen.
+  const laneUnits = columns.reduce(
+    (t, c) =>
+      t +
+      c.lanes.length +
+      (c.process.length ? 1 : 0) +
+      (c.unassigned.length ? 0.8 : 0),
+    0,
+  );
+  const fixedWidth =
+    columns.reduce(
+      (t, c) =>
+        t +
+        Math.max(0, c.lanes.length - 1) * LANE_GAP +
+        (c.process.length ? LANE_GAP : 0) +
+        (c.unassigned.length ? 2 * LANE_GAP : 0),
+      0,
+    ) +
+    Math.max(0, columns.length - 1) * COLUMN_GAP;
+  const laneWidth = clampLane(
+    laneUnits ? (available - fixedWidth) / laneUnits : MIN_LANE_WIDTH,
+  );
+  const barWidth = bars?.length
+    ? Math.max(
+        MIN_BAR_WIDTH,
+        Math.min(
+          MAX_LANE_WIDTH,
+          Math.floor(
+            (available - (bars.length - 1) * BAR_GAP) / bars.length - STRIP - 2,
+          ),
+        ),
+      )
+    : MIN_BAR_WIDTH;
+  const barColumn = STRIP + 2 + barWidth;
+  // Beschriftung in den Balken wächst mit der Spurbreite.
+  const segmentFont = (w: number) => Math.max(10, Math.min(14, w / 8));
   const unassignedWidth = Math.round(laneWidth * 0.8);
   const lanesWidth = (c: StationColumn) =>
     c.lanes.length * laneWidth + Math.max(0, c.lanes.length - 1) * LANE_GAP;
@@ -121,13 +169,12 @@ export function chartSvg(input: ChartExportInput) {
   const plotTop = PAD + headerHeight + 24;
   const plotBottom = plotTop + PLOT_HEIGHT;
   const y = (minutes: number) => plotBottom - minutes * scale;
-  const plotLeft = PAD + AXIS_WIDTH;
   const plotWidth = bars
-    ? bars.length * BAR_COLUMN + Math.max(0, bars.length - 1) * BAR_GAP + 16
+    ? bars.length * barColumn + Math.max(0, bars.length - 1) * BAR_GAP + 16
     : columns.reduce((t, c) => t + columnWidth(c), 0) +
       Math.max(0, columns.length - 1) * COLUMN_GAP +
       16;
-  const width = Math.max(900, plotLeft + plotWidth + PAD);
+  const width = Math.max(TARGET_WIDTH, plotLeft + plotWidth + PAD);
   // Stationsansicht: „MA N“ unter den Spuren (E45).
   const laneLabels = bars ? 0 : 16;
   const legendTop = plotBottom + 8 + laneLabels + 58;
@@ -216,25 +263,41 @@ export function chartSvg(input: ChartExportInput) {
         : 'stroke="#ffffff" stroke-width="1"';
     const color =
       s.kind === "step" && category ? textColorFor(category.color) : C.blue;
-    const parts = [
-      input.labels.id &&
-        chartStepId(step.id, view.stations.get(step.stationId)!.label),
-      input.labels.description && step.description,
-      input.labels.duration && formatMinutes(step.timeMin),
-    ].filter(Boolean) as string[];
+    const font = segmentFont(w);
+    const shortId = chartStepId(
+      step.id,
+      view.stations.get(step.stationId)!.label,
+    );
+    const content = segmentLabel(
+      {
+        id: input.labels.id ? shortId : undefined,
+        description: input.labels.description ? step.description : undefined,
+        duration: input.labels.duration
+          ? formatMinutes(step.timeMin)
+          : undefined,
+      },
+      charsThatFit(w - 4, font),
+    );
     const label =
-      h >= 12 && parts.length
+      h >= font * 1.2 && content
         ? text(
             x + 2,
-            top + Math.min(h - 3, 11),
-            fit(parts.join(" · "), w - 4, 10),
+            top + Math.min(h - 3, font + 1),
+            fit(content, w - 4, font),
             {
-              "font-size": 10,
+              "font-size": font,
               fill: color,
             },
           )
         : "";
-    return `<rect x="${x}" y="${top}" width="${w}" height="${h}" fill="${fill}" ${stroke}/>${label}`;
+    // U6: Warnecke für Arbeitsgänge mit Hinweis (außer „ohne Mitarbeiter“).
+    const warned = (view.issuesByStep.get(step.id) ?? []).some(
+      (issue) => issue.kind !== "step_unassigned",
+    );
+    const corner = warned
+      ? `<path d="M${x + w - 10} ${top} H${x + w} V${top + 10} Z" fill="${C.warningStrong}"/>`
+      : "";
+    return `<rect x="${x}" y="${top}" width="${w}" height="${h}" fill="${fill}" ${stroke}/>${label}${corner}`;
   };
 
   /** Balken einer Person bzw. „ohne MA“/„Prozess“ mit Stationsleiste und Fuß (E45). */
@@ -255,20 +318,20 @@ export function chartSvg(input: ChartExportInput) {
           `<text transform="translate(${x + STRIP / 2 + 4} ${top + h / 2}) rotate(-90)" font-size="9" font-weight="600" fill="${C.blue}" text-anchor="middle">${escape(fit(label, h - 4, 9))}</text>`,
         );
     }
-    bar.segments.forEach((s) => parts.push(segment(s, segX, BAR_WIDTH)));
+    bar.segments.forEach((s) => parts.push(segment(s, segX, barWidth)));
     for (const group of bar.groups.slice(1))
       parts.push(
-        `<line x1="${segX}" x2="${segX + BAR_WIDTH}" y1="${y(group.from)}" y2="${y(group.from)}" stroke="${C.blue}" stroke-width="2"/>`,
+        `<line x1="${segX}" x2="${segX + barWidth}" y1="${y(group.from)}" y2="${y(group.from)}" stroke="${C.blue}" stroke-width="2"/>`,
       );
     if (bar.overTakt && bar.top > takt)
       parts.push(
-        `<rect x="${segX}" y="${y(bar.top)}" width="${BAR_WIDTH}" height="${(bar.top - takt) * scale}" fill="${C.red}" fill-opacity="0.15" stroke="${C.red}" stroke-width="1.5"/>`,
+        `<rect x="${segX}" y="${y(bar.top)}" width="${barWidth}" height="${(bar.top - takt) * scale}" fill="${C.red}" fill-opacity="0.15" stroke="${C.red}" stroke-width="1.5"/>`,
       );
     if (bar.top > 0) {
       const value = formatMinutes(bar.occupancy);
       const highlight = person && !bar.filtered && bar.overTakt;
       parts.push(
-        `<rect x="${segX}" y="${y(bar.top) - 18}" width="${value.length * 6.6 + 8}" height="15" rx="3" fill="${highlight ? C.red : "#ffffff"}"/>`,
+        `<rect x="${segX}" y="${y(bar.top) - 18}" width="${value.length * 6.6 + 8}" height="15" rx="3" fill="${highlight ? C.overLabel : "#ffffff"}"/>`,
         text(segX + 4, y(bar.top) - 6.5, value, {
           "font-size": 11,
           "font-weight": 600,
@@ -281,20 +344,21 @@ export function chartSvg(input: ChartExportInput) {
       );
     }
     const footerTop = plotBottom + 4;
-    const center = x + BAR_COLUMN / 2;
+    const center = x + barColumn / 2;
     const stations = bar.stationIds
       .map((id) => view.stations.get(id)!.label)
       .join(", ");
     parts.push(
-      `<line x1="${x}" x2="${x + BAR_COLUMN}" y1="${footerTop}" y2="${footerTop}" stroke="${bar.overTakt ? C.red : person ? C.blue : C.grid}" stroke-width="2"${person ? "" : ' stroke-dasharray="4 3"'}/>`,
+      `<line x1="${x}" x2="${x + barColumn}" y1="${footerTop}" y2="${footerTop}" stroke="${bar.overTakt ? C.red : person ? C.blue : C.grid}" stroke-width="2"${person ? "" : ' stroke-dasharray="4 3"'}/>`,
       text(
         center,
         footerTop + 18,
-        fit(
-          bar.label.replace("Mitarbeiter ", "MA "),
-          BAR_COLUMN + BAR_GAP - 4,
-          13,
-        ),
+        person
+          ? employeeShortLabel(
+              bar.label,
+              charsThatFit(barColumn + BAR_GAP - 4, 13),
+            )
+          : fit(bar.label, barColumn + BAR_GAP - 4, 13),
         {
           "font-size": 13,
           "font-weight": 700,
@@ -305,7 +369,7 @@ export function chartSvg(input: ChartExportInput) {
       text(
         center,
         footerTop + 33,
-        fit(stations || "–", BAR_COLUMN + BAR_GAP - 4, 11),
+        fit(stations || "–", barColumn + BAR_GAP - 4, 11),
         {
           "font-size": 11,
           fill: C.muted,
@@ -333,7 +397,7 @@ export function chartSvg(input: ChartExportInput) {
   let x = plotLeft + 8;
   for (const bar of bars ?? []) {
     out.push(...employeeBar(bar, x));
-    x += BAR_COLUMN + BAR_GAP;
+    x += barColumn + BAR_GAP;
   }
   for (const column of bars ? [] : columns) {
     const w = columnWidth(column);
@@ -346,7 +410,7 @@ export function chartSvg(input: ChartExportInput) {
         text(
           laneX + laneWidth / 2,
           plotBottom + 14,
-          lane.employee.label.replace("Mitarbeiter ", "MA "),
+          employeeShortLabel(lane.employee.label, charsThatFit(laneWidth, 11)),
           {
             "font-size": 11,
             fill: lane.overTakt ? C.destructive : C.muted,
@@ -372,7 +436,7 @@ export function chartSvg(input: ChartExportInput) {
       const labelWidth = heightLabel.length * 6.6 + 8;
       out.push(
         `<line x1="${x}" x2="${x + lanes}" y1="${y(column.height)}" y2="${y(column.height)}" stroke="${C.blue}" stroke-width="2"/>`,
-        `<rect x="${x}" y="${y(column.height) - 18}" width="${labelWidth}" height="15" rx="3" fill="${column.overTakt && !column.filtered ? C.red : "#ffffff"}"/>`,
+        `<rect x="${x}" y="${y(column.height) - 18}" width="${labelWidth}" height="15" rx="3" fill="${column.overTakt && !column.filtered ? C.overLabel : "#ffffff"}"/>`,
         text(x + 4, y(column.height) - 6.5, heightLabel, {
           "font-size": 11,
           "font-weight": 600,
@@ -419,7 +483,7 @@ export function chartSvg(input: ChartExportInput) {
   const taktLabel = `Takt ${formatMinutes(takt)}`;
   out.push(
     `<line x1="${plotLeft}" x2="${width - PAD}" y1="${y(takt)}" y2="${y(takt)}" stroke="${C.red}" stroke-width="2" stroke-dasharray="6 4"/>`,
-    `<rect x="${PAD}" y="${y(takt) - 9}" width="${AXIS_WIDTH - 4}" height="18" rx="3" fill="${C.red}"/>`,
+    `<rect x="${PAD}" y="${y(takt) - 9}" width="${AXIS_WIDTH - 4}" height="18" rx="3" fill="${C.overLabel}"/>`,
     text(PAD + (AXIS_WIDTH - 4) / 2, y(takt) + 4, taktLabel, {
       "font-size": 10,
       "font-weight": 700,

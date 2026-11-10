@@ -129,7 +129,7 @@ export function StaffingWorkspace() {
   const reference = matched.reduce((n, s) => n + s.plan!.productive, 0);
   const workload = matched.reduce((n, s) => n + s.workloadFte, 0);
   return (
-    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 p-4 sm:p-8">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Personalplanung</h1>
@@ -179,8 +179,8 @@ export function StaffingWorkspace() {
             />
             <label
               htmlFor={fileInputId}
+              // U11: wie beim Szenarioimport – Hauptaktion des Kastens.
               className={buttonVariants({
-                variant: "outline",
                 className:
                   "cursor-pointer peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50 peer-disabled:pointer-events-none peer-disabled:opacity-50",
               })}
@@ -211,7 +211,7 @@ export function StaffingWorkspace() {
           <label className="grid max-w-xl gap-2 text-sm">
             Gespeicherte Planung
             <select
-              className="h-9 rounded-md border bg-white px-2"
+              className="h-8 rounded-lg border border-input bg-white px-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
               value={storedPlan?.id ?? ""}
               onChange={(e) => setPlanId(e.target.value)}
             >
@@ -247,7 +247,7 @@ export function StaffingWorkspace() {
               <label className="grid max-w-xl gap-2 text-sm">
                 Szenario für Personalabgleich
                 <select
-                  className="h-9 rounded-md border bg-white px-2"
+                  className="h-8 rounded-lg border border-input bg-white px-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   value={scenario?.id ?? ""}
                   onChange={(e) => setScenarioId(e.target.value)}
                 >
@@ -272,7 +272,8 @@ export function StaffingWorkspace() {
                   bleibt unverändert.
                 </p>
               )}
-              <div className="grid gap-3 sm:grid-cols-3">
+              {/* U12: Kennzahlen als schmale Leiste wie im Szenario statt großer Kacheln. */}
+              <div className="flex flex-wrap gap-x-10 gap-y-2 rounded-lg border bg-white px-4 py-2 shadow-nx-sm">
                 <Metric
                   label="Stationen mit eindeutiger Plan-Zuordnung"
                   value={
@@ -533,9 +534,9 @@ export function StaffingWorkspace() {
 }
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-secondary p-4">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-2 text-xl font-semibold tabular-nums">{value}</p>
+    <div role="group" aria-label={label}>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="font-heading text-xl font-semibold tabular-nums">{value}</p>
     </div>
   );
 }

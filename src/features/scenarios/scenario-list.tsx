@@ -1,4 +1,5 @@
 "use client";
+import { useConfirm } from "@/components/confirm-dialog";
 import { LocalScenarios } from "@/features/projects/local-scenarios";
 import { isUnassigned } from "@/domain/model/types";
 import { useProjectSession } from "@/features/projects/project-session";
@@ -37,6 +38,7 @@ export function ScenarioList() {
   const repository = useScenarioRepository();
   const project = useProjectSession()!;
   const [loadError, setLoadError] = useState("");
+  const confirm = useConfirm();
   const [scenarios, setScenarios] = useState<StoredScenario[] | null>(null);
   const reload = () => repository.list().then(setScenarios);
 
@@ -56,19 +58,22 @@ export function ScenarioList() {
     const last = !(scenarios ?? []).some(
       (s) => s.variantId === scenario.variantId && s.id !== scenario.id,
     );
-    const confirmed = window.confirm(
-      [
+    const confirmed = await confirm({
+      title: `Szenario „${scenario.name}“ löschen?`,
+      description: [
         project.local
-          ? `Szenario „${scenario.name}“ aus diesem Browser löschen?`
-          : `Szenario „${scenario.name}“ für alle im Projekt endgültig löschen?`,
+          ? "Das Szenario wird aus diesem Browser gelöscht."
+          : "Das Szenario wird für alle im Projekt endgültig gelöscht.",
         last
           ? `Es ist das letzte Szenario der Variante „${scenario.variantName}“; die Variante entfällt damit.`
           : "",
         "Das lässt sich nicht rückgängig machen.",
       ]
         .filter(Boolean)
-        .join(" "),
-    );
+        .join("\n"),
+      confirmLabel: "Endgültig löschen",
+      destructive: true,
+    });
     if (!confirmed) return;
     await repository.remove(scenario.id);
     await reload();
@@ -114,7 +119,7 @@ export function ScenarioList() {
   const variants = groupByVariant(scenarios ?? []);
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 sm:p-8">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 sm:p-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Szenarien</h1>
@@ -126,12 +131,6 @@ export function ScenarioList() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link
-            href="/personalplanung"
-            className={buttonVariants({ variant: "outline" })}
-          >
-            Personalplanung
-          </Link>
           <TemplateDownloadButton />
           <Link href="/import" className={buttonVariants()}>
             <UploadIcon data-icon="inline-start" />

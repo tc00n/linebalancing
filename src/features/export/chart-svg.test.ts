@@ -41,6 +41,21 @@ function input(mode: "station" | "employee" = "station") {
 }
 
 describe("Diagrammexport (F52, E18)", () => {
+  it("verteilt wenige Stationen auf die Bildbreite statt sie links zu stauchen (U9)", () => {
+    const { svg, width } = chartSvg(input());
+    expect(width).toBeGreaterThanOrEqual(1400);
+    // Spuren breiter als die frühere feste Breite von 44 px.
+    const widths = [
+      ...svg.matchAll(
+        /<rect x="[\d.]+" y="[\d.]+" width="([\d.]+)" height="[\d.]+" fill="#bcccda"/g,
+      ),
+    ]
+      .map((m) => Number(m[1]))
+      .filter((w) => w !== 12); // Legendenfelder
+    expect(widths.length).toBeGreaterThan(0);
+    expect(Math.min(...widths)).toBeGreaterThan(100);
+  });
+
   it("enthält Stationsbezeichnungen und die numerische Taktlinie", () => {
     const { svg } = chartSvg(input());
     expect(svg).toContain(">T17</text>");

@@ -165,11 +165,15 @@ test("Editor muss Code einloesen und nach neuer Anmeldung erneut eingeben", asyn
   await expect(page).toHaveURL("http://localhost:3101/", { timeout: 15000 });
   await expect(page.getByText("Beispiel XT", { exact: true })).toBeVisible();
   // E26: Editoren d\u00fcrfen Szenarien endg\u00fcltig l\u00f6schen; die Variante bleibt mit dem Original bestehen.
-  page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByRole("button", {
       name: "Szenario Beispiel XT \u2013 Kopie l\u00f6schen",
     })
+    .click();
+  // U5: R\u00fcckfrage im App-Dialog statt Browser-Dialog.
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Endg\u00fcltig l\u00f6schen" })
     .click();
   await expect(
     page.getByText("Beispiel XT \u2013 Kopie", { exact: true }),
@@ -242,8 +246,11 @@ test("Szenariosperre: zweiter Nutzer schreibgeschuetzt, Uebernahme und Freigabe 
   await expect(editorPage.getByText("schreibgeschützt").first()).toBeVisible();
 
   // Übernahme nach Rückfrage; der Owner kann danach nicht mehr speichern.
-  editorPage.once("dialog", (dialog) => dialog.accept());
   await editorPage
+    .getByRole("button", { name: "Bearbeitung übernehmen" })
+    .click();
+  await editorPage
+    .getByRole("alertdialog")
     .getByRole("button", { name: "Bearbeitung übernehmen" })
     .click();
   await expect(editorPage.getByLabel("Takt [min]")).toBeEnabled();

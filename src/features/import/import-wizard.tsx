@@ -323,7 +323,7 @@ export function ImportWizard() {
                     Neues Szenario zu bestehender Variante
                     <select
                       aria-label="Bestehende Variante"
-                      className="h-8 rounded-lg border border-input bg-white px-2"
+                      className="h-8 rounded-lg border border-input bg-white px-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                       value={target === "new" ? variants[0].id : target}
                       onChange={(e) => setTarget(e.target.value)}
                     >
@@ -561,7 +561,7 @@ function PreviewTable(props: {
                         {m.severity === "error" ? (
                           <XCircleIcon className="mt-0.5 size-3.5 shrink-0 text-destructive" />
                         ) : (
-                          <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0 text-warning" />
+                          <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0 text-warning-strong" />
                         )}
                         <span>{m.message}</span>
                       </li>

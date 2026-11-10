@@ -90,7 +90,7 @@ export function StepTable(props: {
   const header = (key: SortKey, label: string, className = "") => (
     <th
       scope="col"
-      className={`px-2 py-2 font-medium ${className}`}
+      className={`px-1.5 py-2 font-medium ${className}`}
       aria-sort={
         sort.key === key
           ? sort.dir === 1
@@ -140,32 +140,32 @@ export function StepTable(props: {
             {header("description", "Beschreibung")}
             {header("time", "Zeit [min]", "text-right")}
             {header("station", "Station")}
-            <th scope="col" className="px-2 py-2 font-medium">
+            <th scope="col" className="px-1.5 py-2 font-medium">
               Zeitart
             </th>
             {header("employee", "Mitarbeiter")}
             <th
               scope="col"
-              className="px-2 py-2 font-medium"
+              className="px-1.5 py-2 font-medium"
               title="Gemeinsamer Arbeitsgang (E42): Zeilen mit derselben Gruppe starten gemeinsam."
             >
               Gruppe
             </th>
             <th
               scope="col"
-              className="px-2 py-2 font-medium"
+              className="px-1.5 py-2 font-medium"
               title="Mitarbeiter, die den Arbeitsgang ausführen können (E51); leer = jeder."
             >
               Qualifiziert
             </th>
             {header("category", "Kategorie")}
-            {header("sequence", "Reihenfolge")}
-            <th scope="col" className="px-2 py-2 font-medium">
+            {header("sequence", "Reihen­folge")}
+            <th scope="col" className="px-1.5 py-2 font-medium">
               Vorgänger
             </th>
             {header("start", "Start – Ende", "text-right")}
-            <th scope="col" className="px-2 py-2 text-right font-medium">
-              Wartezeit
+            <th scope="col" className="px-1.5 py-2 text-right font-medium">
+              Warte&shy;zeit
             </th>
           </tr>
         </thead>
@@ -214,7 +214,7 @@ export function StepTable(props: {
                     <th
                       scope="row"
                       rowSpan={issues.length > 0 ? 2 : undefined}
-                      className={`px-2 py-1 text-left font-medium whitespace-nowrap ${
+                      className={`px-1.5 py-1 text-left font-medium whitespace-nowrap ${
                         // Über zwei Zeilen: oben, auf Höhe der Beschreibung.
                         issues.length > 0 ? "pt-2 align-top" : ""
                       }`}
@@ -222,12 +222,12 @@ export function StepTable(props: {
                       {step.id}
                     </th>
                     <td
-                      className="max-w-80 min-w-48 px-2 py-1"
+                      className="max-w-64 min-w-36 px-1.5 py-1"
                       title={step.description}
                     >
                       <span className="line-clamp-2">{step.description}</span>
                     </td>
-                    <td className="px-2 py-1 text-right whitespace-nowrap tabular-nums">
+                    <td className="px-1.5 py-1 text-right whitespace-nowrap tabular-nums">
                       <span
                         className="inline-flex items-center gap-1"
                         title="Importiert, schreibgeschützt"
@@ -239,7 +239,7 @@ export function StepTable(props: {
                         />
                       </span>
                     </td>
-                    <td className="px-2 py-1">
+                    <td className="px-1.5 py-1">
                       <select
                         aria-label={`Station von ${step.id}`}
                         disabled={props.readOnly}
@@ -260,11 +260,12 @@ export function StepTable(props: {
                         ))}
                       </select>
                     </td>
-                    <td className="px-2 py-1">
+                    <td className="px-1.5 py-1">
                       <select
                         aria-label={`Zeitart von ${step.id}`}
                         disabled={props.readOnly}
-                        className={`${cellSelect} w-auto`}
+                        className={`${cellSelect} w-24`}
+                        title="Hand = bindet einen Mitarbeiter; Prozess = läuft ohne Mitarbeiter; hält = Station wartet auf das Ende"
                         value={
                           process
                             ? step.holdsStation
@@ -286,12 +287,10 @@ export function StepTable(props: {
                       >
                         <option value="manual">Hand</option>
                         <option value="process">Prozess</option>
-                        <option value="process-held">
-                          Prozess, hält Station
-                        </option>
+                        <option value="process-held">Prozess (hält)</option>
                       </select>
                     </td>
-                    <td className="px-2 py-1">
+                    <td className="px-1.5 py-1">
                       {process ? (
                         <span className="px-1.5 text-muted-foreground">
                           – (Prozesszeit)
@@ -300,7 +299,7 @@ export function StepTable(props: {
                         <select
                           aria-label={`Mitarbeiter von ${step.id}`}
                           disabled={props.readOnly}
-                          className={`${cellSelect} w-full min-w-40 ${step.employeeId ? "" : "border-warning text-warning"}`}
+                          className={`${cellSelect} w-full min-w-36 ${step.employeeId ? "" : "border-warning text-warning-strong"}`}
                           value={step.employeeId ?? ""}
                           onChange={(e) =>
                             props.onApply(
@@ -318,7 +317,7 @@ export function StepTable(props: {
                         </select>
                       )}
                     </td>
-                    <td className="px-2 py-1">
+                    <td className="px-1.5 py-1">
                       {process ? (
                         <span className="px-1.5 text-muted-foreground">–</span>
                       ) : (
@@ -329,7 +328,7 @@ export function StepTable(props: {
                         />
                       )}
                     </td>
-                    <td className="px-2 py-1">
+                    <td className="px-1.5 py-1">
                       {process ? (
                         <span className="px-1.5 text-muted-foreground">–</span>
                       ) : (
@@ -339,15 +338,15 @@ export function StepTable(props: {
                           stations={view.input.stations}
                           onApply={props.onApply}
                           disabled={props.readOnly}
-                          className="h-7 w-28"
+                          className="h-7 w-20"
                         />
                       )}
                     </td>
-                    <td className="px-2 py-1">
+                    <td className="px-1.5 py-1">
                       <select
                         aria-label={`Kategorie von ${step.id}`}
                         disabled={props.readOnly}
-                        className={`${cellSelect} w-auto`}
+                        className={`${cellSelect} w-auto max-w-36`}
                         value={step.categoryId ?? ""}
                         onChange={(e) =>
                           props.onApply({
@@ -364,26 +363,26 @@ export function StepTable(props: {
                         ))}
                       </select>
                     </td>
-                    <td className="px-2 py-1">
+                    <td className="px-1.5 py-1">
                       <SequenceCell
                         step={step}
                         onApply={props.onApply}
                         disabled={props.readOnly}
                       />
                     </td>
-                    <td className="px-2 py-1">
+                    <td className="px-1.5 py-1">
                       <PredecessorCell
                         step={step}
                         onApply={props.onApply}
                         disabled={props.readOnly}
                       />
                     </td>
-                    <td className="px-2 py-1 text-right whitespace-nowrap tabular-nums">
+                    <td className="px-1.5 py-1 text-right whitespace-nowrap tabular-nums">
                       {scheduled
                         ? `${formatMinutes(scheduled.start)} – ${formatMinutes(scheduled.end)}`
                         : "–"}
                     </td>
-                    <td className="px-2 py-1 text-right tabular-nums">
+                    <td className="px-1.5 py-1 text-right tabular-nums">
                       {scheduled && scheduled.waitBefore > 0
                         ? formatMinutes(scheduled.waitBefore)
                         : ""}
@@ -400,7 +399,7 @@ export function StepTable(props: {
                               className={`flex gap-1 ${
                                 issue.severity === "violation"
                                   ? "text-destructive"
-                                  : "text-warning"
+                                  : "text-warning-strong"
                               }`}
                             >
                               {issue.severity === "violation" ? (
@@ -443,7 +442,7 @@ function SequenceCell(props: {
       inputMode="decimal"
       aria-label={`Reihenfolge von ${props.step.id}`}
       disabled={props.disabled}
-      className="h-7 w-20 tabular-nums"
+      className="h-7 w-16 tabular-nums"
       onBlur={(e) => {
         const parsed = parseGermanNumber(e.target.value);
         const rejected =
@@ -472,7 +471,7 @@ function PredecessorCell(props: {
   const shown = props.step.predecessorIds.join("; ");
   const [error, setError] = useState<string | null>(null);
   return (
-    <div className="flex min-w-36 flex-col gap-0.5">
+    <div className="flex min-w-20 flex-col gap-0.5">
       <Input
         key={shown}
         defaultValue={shown}
@@ -517,7 +516,7 @@ function GroupCell(props: {
   const shown = props.step.groupId ?? "";
   const [error, setError] = useState<string | null>(null);
   return (
-    <div className="flex min-w-24 flex-col gap-0.5">
+    <div className="flex w-16 flex-col gap-0.5">
       <Input
         key={shown}
         defaultValue={shown}

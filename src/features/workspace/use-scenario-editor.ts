@@ -2,6 +2,7 @@
 import { useScenarioRepository } from "@/features/projects/use-scenario-repository";
 
 import { useEffect, useRef, useState } from "react";
+import { confirmFromMessage, useConfirm } from "@/components/confirm-dialog";
 import { ScenarioSaveQueue } from "@/data/scenario-save-queue";
 import { type StoredScenario } from "@/data/scenarioRepository";
 import { assignmentWarning, moveWarning } from "@/domain/ops/movePreview";
@@ -18,10 +19,11 @@ export type SaveStatus = "saved" | "saving" | "failed" | "locked";
 const READ_ONLY =
   "Schreibgeschützt: Das Szenario wird gerade an anderer Stelle bearbeitet.";
 
-/** Rückgabe von `apply`, wenn das Verschieben nicht bestätigt wurde (E50). */
-const MOVE_CANCELLED = "Verschieben abgebrochen.";
-/** Rückgabe von `apply`, wenn die Zuordnung nicht bestätigt wurde (E51). */
-const ASSIGN_CANCELLED = "Zuordnung abgebrochen.";
+/**
+ * Rückgabe von `apply`, solange eine Rückfrage offen ist (E50, E51). Die Änderung gilt dann
+ * noch nicht; nach „Trotzdem …“ im Dialog wird sie übernommen (U5).
+ */
+const CONFIRM_PENDING = "Rückfrage offen.";
 
 const HISTORY_LIMIT = 100;
 
@@ -51,6 +53,11 @@ export function useScenarioEditor(initial: StoredScenario, readOnly = false) {
   const [updatedByLabel, setUpdatedByLabel] = useState(initial.updatedByLabel);
   const [saving, setSaving] = useState({ pending: 0, failed: false });
   const [error, setError] = useState<string | null>(null);
+  const confirm = useConfirm();
+  // Nach der Rückfrage auf den dann aktuellen Stand anwenden, nicht auf den beim Öffnen.
+  const applyRef = useRef<(op: Operation, confirmed: boolean) => string | null>(
+    () => null,
+  );
 
   function persist(doc: EditableScenario) {
     const now = new Date().toISOString();
@@ -80,21 +87,32 @@ export function useScenarioEditor(initial: StoredScenario, readOnly = false) {
   }
 
   /** Wendet eine Änderung an; liefert die Fehlermeldung oder null. */
-  function apply(op: Operation): string | null {
+  function apply(op: Operation, confirmed = false): string | null {
     if (readOnly) return READ_ONLY;
-    // E50: Verschieben mit Restriktionsverletzung nur nach Bestätigung.
-    if (op.type === "moveStep") {
-      const warning = moveWarning(history.doc.input, op.stepId, op.stationId);
-      if (warning && !window.confirm(warning)) return MOVE_CANCELLED;
-    }
-    // E51: Zuordnung eines nicht qualifizierten Mitarbeiters nur nach Bestätigung.
-    const label = assignedLabel(history.doc.input, op);
-    if (
-      label &&
-      (op.type === "assignEmployee" || op.type === "assignNewEmployee")
-    ) {
-      const warning = assignmentWarning(history.doc.input, op.stepId, label);
-      if (warning && !window.confirm(warning)) return ASSIGN_CANCELLED;
+    if (!confirmed) {
+      // E50: Verschieben mit Restriktionsverletzung nur nach Bestätigung.
+      const moveText =
+        op.type === "moveStep"
+          ? moveWarning(history.doc.input, op.stepId, op.stationId)
+          : null;
+      // E51: Zuordnung eines nicht qualifizierten Mitarbeiters nur nach Bestätigung.
+      const label = assignedLabel(history.doc.input, op);
+      const assignText =
+        label &&
+        (op.type === "assignEmployee" || op.type === "assignNewEmployee")
+          ? assignmentWarning(history.doc.input, op.stepId, label)
+          : null;
+      const question = moveText
+        ? confirmFromMessage("Vorgängerbeziehungen verletzt", moveText)
+        : assignText
+          ? confirmFromMessage("Nicht als qualifiziert eingetragen", assignText)
+          : null;
+      if (question) {
+        void confirm(question).then((ok) => {
+          if (ok) applyRef.current(op, true);
+        });
+        return CONFIRM_PENDING;
+      }
     }
     const result = applyOperation(history.doc, op);
     if (!result.ok) {
@@ -111,6 +129,10 @@ export function useScenarioEditor(initial: StoredScenario, readOnly = false) {
     persist(result.scenario);
     return null;
   }
+
+  useEffect(() => {
+    applyRef.current = apply;
+  });
 
   function undo() {
     const previous = history.past.at(-1);

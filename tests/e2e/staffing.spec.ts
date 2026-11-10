@@ -7,7 +7,8 @@ test("Personalplanung importieren und gleichen Stationsumfang vergleichen", asyn
 }) => {
   await importExample(page);
   await page
-    .getByRole("link", { name: "Personalabgleich", exact: true })
+    .getByRole("main")
+    .getByRole("link", { name: "Personalplanung", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "Personalplanung", exact: true }),

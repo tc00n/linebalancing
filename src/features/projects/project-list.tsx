@@ -1,4 +1,5 @@
 "use client";
+import { useConfirm } from "@/components/confirm-dialog";
 import { navigateFresh } from "@/features/auth/navigate-fresh";
 import { consumeInvitation } from "@/features/auth/invitation";
 import { useEffect, useState } from "react";
@@ -35,6 +36,7 @@ export function ProjectList({
     [shownCode, setShownCode] = useState(""),
     [members, setMembers] = useState<Member[]>([]),
     [confirmation, setConfirmation] = useState("");
+  const confirm = useConfirm();
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- tablokalen Einladungsstatus nach SSR einmalig hydrieren
@@ -115,9 +117,13 @@ export function ProjectList({
   async function rotate() {
     if (
       !managed ||
-      !window.confirm(
-        "Neuen Projektcode erzeugen? Alle über den bisherigen Code beigetretenen Mitglieder verlieren ihren Zugriff.",
-      )
+      !(await confirm({
+        title: "Neuen Projektcode erzeugen?",
+        description:
+          "Alle über den bisherigen Code beigetretenen Mitglieder verlieren ihren Zugriff.",
+        confirmLabel: "Neuen Code erzeugen",
+        destructive: true,
+      }))
     )
       return;
     await run(async () => {
@@ -130,7 +136,7 @@ export function ProjectList({
     });
   }
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 sm:p-8">
       <div className="flex justify-between">
         <h1 className="text-2xl font-semibold">Projekte</h1>
         <Button
@@ -217,7 +223,16 @@ export function ProjectList({
               variant="ghost"
               onClick={() =>
                 run(async () => {
-                  if (!window.confirm("Projekt verlassen?")) return;
+                  if (
+                    !(await confirm({
+                      title: `Projekt „${p.name}“ verlassen?`,
+                      description:
+                        "Ein erneuter Beitritt ist nur mit dem Projektcode möglich.",
+                      confirmLabel: "Projekt verlassen",
+                      destructive: true,
+                    }))
+                  )
+                    return;
                   const { error } = await client().rpc("leave_project", {
                     p_project_id: p.id,
                   });

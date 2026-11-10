@@ -43,6 +43,51 @@ export function chartStepId(stepId: string, stationLabel: string): string {
   return rest.slice(1);
 }
 
+/**
+ * ID in einen schmalen Balken einpassen (U3): Arbeitsgänge einer Linie unterscheiden sich am Ende
+ * („AA010“, „AA020“), daher wird vorn gekürzt. Unter zwei Zeichen bleibt die Beschriftung leer.
+ */
+export function fitStepId(id: string, maxChars: number): string {
+  if (id.length <= maxChars) return id;
+  if (maxChars < 2) return "";
+  if (maxChars === 2) return id.slice(-2);
+  return `…${id.slice(-(maxChars - 1))}`;
+}
+
+/**
+ * Beschriftung eines Arbeitsgangs aus den gewählten Feldern (ID, Text, Dauer), passend zur
+ * Spurbreite (U3): Passt nicht alles, hat die unterscheidbare ID Vorrang. Mit Text wird hinten
+ * abgeschnitten, solange die ID vollständig sichtbar bleibt.
+ */
+export function segmentLabel(
+  parts: { id?: string; description?: string; duration?: string },
+  maxChars: number,
+): string {
+  const full = [parts.id, parts.description, parts.duration]
+    .filter(Boolean)
+    .join(" · ");
+  if (full.length <= maxChars || !parts.id) return full;
+  if (parts.description && parts.id.length + 4 <= maxChars) return full;
+  return fitStepId(parts.id, maxChars);
+}
+
+/** „Mitarbeiter 17“ je nach Platz als „MA 17“ oder „17“ (U2, U3); andere Namen mit Auslassung. */
+export function employeeShortLabel(label: string, maxChars: number): string {
+  const number = /^Mitarbeiter (\S+)$/.exec(label)?.[1];
+  if (number) {
+    const short = `MA ${number}`;
+    if (short.length <= maxChars) return short;
+    return number.length <= maxChars ? number : "";
+  }
+  if (label.length <= maxChars) return label;
+  return maxChars >= 2 ? `${label.slice(0, maxChars - 1)}…` : "";
+}
+
+/** Zeichen, die bei gegebener Schriftgröße in eine Breite passen (Mittelwert für Inter, Ziffern). */
+export function charsThatFit(widthPx: number, fontPx: number): number {
+  return Math.max(0, Math.floor(widthPx / (fontPx * 0.6)));
+}
+
 export function formatDateTime(iso: string): string {
   return new Intl.DateTimeFormat("de-DE", {
     dateStyle: "medium",
