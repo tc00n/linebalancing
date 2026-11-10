@@ -64,6 +64,10 @@ export function describeIssue(issue: Issue, view: ScenarioView): string {
   switch (issue.kind) {
     case "step_unassigned":
       return "Kein Mitarbeiter zugeordnet. Der Arbeitsgang ist in keiner Zeit und Kennzahl enthalten.";
+    case "employee_not_qualified": {
+      const qualified = view.steps.get(issue.stepId)?.qualifiedEmployees ?? [];
+      return `${issue.employeeLabel} ist für diesen Arbeitsgang nicht als qualifiziert eingetragen (qualifiziert: ${qualified.join(", ")}).`;
+    }
     case "predecessor_unassigned":
       return `Startzeit unsicher: Vorgänger ${issue.predecessorId} ist keinem Mitarbeiter zugeordnet.`;
     case "predecessor_downstream": {

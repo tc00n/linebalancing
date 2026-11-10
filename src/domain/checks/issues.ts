@@ -1,5 +1,6 @@
 import { compareStationLabels } from "../model/stationOrder";
-import { isUnassigned, type ScenarioInput } from "../model/types";
+import { isQualified } from "../model/qualification";
+import { isProcess, isUnassigned, type ScenarioInput } from "../model/types";
 
 /**
  * Hinweise für Konfliktübersicht und Warnungen (docs/RECHENREGELN.md, Abschnitt 6).
@@ -18,6 +19,13 @@ export type Issue =
       readonly stepId: string;
       readonly predecessorId: string;
     }
+  /** E51: zugeordneter Mitarbeiter ist für den Arbeitsgang nicht qualifiziert. */
+  | {
+      readonly kind: "employee_not_qualified";
+      readonly severity: "warning";
+      readonly stepId: string;
+      readonly employeeLabel: string;
+    }
   | {
       readonly kind: "predecessor_downstream";
       readonly severity: "violation";
@@ -28,6 +36,7 @@ export type Issue =
 export function findIssues(input: ScenarioInput): Issue[] {
   const steps = new Map(input.steps.map((s) => [s.id, s]));
   const stationLabel = new Map(input.stations.map((s) => [s.id, s.label]));
+  const employeeLabel = new Map(input.employees.map((e) => [e.id, e.label]));
   const issues: Issue[] = [];
 
   for (const step of input.steps) {
@@ -36,6 +45,16 @@ export function findIssues(input: ScenarioInput): Issue[] {
         kind: "step_unassigned",
         severity: "warning",
         stepId: step.id,
+      });
+    }
+
+    const label = step.employeeId ? employeeLabel.get(step.employeeId) : null;
+    if (label && !isProcess(step) && !isQualified(step, label)) {
+      issues.push({
+        kind: "employee_not_qualified",
+        severity: "warning",
+        stepId: step.id,
+        employeeLabel: label,
       });
     }
 

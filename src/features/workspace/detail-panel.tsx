@@ -11,6 +11,7 @@ import { isProcess } from "@/domain/model/types";
 import type { Operation } from "@/domain/ops/operations";
 import { formatMinutes } from "@/lib/format";
 import { EmployeeOptions, employeeOperation } from "./employee-options";
+import { QualifiedInput } from "./qualified-input";
 import { describeIssue, type ScenarioView } from "./scenario-view";
 
 const selectClass =
@@ -216,8 +217,27 @@ export function DetailPanel(props: {
                     employees={view.input.employees}
                     stations={view.input.stations}
                     stationId={step.stationId}
+                    qualified={step.qualifiedEmployees}
                   />
                 </select>
+              </dd>
+
+              <dt className="self-start pt-1.5">
+                <label
+                  htmlFor={`${ids}-qualified`}
+                  className="text-muted-foreground"
+                >
+                  Qualifiziert
+                </label>
+              </dt>
+              <dd>
+                <QualifiedInput
+                  id={`${ids}-qualified`}
+                  step={step}
+                  onApply={apply}
+                  disabled={readOnly}
+                  className="h-8"
+                />
               </dd>
 
               <dt className="self-start pt-1.5">

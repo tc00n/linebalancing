@@ -22,6 +22,7 @@ const base: Values = {
   timeKind: null,
   holdsStation: null,
   group: null,
+  qualified: null,
 };
 const rows = (...values: Partial<Values>[]): RawRow[] =>
   values.map((v, i) => ({ rowNumber: i + 2, values: { ...base, ...v } }));
@@ -123,6 +124,7 @@ describe("validateRows", () => {
           timeKind: null,
           holdsStation: null,
           group: null,
+          qualified: null,
         },
       },
     ]);
@@ -401,6 +403,59 @@ describe("Gruppe (E42)", () => {
     expect(result.hasErrors).toBe(false);
     expect(result.messages).toEqual([
       expect.objectContaining({ severity: "warning", column: "group" }),
+    ]);
+  });
+});
+
+describe("Qualifiziert (E51)", () => {
+  it("liest Nummern und Bezeichnungen, sortiert und ohne Doppelte", () => {
+    const result = validateRows(
+      rows({ id: "A", qualified: "8; Mitarbeiter 1, ma 12; 8" }),
+    );
+    expect(result.hasErrors).toBe(false);
+    expect(result.rows[0].qualifiedEmployees).toEqual([
+      "Mitarbeiter 1",
+      "Mitarbeiter 8",
+      "Mitarbeiter 12",
+    ]);
+    const input = buildScenario(result.rows, { taktMin: 10, allowancePct: 0 });
+    expect(input.steps[0].qualifiedEmployees).toHaveLength(3);
+  });
+
+  it("meldet ungültige Angaben als Fehler", () => {
+    expect(
+      errorsOf(rows({ id: "A", qualified: "1; Meister" })).map((m) => [
+        m.column,
+        m.message,
+      ]),
+    ).toEqual([
+      [
+        "qualified",
+        "„Meister“ ist keine Mitarbeiterangabe. Erwartet: Nummern mit „;“ getrennt, z. B. „1; 8; 12“.",
+      ],
+    ]);
+  });
+
+  it("warnt, wenn der zugeordnete Mitarbeiter nicht qualifiziert ist", () => {
+    const result = validateRows(
+      rows({ id: "A", employee: "Mitarbeiter 5", qualified: "1; 8" }),
+    );
+    expect(result.hasErrors).toBe(false);
+    expect(result.messages).toEqual([
+      expect.objectContaining({
+        severity: "warning",
+        column: "qualified",
+        message: "Mitarbeiter 5 ist nicht als qualifiziert eingetragen.",
+      }),
+    ]);
+    const input = buildScenario(result.rows, { taktMin: 10, allowancePct: 0 });
+    expect(evaluateScenario(input).issues).toEqual([
+      {
+        kind: "employee_not_qualified",
+        severity: "warning",
+        stepId: "A",
+        employeeLabel: "Mitarbeiter 5",
+      },
     ]);
   });
 });

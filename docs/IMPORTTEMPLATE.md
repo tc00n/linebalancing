@@ -1,6 +1,6 @@
 # Excel-Importtemplate
 
-**Stand:** 10.11.2026 · Freigegeben als E23, ergänzt um die Zeitart (E44) und die Gruppe (E42). Grundlage: F30, F69, F72–F89, Entscheidungen E21–E23.
+**Stand:** 10.11.2026 · Freigegeben als E23, ergänzt um die Zeitart (E44), die Gruppe (E42) und die Qualifikation (E51). Grundlage: F30, F69, F72–F89, Entscheidungen E21–E23.
 
 Eine Excel-Datei je Produktvariante (F14). Der Dateiname ohne Endung wird als Varianten- und Szenarioname vorgeschlagen (F88).
 
@@ -13,7 +13,7 @@ Eine Excel-Datei je Produktvariante (F14). Der Dateiname ohne Endung wird als Va
 
 ## Spalten im Blatt `Arbeitsgänge`
 
-Spaltennamen werden ohne Beachtung von Groß-/Kleinschreibung und überzähligen Leerzeichen erkannt. Die Reihenfolge der Spalten ist beliebig, zusätzliche Spalten werden ignoriert. Fehlt eine der folgenden Spalten, wird die Datei abgelehnt; ausgenommen sind die optionalen Spalten `Zeitart`, `Hält Station` (E44) und `Gruppe` (E42), deren Zellen dann als leer gelten.
+Spaltennamen werden ohne Beachtung von Groß-/Kleinschreibung und überzähligen Leerzeichen erkannt. Die Reihenfolge der Spalten ist beliebig, zusätzliche Spalten werden ignoriert. Fehlt eine der folgenden Spalten, wird die Datei abgelehnt; ausgenommen sind die optionalen Spalten `Zeitart`, `Hält Station` (E44), `Gruppe` (E42) und `Qualifiziert` (E51), deren Zellen dann als leer gelten.
 
 | Spalte                     | Pflicht                 | Regel                                                                                                                                                                                                                                                                            | Fehler/Warnung                                                                                                                                                                            | Quelle                       |
 | -------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
@@ -27,6 +27,7 @@ Spaltennamen werden ohne Beachtung von Groß-/Kleinschreibung und überzähligen
 | `Zeitart`                  | Spalte nein, Zelle nein | `Hand` oder `Prozess` (auch `Handzeit`, `Prozesszeit`; Groß-/Kleinschreibung egal). Leer = Hand. Prozess = Zeit ohne Mitarbeiter, z. B. Ablüften.                                                                                                                                | anderer Text: Fehler. Prozess mit Mitarbeiter: Fehler in `Mitarbeiter`. Prozess ohne Mitarbeiter: keine Warnung.                                                                          | E44, F135                    |
 | `Hält Station`             | Spalte nein, Zelle nein | `ja` oder `nein`, leer = nein. Ja = das Produkt bleibt bis zum Ende der Prozesszeit an der Station, sie zählt in die Stationshöhe.                                                                                                                                               | anderer Text: Fehler. `ja` bei Handzeit: Fehler.                                                                                                                                          | E44, F135                    |
 | `Gruppe`                   | Spalte nein, Zelle nein | Text. Zeilen mit derselben Gruppe sind ein gemeinsamer Arbeitsgang mehrerer Mitarbeiter (je Mitarbeiter eine Zeile mit seiner Zeit, F19). Sie starten gemeinsam, sobald alle Beteiligten frei und alle Vorgänger fertig sind; danach ist jeder wieder frei. Leer = keine Gruppe. | Fehler: Prozesszeit in einer Gruppe, Zeilen an verschiedenen Stationen, dieselbe Person mehrfach, Vorgänger innerhalb der Gruppe (auch über Umwege). Gruppe mit nur einer Zeile: Warnung. | E42, F140                    |
+| `Qualifiziert`             | Spalte nein, Zelle nein | Nummern der Mitarbeiter, die den Arbeitsgang ausführen können, mit `;` getrennt, z. B. `1; 8; 12` (auch `Mitarbeiter 8`). Leer = jeder. Die Mitarbeiter sind anonymisiert wie in der Spalte `Mitarbeiter`.                                                                       | Keine Mitarbeiterangabe: Fehler. Zugeordneter Mitarbeiter nicht enthalten: Warnung.                                                                                                       | E51, F141                    |
 
 Leere Zeilen werden übersprungen.
 

@@ -1,5 +1,6 @@
 import { findCycles } from "../checks/cycles";
 import { normalizeGroupId, scenarioGroupProblems } from "./groups";
+import { isEmployeeLabel, normalizeQualified } from "./qualification";
 import { isProcess, personOf, type ScenarioInput } from "./types";
 
 /**
@@ -78,6 +79,15 @@ export function assertValidScenario(input: ScenarioInput): void {
       normalizeGroupId(step.groupId) !== step.groupId
     ) {
       problems.push(`Arbeitsgang ${step.id}: ungültige Gruppe.`);
+    }
+    if (step.qualifiedEmployees !== undefined) {
+      const normalized = normalizeQualified(step.qualifiedEmployees);
+      if (
+        !step.qualifiedEmployees.every(isEmployeeLabel) ||
+        JSON.stringify(normalized) !== JSON.stringify(step.qualifiedEmployees)
+      ) {
+        problems.push(`Arbeitsgang ${step.id}: ungültige Qualifikation.`);
+      }
     }
     if (isProcess(step) && step.employeeId !== null) {
       problems.push(

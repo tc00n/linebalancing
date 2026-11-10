@@ -1,5 +1,6 @@
 import { findIssues } from "../checks/issues";
 import { groupMembersOf } from "../model/groups";
+import { isQualified } from "../model/qualification";
 import type { ScenarioInput } from "../model/types";
 import { applyOperation } from "./operations";
 
@@ -57,5 +58,28 @@ export function moveWarning(
     `Wenn ${subject} an Station ${station.label} verschoben wird, ` +
     `sind diese Vorgängerbeziehungen verletzt:\n${violations.join("\n")}` +
     "\n\nTrotzdem verschieben?"
+  );
+}
+
+/**
+ * Rückfrage vor der Zuordnung (E51): Text für die Bestätigung, wenn der
+ * Mitarbeiter für den Arbeitsgang nicht als qualifiziert eingetragen ist,
+ * sonst null.
+ */
+export function assignmentWarning(
+  input: ScenarioInput,
+  stepId: string,
+  employeeLabel: string,
+): string | null {
+  const step = input.steps.find((s) => s.id === stepId);
+  if (!step || isQualified(step, employeeLabel)) return null;
+  const current = step.employeeId
+    ? input.employees.find((e) => e.id === step.employeeId)?.label
+    : undefined;
+  if (current === employeeLabel) return null;
+  return (
+    `${employeeLabel} ist für ${stepId} nicht als qualifiziert eingetragen ` +
+    `(qualifiziert: ${step.qualifiedEmployees!.join(", ")}).` +
+    "\n\nTrotzdem zuordnen?"
   );
 }

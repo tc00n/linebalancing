@@ -162,6 +162,13 @@ Vorschlag: Schaltfläche „Verteilung vorschlagen“ je Station; Ergebnis als n
 - Voraussetzung: belastbare Vorgänger und gemeinsame Arbeitsgänge (E42); ohne Vorgänger verteilt die Optimierung beliebig.
 - Technik: Rechnung im Browser per Web Worker oder serverseitig; Ziel unter 10 s für eine Station.
 
+Stand 10.11.2026, Nutzerentscheidungen zur Optimierung (Umsetzung folgt):
+
+- Ziel wählbar: kleinste Stationshöhe mit dem vorhandenen Personal oder möglichst wenige Mitarbeiter, sodass die Station den Takt hält.
+- Umfang: Zuordnung der Arbeitsgänge auf die Mitarbeiter derselben Station und die Reihenfolge; nicht stationsübergreifend.
+- Qualifikation (E51) ist harte Randbedingung.
+- Vorschlag des Entwicklungsteams: Algorithmus im Rechenkern (lokale Suche wie im Test, bewertet mit der vorhandenen Ablaufplanung), Rechnung im Browser per Web Worker, Ergebnis als neues Szenario; Gruppen (E42) werden nur als Ganzes umverteilt.
+
 ## Prozesszeiten ohne Mitarbeiter
 
 **E44 – entschieden und umgesetzt (28.10.2026):** Zeiten wie das Ablüften (T17-AA006) binden keinen Mitarbeiter; er kann währenddessen andere Tätigkeiten ausführen, die nicht davon abhängen. Neue Anforderung F135.
@@ -257,3 +264,16 @@ Mögliche Ergänzungen (nicht verlangt): PDF zum Aushängen an der Station, ein 
 Umsetzung: Würde ein Stationswechsel Vorgängerbeziehungen verletzen (dieselbe Prüfung wie die Markierung beim Ziehen, `violationsAfterMove`), erscheint vor dem Verschieben eine Rückfrage mit den betroffenen Beziehungen („B → C“) und „Trotzdem verschieben?“. Abbrechen lässt den Arbeitsgang an seiner Station, ohne Eintrag in Rückgängig/Speichern. Gilt für Drag-and-drop im Diagramm, die Stationsauswahl im Detailpanel und in der Tabellenansicht (zentral in `use-scenario-editor.ts`). Text aus `moveWarning` in `src/domain/ops/movePreview.ts` (Unit-Test in `operations.test.ts`), Browsertest in `tests/e2e/table.spec.ts`. Keine Datenbankänderung. Umordnen auf einen anderen Mitarbeiterbalken (E45) wechselt die Station nicht und fragt deshalb nicht nach.
 
 Mögliche Ergänzung (nicht verlangt): eigener Dialog im Corporate Design statt des Browser-Dialogs.
+
+## Qualifikation je Arbeitsgang
+
+**E51 – entschieden und umgesetzt (10.11.2026):** Nach Absprache mit dem Teamsprecher wird eingepflegt, welcher Mitarbeiter welche Tätigkeit ausführen kann; Voraussetzung für die Optimierung (E43). Neue Anforderung F141.
+
+Nutzerentscheidungen:
+
+- Je Arbeitsgang, nicht je Tätigkeitsart.
+- Die Qualifikation hängt am Mitarbeiter; die Mitarbeiter sind anonymisiert („Mitarbeiter N“, linienweit eindeutig nach E40), damit keine Namen hochgeladen werden.
+- Pflege in einer optionalen Excel-Spalte „Qualifiziert“ (z. B. „1; 8; 12“, leer = jeder), in der App im Detailpanel und in der Tabelle änderbar.
+- Zuordnung eines nicht qualifizierten Mitarbeiters von Hand: Rückfrage wie bei E50.
+
+Umsetzung: Die Rückfrage gilt für alle Zuordnungen (Auswahl, Ziehen auf eine Spur oder einen Mitarbeiterbalken, „+ Mitarbeiter N hinzufügen“). Nach Bestätigung bleibt eine Warnung „nicht als qualifiziert eingetragen“ am Arbeitsgang (Konfliktübersicht, Tooltip), wie die Markierung bei E50. Die Mitarbeiterauswahl kennzeichnet nicht qualifizierte Mitarbeiter. Import: ungültige Angaben sind Fehler; ein zugeordneter, nicht qualifizierter Mitarbeiter ist eine Warnung. Bei Prozesszeiten ohne Wirkung. Excel-Export mit Spalte „Qualifiziert“. Code: `src/domain/model/qualification.ts`, Operation `setQualified`, Rückfrage `assignmentWarning` in `movePreview.ts`, Eingabe `qualified-input.tsx`. Migration `202611100002_qualification.sql` mit Datenbanktest. Tests in `import.test.ts`, `operations.test.ts`, Browsertest `tests/e2e/qualification.spec.ts`.

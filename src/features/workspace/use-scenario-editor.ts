@@ -4,7 +4,8 @@ import { useScenarioRepository } from "@/features/projects/use-scenario-reposito
 import { useEffect, useRef, useState } from "react";
 import { ScenarioSaveQueue } from "@/data/scenario-save-queue";
 import { type StoredScenario } from "@/data/scenarioRepository";
-import { moveWarning } from "@/domain/ops/movePreview";
+import { assignmentWarning, moveWarning } from "@/domain/ops/movePreview";
+import { nextEmployee } from "@/domain/ops/operations";
 import {
   applyOperation,
   type EditableScenario,
@@ -19,6 +20,8 @@ const READ_ONLY =
 
 /** Rückgabe von `apply`, wenn das Verschieben nicht bestätigt wurde (E50). */
 const MOVE_CANCELLED = "Verschieben abgebrochen.";
+/** Rückgabe von `apply`, wenn die Zuordnung nicht bestätigt wurde (E51). */
+const ASSIGN_CANCELLED = "Zuordnung abgebrochen.";
 
 const HISTORY_LIMIT = 100;
 
@@ -83,6 +86,15 @@ export function useScenarioEditor(initial: StoredScenario, readOnly = false) {
     if (op.type === "moveStep") {
       const warning = moveWarning(history.doc.input, op.stepId, op.stationId);
       if (warning && !window.confirm(warning)) return MOVE_CANCELLED;
+    }
+    // E51: Zuordnung eines nicht qualifizierten Mitarbeiters nur nach Bestätigung.
+    const label = assignedLabel(history.doc.input, op);
+    if (
+      label &&
+      (op.type === "assignEmployee" || op.type === "assignNewEmployee")
+    ) {
+      const warning = assignmentWarning(history.doc.input, op.stepId, label);
+      if (warning && !window.confirm(warning)) return ASSIGN_CANCELLED;
     }
     const result = applyOperation(history.doc, op);
     if (!result.ok) {
@@ -175,4 +187,19 @@ function useLatest<T>(value: T) {
     ref.current = value;
   });
   return ref;
+}
+
+/** Bezeichnung des Mitarbeiters, den eine Operation zuordnet, sonst null. */
+function assignedLabel(
+  input: StoredScenario["input"],
+  op: Operation,
+): string | null {
+  if (op.type === "assignEmployee" && op.employeeId !== null) {
+    return input.employees.find((e) => e.id === op.employeeId)?.label ?? null;
+  }
+  if (op.type === "assignNewEmployee") {
+    const step = input.steps.find((s) => s.id === op.stepId);
+    return step ? nextEmployee(input.employees, step.stationId).label : null;
+  }
+  return null;
 }

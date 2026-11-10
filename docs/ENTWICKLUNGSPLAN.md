@@ -284,3 +284,5 @@ Stand 10.11.2026, F138/E49: Export „Arbeitsfolge je Mitarbeiter (Excel)“ im 
 Stand 10.11.2026, F139/E50: Würde ein Stationswechsel Vorgängerbeziehungen verletzen, fragt die App vor dem Verschieben nach („Trotzdem verschieben?“); Abbrechen ändert nichts. Gilt für Drag-and-drop, Detailpanel und Tabellenansicht. Keine Datenbankänderung. Prüfungen: Typprüfung, ESLint, 176 Unit-Tests und alle 15 Browsertests grün.
 
 Stand 10.11.2026, F140/E42: Gemeinsame Arbeitsgänge mehrerer Mitarbeiter über die Spalte bzw. das Feld „Gruppe“. Gemeinsamer Start, danach ist jeder frei; Verschieben nimmt die Gruppe mit; Widersprüche werden in Import, App und Datenbank abgelehnt. Migration `202611100001_shared_steps.sql`. Prüfungen: Typprüfung, ESLint, 191 Unit-Tests, 51 Datenbanktests (in Testtransaktion) und alle 16 Browsertests grün.
+
+Stand 10.11.2026, F141/E51: Qualifikation je Arbeitsgang (Spalte bzw. Feld „Qualifiziert“), Rückfrage und Warnung bei nicht qualifizierten Mitarbeitern. Migration `202611100002_qualification.sql`. Prüfungen: Typprüfung, ESLint, 196 Unit-Tests, 52 Datenbanktests (in Testtransaktion) und alle 17 Browsertests grün. Nächster Schritt: Optimierung (E43).

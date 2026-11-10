@@ -81,14 +81,39 @@ describe("Excel-Export (F35, E19)", () => {
       "Zeitart",
       "Hält Station",
       "Gruppe",
+      "Qualifiziert",
       ...EXTRA_COLUMNS,
     ]);
     const rows = sheet
       .getRows(2, sheet.rowCount - 1)!
       .map((r) => (r.values as unknown[]).slice(1));
-    expect(rows.map((r) => r.slice(0, 10))).toEqual([
-      ["A", "S1", "Arbeitsgang A", 2, "Mitarbeiter 1", 1, "", "Hand", "", ""],
-      ["B", "S1", "Arbeitsgang B", 3, "Mitarbeiter 2", 2, "", "Hand", "", ""],
+    expect(rows.map((r) => r.slice(0, 11))).toEqual([
+      [
+        "A",
+        "S1",
+        "Arbeitsgang A",
+        2,
+        "Mitarbeiter 1",
+        1,
+        "",
+        "Hand",
+        "",
+        "",
+        "",
+      ],
+      [
+        "B",
+        "S1",
+        "Arbeitsgang B",
+        3,
+        "Mitarbeiter 2",
+        2,
+        "",
+        "Hand",
+        "",
+        "",
+        "",
+      ],
       [
         "C",
         "S1",
@@ -100,12 +125,13 @@ describe("Excel-Export (F35, E19)", () => {
         "Hand",
         "",
         "",
+        "",
       ],
-      ["E", "S1", "Arbeitsgang E", 4, "", 5, "C", "Prozess", "ja", ""],
-      ["D", "S1", "Arbeitsgang D", 0.76, "", 2.5, "", "Hand", "", ""],
+      ["E", "S1", "Arbeitsgang E", 4, "", 5, "C", "Prozess", "ja", "", ""],
+      ["D", "S1", "Arbeitsgang D", 0.76, "", 2.5, "", "Hand", "", "", ""],
     ]);
-    expect(rows[0].slice(10, 12)).toEqual([meta.scenarioName, meta.stand]);
-    expect(rows[4][12]).toContain("Kein Mitarbeiter zugeordnet");
+    expect(rows[0].slice(11, 13)).toEqual([meta.scenarioName, meta.stand]);
+    expect(rows[4][13]).toContain("Kein Mitarbeiter zugeordnet");
   });
 
   it("lässt sich über den normalen Import wieder einlesen", async () => {

@@ -439,6 +439,50 @@ try {
       [p, doc, saved.version],
     );
   });
+  await test("Qualifikation gespeichert in Reihenfolge, ungueltige abgelehnt (E51)", async () => {
+    const version = (
+      await q("select version from public.scenarios where id=$1", [doc.id])
+    ).rows[0].version;
+    const qualified = structuredClone(doc);
+    qualified.input.steps[0].qualifiedEmployees = [
+      "Mitarbeiter 8",
+      "Mitarbeiter 12",
+    ];
+    const saved = (
+      await q(
+        "select public.save_scenario($1,$2,$3,'50000000-0000-4000-8000-000000000001') doc",
+        [p, qualified, version],
+      )
+    ).rows[0].doc;
+    assert.deepEqual(saved.input.steps[0].qualifiedEmployees, [
+      "Mitarbeiter 8",
+      "Mitarbeiter 12",
+    ]);
+    assert.equal(saved.input.steps[1].qualifiedEmployees, undefined);
+    for (const labels of [["Meister"], ["Mitarbeiter 0"]]) {
+      const invalid = structuredClone(qualified);
+      invalid.input.steps[0].qualifiedEmployees = labels;
+      await denied(
+        "select public.save_scenario($1,$2,$3,'50000000-0000-4000-8000-000000000001')",
+        [p, invalid, saved.version],
+        "23514",
+      );
+    }
+    // Leere Liste = keine Einschraenkung.
+    const empty = structuredClone(qualified);
+    empty.input.steps[0].qualifiedEmployees = [];
+    const cleared = (
+      await q(
+        "select public.save_scenario($1,$2,$3,'50000000-0000-4000-8000-000000000001') doc",
+        [p, empty, saved.version],
+      )
+    ).rows[0].doc;
+    assert.equal(cleared.input.steps[0].qualifiedEmployees, undefined);
+    await q(
+      "select public.save_scenario($1,$2,$3,'50000000-0000-4000-8000-000000000001')",
+      [p, doc, cleared.version],
+    );
+  });
   const copy = {
     ...structuredClone(doc),
     id: "30000000-0000-4000-8000-000000000011",

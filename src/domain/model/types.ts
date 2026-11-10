@@ -62,6 +62,12 @@ export interface Step {
    * gemeinsam. Fehlt = keine Gruppe.
    */
   readonly groupId?: string;
+  /**
+   * Qualifikation (E51): Bezeichnungen der Mitarbeiter, die den Arbeitsgang
+   * ausführen können, z. B. ["Mitarbeiter 1", "Mitarbeiter 8"], nach Nummer
+   * sortiert. Fehlt = jeder. Bei Prozesszeiten ohne Wirkung.
+   */
+  readonly qualifiedEmployees?: readonly string[];
 }
 
 /** Prozesszeit ohne Mitarbeiter (E44). */

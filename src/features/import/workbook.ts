@@ -157,6 +157,12 @@ const GUIDE_ROWS: [string, string, string, string][] = [
     "Für Arbeitsgänge, die mehrere Mitarbeiter gleichzeitig ausführen: je Mitarbeiter eine Zeile mit seiner Zeit, alle mit derselben Gruppe. Die Zeilen starten gemeinsam, sobald alle Beteiligten frei und alle Vorgänger fertig sind; danach ist jeder wieder frei. Gleiche Station, verschiedene Mitarbeiter, nur Handzeiten. Leer = keine Gruppe.",
     "SWD-FS",
   ],
+  [
+    "Qualifiziert",
+    "nein",
+    "Nummern der Mitarbeiter, die diesen Arbeitsgang ausführen können, mit Semikolon getrennt (anonymisiert, wie in der Spalte „Mitarbeiter“). Leer = jeder. Wird ein anderer Mitarbeiter zugeordnet, warnt die App und fragt nach; die Optimierung hält sich daran.",
+    "1; 8; 12",
+  ],
 ];
 
 /** Leeres Importtemplate mit Ausfüllanleitung (F89). */

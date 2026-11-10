@@ -1,6 +1,7 @@
 import { COLUMNS, SHEET_STEPS } from "@/domain/import/template";
 import { compareStationLabels } from "@/domain/model/stationOrder";
 import { compareSteps } from "@/domain/model/stepOrder";
+import { formatQualified } from "@/domain/model/qualification";
 import { isProcess } from "@/domain/model/types";
 import {
   columnWidth,
@@ -50,6 +51,7 @@ export function exportRows(view: ScenarioView, meta: ExportMeta) {
       timeKind: isProcess(step) ? "Prozess" : "Hand",
       holdsStation: isProcess(step) ? (step.holdsStation ? "ja" : "nein") : "",
       group: step.groupId ?? "",
+      qualified: formatQualified(step.qualifiedEmployees),
     };
     return [
       ...COLUMNS.map((c) => template[c.key]),

@@ -47,6 +47,9 @@ export function buildScenario(
       ...(row.process ? { timeKind: "process" as const } : {}),
       ...(row.holdsStation ? { holdsStation: true } : {}),
       ...(row.groupId === undefined ? {} : { groupId: row.groupId }),
+      ...(row.qualifiedEmployees
+        ? { qualifiedEmployees: row.qualifiedEmployees }
+        : {}),
     };
   });
 

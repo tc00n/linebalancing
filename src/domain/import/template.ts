@@ -16,6 +16,8 @@ export const COLUMNS = [
   { key: "holdsStation", header: "Hält Station", optional: true },
   // E42: gemeinsamer Arbeitsgang mehrerer Mitarbeiter, optional.
   { key: "group", header: "Gruppe", optional: true },
+  // E51: Mitarbeiter, die den Arbeitsgang ausführen können, optional.
+  { key: "qualified", header: "Qualifiziert", optional: true },
 ] as const;
 
 export type ColumnKey = (typeof COLUMNS)[number]["key"];

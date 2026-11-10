@@ -4,7 +4,11 @@ import { defaultCategories } from "../model/categories";
 import { assertValidScenario } from "../model/validate";
 import { scenarioArbitrary } from "../testing/arbitraries";
 import { scenario } from "../testing/builders";
-import { moveWarning, violationsAfterMove } from "./movePreview";
+import {
+  assignmentWarning,
+  moveWarning,
+  violationsAfterMove,
+} from "./movePreview";
 import {
   applyOperation,
   type EditableScenario,
@@ -494,5 +498,49 @@ describe("Gemeinsame Arbeitsgänge (E42)", () => {
       "Wenn G1 mit G2 (Gruppe „G“) an Station S3 verschoben wird, sind diese Vorgängerbeziehungen verletzt:\n" +
         "G2 → C\n\nTrotzdem verschieben?",
     );
+  });
+});
+
+describe("Qualifikation (E51)", () => {
+  const base = () => editable();
+
+  it("setzt die Liste normiert und entfernt sie bei leerer Angabe", () => {
+    const set = ok(
+      {
+        type: "setQualified",
+        stepId: "A",
+        employeeLabels: ["Mitarbeiter 8", "Mitarbeiter 1", "Mitarbeiter 8"],
+      },
+      base(),
+    );
+    expect(step(set, "A").qualifiedEmployees).toEqual([
+      "Mitarbeiter 1",
+      "Mitarbeiter 8",
+    ]);
+    const cleared = ok(
+      { type: "setQualified", stepId: "A", employeeLabels: [] },
+      set,
+    );
+    expect("qualifiedEmployees" in step(cleared, "A")).toBe(false);
+    expect(
+      apply({ type: "setQualified", stepId: "A", employeeLabels: ["Meister"] }),
+    ).toEqual({
+      ok: false,
+      error: "Ungültige Mitarbeiterbezeichnung: Meister.",
+    });
+  });
+
+  it("fragt nur bei nicht qualifizierten Mitarbeitern nach", () => {
+    // In base() heißen die Mitarbeiter „MA1“, „MA2“; hier eine Liste mit Bezeichnungen.
+    const s = ok(
+      { type: "setQualified", stepId: "A", employeeLabels: ["Mitarbeiter 1"] },
+      base(),
+    );
+    expect(assignmentWarning(s.input, "A", "Mitarbeiter 1")).toBeNull();
+    expect(assignmentWarning(s.input, "A", "Mitarbeiter 2")).toBe(
+      "Mitarbeiter 2 ist für A nicht als qualifiziert eingetragen (qualifiziert: Mitarbeiter 1).\n\nTrotzdem zuordnen?",
+    );
+    // Ohne Liste darf jeder.
+    expect(assignmentWarning(s.input, "B", "Mitarbeiter 9")).toBeNull();
   });
 });

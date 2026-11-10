@@ -1,5 +1,6 @@
 import { findCycles } from "../checks/cycles";
 import { findGroupProblems, normalizeGroupId } from "../model/groups";
+import { isQualified, parseQualified } from "../model/qualification";
 import { compareStationLabels } from "../model/stationOrder";
 import {
   cellText,
@@ -43,6 +44,8 @@ export interface ParsedRow {
   readonly holdsStation: boolean;
   /** Gemeinsamer Arbeitsgang (E42); fehlt = keine Gruppe. */
   readonly groupId?: string;
+  /** Qualifizierte Mitarbeiter (E51); fehlt = jeder. */
+  readonly qualifiedEmployees?: readonly string[];
 }
 
 export interface ValidationResult {
@@ -146,6 +149,27 @@ export function validateRows(rawRows: readonly RawRow[]): ValidationResult {
       }
 
       const groupId = normalizeGroupId(cellText(values.group));
+      const qualified = parseQualified(cellText(values.qualified));
+      if (!qualified.ok) {
+        error(
+          rowNumber,
+          "qualified",
+          `„${qualified.invalid.join("“, „")}“ ist keine Mitarbeiterangabe. Erwartet: Nummern mit „;“ getrennt, z. B. „1; 8; 12“.`,
+        );
+      }
+      const qualifiedEmployees =
+        qualified.ok && qualified.labels.length ? qualified.labels : undefined;
+      if (
+        employee &&
+        !process &&
+        !isQualified({ qualifiedEmployees }, employee)
+      ) {
+        warning(
+          rowNumber,
+          "qualified",
+          `${employee} ist nicht als qualifiziert eingetragen.`,
+        );
+      }
 
       return {
         rowNumber,
@@ -159,6 +183,7 @@ export function validateRows(rawRows: readonly RawRow[]): ValidationResult {
         process,
         holdsStation: process && holdsStation === true,
         ...(groupId === undefined ? {} : { groupId }),
+        ...(qualifiedEmployees ? { qualifiedEmployees } : {}),
       };
     });
 

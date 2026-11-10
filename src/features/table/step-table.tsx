@@ -26,6 +26,7 @@ import {
   EmployeeOptions,
   employeeOperation,
 } from "@/features/workspace/employee-options";
+import { QualifiedInput } from "@/features/workspace/qualified-input";
 
 type SortKey =
   | "id"
@@ -39,7 +40,7 @@ type SortKey =
 
 const idCollator = new Intl.Collator("de", { numeric: true });
 /** Spaltenzahl der Tabelle, für Stationsköpfe und Hinweiszeilen. */
-const COLUMNS = 12;
+const COLUMNS = 13;
 const cellSelect =
   "h-7 rounded-md border border-input bg-white px-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60";
 
@@ -149,6 +150,13 @@ export function StepTable(props: {
               title="Gemeinsamer Arbeitsgang (E42): Zeilen mit derselben Gruppe starten gemeinsam."
             >
               Gruppe
+            </th>
+            <th
+              scope="col"
+              className="px-2 py-2 font-medium"
+              title="Mitarbeiter, die den Arbeitsgang ausführen können (E51); leer = jeder."
+            >
+              Qualifiziert
             </th>
             {header("category", "Kategorie")}
             {header("sequence", "Reihenfolge")}
@@ -305,6 +313,7 @@ export function StepTable(props: {
                             employees={view.input.employees}
                             stations={view.input.stations}
                             stationId={step.stationId}
+                            qualified={step.qualifiedEmployees}
                           />
                         </select>
                       )}
@@ -317,6 +326,18 @@ export function StepTable(props: {
                           step={step}
                           onApply={props.onApply}
                           disabled={props.readOnly}
+                        />
+                      )}
+                    </td>
+                    <td className="px-2 py-1">
+                      {process ? (
+                        <span className="px-1.5 text-muted-foreground">–</span>
+                      ) : (
+                        <QualifiedInput
+                          step={step}
+                          onApply={props.onApply}
+                          disabled={props.readOnly}
+                          className="h-7 w-24"
                         />
                       )}
                     </td>

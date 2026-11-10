@@ -790,3 +790,9 @@ Getroffen im Rahmen der Entwicklung. Präzisieren P1, P3 und die offenen Punkte 
 | ID | Verbindliche Entscheidung | Umsetzungshinweis |
 |---|---|---|
 | F140 | Ergänzt F19/F21 (E42): Zeilen eines Arbeitsgangs, den mehrere Mitarbeiter gleichzeitig ausführen, erhalten dieselbe Gruppe. Sie starten gemeinsam; jeder ist danach nach seiner eigenen Zeit wieder frei, Nachfolger warten nur auf die genannten Zeilen. | Optionale Importspalte „Gruppe“, in Detailpanel und Tabelle änderbar. Gleiche Station, verschiedene Personen, nur Handzeiten, keine Vorgänger innerhalb der Gruppe; Verstöße werden abgelehnt (Import, App, Datenbank). Verschieben nimmt die ganze Gruppe mit, nur die gezogene Zeile verliert den Mitarbeiter (F61). Rechenregeln: docs/RECHENREGELN.md, Abschnitt 6c. |
+
+## 47 · Qualifikation je Arbeitsgang (10.11.2026)
+
+| ID | Verbindliche Entscheidung | Umsetzungshinweis |
+|---|---|---|
+| F141 | Je Arbeitsgang lässt sich festlegen, welche (anonymisierten) Mitarbeiter ihn ausführen können (E51). Leer = jeder. Die Zuordnung eines nicht qualifizierten Mitarbeiters erfolgt nur nach Rückfrage und bleibt als Warnung sichtbar. Die Optimierung (E43) hält sich daran. | Optionale Importspalte „Qualifiziert“ („1; 8; 12“), in Detailpanel und Tabelle änderbar; Kennzeichnung in der Mitarbeiterauswahl; Excel-Export mit Spalte. |

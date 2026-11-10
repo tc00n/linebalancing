@@ -1,5 +1,6 @@
 import { findCycles } from "../checks/cycles";
 import type { Category } from "../model/categories";
+import { isEmployeeLabel, normalizeQualified } from "../model/qualification";
 import {
   groupMembersOf,
   normalizeGroupId,
@@ -63,6 +64,12 @@ export type Operation =
       readonly type: "setGroup";
       readonly stepId: string;
       readonly groupId: string | null;
+    }
+  /** E51: Mitarbeiter („Mitarbeiter N“), die den Arbeitsgang ausführen können; leer = jeder. */
+  | {
+      readonly type: "setQualified";
+      readonly stepId: string;
+      readonly employeeLabels: readonly string[];
     }
   | {
       readonly type: "setHoldsStation";
@@ -248,6 +255,21 @@ function applyUnchecked(
         const copy: { -readonly [K in keyof Step]: Step[K] } = { ...s };
         if (groupId === undefined) delete copy.groupId;
         else copy.groupId = groupId;
+        return copy;
+      });
+    }
+
+    case "setQualified": {
+      if (!needStep(op.stepId))
+        return fail(`Arbeitsgang ${op.stepId} existiert nicht.`);
+      const invalid = op.employeeLabels.filter((l) => !isEmployeeLabel(l));
+      if (invalid.length)
+        return fail(`Ungültige Mitarbeiterbezeichnung: ${invalid.join(", ")}.`);
+      const labels = normalizeQualified(op.employeeLabels);
+      return updateStep(op.stepId, (s) => {
+        const copy: { -readonly [K in keyof Step]: Step[K] } = { ...s };
+        if (labels === undefined) delete copy.qualifiedEmployees;
+        else copy.qualifiedEmployees = labels;
         return copy;
       });
     }

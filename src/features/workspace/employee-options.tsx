@@ -23,6 +23,8 @@ export function EmployeeOptions(props: {
   employees: readonly Employee[];
   stations: readonly Station[];
   stationId: string;
+  /** Qualifikation des Arbeitsgangs (E51); fehlt = jeder. */
+  qualified?: readonly string[];
 }) {
   const rank = new Map(sortStations(props.stations).map((s, i) => [s.id, i]));
   const stationLabel = new Map(props.stations.map((s) => [s.id, s.label]));
@@ -45,6 +47,9 @@ export function EmployeeOptions(props: {
       {options.map(({ lane, stations }) => (
         <option key={lane.id} value={lane.id}>
           {lane.label} ({stations})
+          {props.qualified && !props.qualified.includes(lane.label)
+            ? " – nicht qualifiziert"
+            : ""}
         </option>
       ))}
       <option value={NEW_EMPLOYEE}>
