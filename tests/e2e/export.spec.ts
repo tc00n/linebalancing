@@ -63,6 +63,13 @@ test("Excel- und Diagrammexport (F35, F45, F52, E18, E19)", async ({
   expect(ma1.map((r) => r[1])).toEqual(ma1.map((_, i) => i + 1));
   expect(ma1).toContainEqual(["Mitarbeiter 1", expect.any(Number), "T17", "B"]);
   expect(list).toContainEqual(["ohne Mitarbeiter", undefined, "T18", "D"]);
+  // Ein Blatt je Mitarbeiter zum Ausdrucken auf A4.
+  expect(sequenceBook.worksheets[1].name).toBe("Mitarbeiter 1");
+  const own = sequenceBook.getWorksheet("Mitarbeiter 1")!;
+  expect(own.getCell("A1").value).toBe(
+    "Arbeitsfolge Mitarbeiter 1 – Beispiel XT",
+  );
+  expect(own.pageSetup.paperSize).toBe(9);
 
   const png = await download(page, "Diagramm als PNG");
   expect(png.name).toBe("Beispiel XT – Yamazumi.png");

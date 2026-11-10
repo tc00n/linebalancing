@@ -263,7 +263,9 @@ Umsetzung (Ausgestaltung durch das Entwicklungsteam, Änderungswünsche offen):
 
 Code: `src/features/export/work-sequence.ts` (Unit-Tests `work-sequence.test.ts`), Menü in `export-menu.tsx`, Browsertest in `tests/e2e/export.spec.ts`. Keine Datenbankänderung.
 
-Mögliche Ergänzungen (nicht verlangt): PDF zum Aushängen an der Station, ein Blatt je Mitarbeiter, Zuschlag je Mitarbeiter.
+Nachbesserung 10.11.2026 (Nutzerwunsch: je Mitarbeiter eine Seite auf A4 ausdrucken): Nach dem Blatt „Arbeitsfolge“ folgt je Mitarbeiter ein eigenes Blatt (Name = Mitarbeiterbezeichnung, für Excel gekürzt und eindeutig gemacht), in Linienreihenfolge. Titel „Arbeitsfolge <Mitarbeiter> – <Szenario>“, darunter Station(en) und Stand; Spalten wie die Gesamtliste ohne Mitarbeiterspalte. Druckeinrichtung: A4 quer, auf Seitenbreite verkleinert, Kopfzeile auf jeder Seite, Fußzeile mit Mitarbeiter, Szenario und „Seite X von Y“; Beschreibung und Hinweis mit Zeilenumbruch. Längere Folgen laufen auf weitere Seiten. „Ohne Mitarbeiter“ und Prozesszeiten nur in der Gesamtliste. Ausgestaltung (quer, Gesamtliste bleibt) durch das Entwicklungsteam, Änderungswünsche offen.
+
+Mögliche Ergänzungen (nicht verlangt): PDF zum Aushängen an der Station, Zuschlag je Mitarbeiter.
 
 ## Bestätigung vor problematischem Verschieben
 
@@ -300,3 +302,23 @@ Zu klären, bevor umgesetzt wird:
 - Gilt die Qualifikation (E51) als harte Grenze, wie bisher?
 - Sollen statt Personen auch Arbeitsgänge in eine andere Station verschoben werden dürfen (heute nach F61 nur von Hand, der Mitarbeiter wird dabei entfernt)?
 - Ziel: eine Station unter Takt bringen, oder mehrere bzw. die ganze Linie in einem Lauf ausgleichen (vgl. E43, mögliche Ergänzungen)?
+
+## Qualifikationsstufen
+
+**E53 – offen, teilweise entschieden (10.11.2026):** Der Teamsprecher liefert die Qualifikation der Mitarbeiter je Tätigkeit in Stufen: 0 = keine Qualifizierung, 1 = unter Anleitung, 2 = selbstständig, 3 = kann andere anlernen. Heute kennt die App je Arbeitsgang nur qualifiziert ja/nein (E51, Spalte „Qualifiziert“, leer = jeder).
+
+Nutzerentscheidungen:
+
+- Lieferform: Matrix in der vorhandenen Excel-Tabelle, je Mitarbeiter eine weitere Spalte, Zeilen mit derselben Arbeitsgang-ID wie bisher. Beispieldatei folgt.
+- Eine Spalte „Ohne Qualifizierung möglich“ kennzeichnet Arbeitsgänge, die jeder ausführen darf.
+- Stufe 1 wird im Verteilungsvorschlag (E43) nie eingeplant.
+- Stufe 3 wird nicht eigens angezeigt; Anforderungen wie „mindestens ein Anlerner je Station“ kommen vorerst nicht hinzu.
+
+Noch zu klären:
+
+- Spaltenköpfe der Matrix und Verhältnis zur bisherigen Spalte „Qualifiziert“ (ersetzen oder beide zulassen?); klärt sich mit der Beispieldatei.
+- Leere Zelle in der Matrix: gilt sie als 0?
+- Zuordnung von Hand bei Stufe 1: Rückfrage wie bei Stufe 0, nur Hinweis oder ohne Meldung? Bei Stufe 0 Rückfrage wie bisher (E51).
+- Pflege der Stufen in der App (bisher Ankreuzen ja/nein) und Spalten im Excel-Export.
+- Auswertung der Absicherung je Arbeitsgang (z. B. „nur eine Person selbstständig“): wird noch geklärt.
+- Nutzer kündigt eine Anpassung des Exports der Mitarbeiter an (Umfang folgt).

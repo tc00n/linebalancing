@@ -777,7 +777,7 @@ Getroffen im Rahmen der Entwicklung. Präzisieren P1, P3 und die offenen Punkte 
 
 | ID | Verbindliche Entscheidung | Umsetzungshinweis |
 |---|---|---|
-| F138 | Je Szenario lässt sich eine Liste herunterladen, welcher Mitarbeiter in welcher Reihenfolge welche Arbeitsgänge an welcher Station ausführt (E49). | Excel-Datei aus dem Menü „Export“. Eine Zeile je Arbeitsgang mit Mitarbeiter, Nr., Station, ID, Beschreibung, Zeit, Start, Ende, Wartezeit, Hinweis. Mitarbeiter in Linienreihenfolge, je Mitarbeiter zeitlich über alle Stationen (E40); nicht zugeordnete Arbeitsgänge und Prozesszeiten (F135) am Ende ohne Nummer. |
+| F138 | Je Szenario lässt sich eine Liste herunterladen, welcher Mitarbeiter in welcher Reihenfolge welche Arbeitsgänge an welcher Station ausführt (E49). | Excel-Datei aus dem Menü „Export“. Eine Zeile je Arbeitsgang mit Mitarbeiter, Nr., Station, ID, Beschreibung, Zeit, Start, Ende, Wartezeit, Hinweis. Mitarbeiter in Linienreihenfolge, je Mitarbeiter zeitlich über alle Stationen (E40); nicht zugeordnete Arbeitsgänge und Prozesszeiten (F135) am Ende ohne Nummer. Zusätzlich ein Blatt je Mitarbeiter, eingerichtet zum Druck auf A4. |
 
 ## 45 · Bestätigung vor problematischem Verschieben (10.11.2026)
 

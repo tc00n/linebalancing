@@ -7,9 +7,11 @@ import { scenario } from "@/domain/testing/builders";
 import { createScenarioView } from "@/features/workspace/scenario-view";
 import {
   createWorkSequenceExport,
+  EMPLOYEE_SHEET_COLUMNS,
   PROCESS_LABEL,
   SEQUENCE_COLUMNS,
   SHEET_SEQUENCE,
+  sheetName,
   UNASSIGNED_LABEL,
   workSequenceRows,
 } from "./work-sequence";
@@ -112,5 +114,71 @@ describe("Arbeitsfolge je Mitarbeiter (E49)", () => {
     expect(sheet.getRow(4).getCell(1).value).toBe("MA1");
     expect(sheet.rowCount).toBe(3 + 7);
     expect(sheet.getColumn(6).numFmt).toBe("0.00");
+  });
+});
+
+describe("Arbeitsfolge: ein Blatt je Mitarbeiter zum Ausdrucken", () => {
+  async function load() {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(
+      await createWorkSequenceExport(view(), {
+        scenarioName: "Ziel",
+        stand: "10.11.2026, 09:00 von a@b.de",
+      }),
+    );
+    return workbook;
+  }
+
+  it("legt nach der Gesamtliste je Mitarbeiter ein eigenes Blatt in Linienreihenfolge an", async () => {
+    const workbook = await load();
+    expect(workbook.worksheets.map((s) => s.name)).toEqual([
+      SHEET_SEQUENCE,
+      "MA1",
+      "MA2",
+      "MA3",
+    ]);
+  });
+
+  it("enthält auf dem Blatt nur die Arbeitsgänge dieses Mitarbeiters", async () => {
+    const sheet = (await load()).getWorksheet("MA1")!;
+    expect(sheet.getCell("A1").value).toBe("Arbeitsfolge MA1 – Ziel");
+    expect(sheet.getCell("A2").value).toBe(
+      "Stationen S1, S2 · Stand 10.11.2026, 09:00 von a@b.de",
+    );
+    expect((sheet.getRow(3).values as unknown[]).slice(1)).toEqual(
+      EMPLOYEE_SHEET_COLUMNS.map((c) => c.header),
+    );
+    const body = sheet
+      .getRows(4, sheet.rowCount - 3)!
+      .map((r) => (r.values as unknown[]).slice(1, 4));
+    expect(body).toEqual([
+      [1, "S1", "A"],
+      [2, "S2", "D"],
+      [3, "S1", "C"],
+    ]);
+  });
+
+  it("ist für A4 eingerichtet: auf Seitenbreite, Kopfzeile auf jeder Seite, Seitenzahl", async () => {
+    const sheet = (await load()).getWorksheet("MA1")!;
+    expect(sheet.pageSetup).toMatchObject({
+      paperSize: 9,
+      orientation: "landscape",
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      printTitlesRow: "3:3",
+    });
+    expect(sheet.headerFooter.oddFooter).toContain("Seite &P von &N");
+  });
+
+  it("macht Blattnamen für Excel gültig und eindeutig", () => {
+    expect(sheetName("Mitarbeiter 1 (T17)", new Set())).toBe(
+      "Mitarbeiter 1 (T17)",
+    );
+    expect(sheetName("A\\B/C?*[x]:", new Set())).toBe("A_B_C___x__");
+    expect(sheetName("x".repeat(40), new Set())).toHaveLength(31);
+    expect(sheetName("Arbeitsfolge", new Set(["arbeitsfolge"]))).toBe(
+      "Arbeitsfolge (2)",
+    );
   });
 });
