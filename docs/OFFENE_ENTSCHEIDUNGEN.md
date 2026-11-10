@@ -287,3 +287,16 @@ Nutzerentscheidungen:
 Nachbesserung 10.11.2026 (Rückmeldung des Nutzers: Freitext ungünstig): In der App wird die Qualifikation angekreuzt statt getippt – Auswahlliste mit allen Mitarbeitern der Linie, die der Station zuerst, „Auswahl aufheben (jeder)“. In Excel bleibt die Spalte „1; 8; 12“.
 
 Umsetzung: Die Rückfrage gilt für alle Zuordnungen (Auswahl, Ziehen auf eine Spur oder einen Mitarbeiterbalken, „+ Mitarbeiter N hinzufügen“). Nach Bestätigung bleibt eine Warnung „nicht als qualifiziert eingetragen“ am Arbeitsgang (Konfliktübersicht, Tooltip), wie die Markierung bei E50. Die Mitarbeiterauswahl kennzeichnet nicht qualifizierte Mitarbeiter. Import: ungültige Angaben sind Fehler; ein zugeordneter, nicht qualifizierter Mitarbeiter ist eine Warnung. Bei Prozesszeiten ohne Wirkung. Excel-Export mit Spalte „Qualifiziert“. Code: `src/domain/model/qualification.ts`, Operation `setQualified`, Rückfrage `assignmentWarning` in `movePreview.ts`, Eingabe `qualified-input.tsx`. Migration `202611100002_qualification.sql` mit Datenbanktest. Tests in `import.test.ts`, `operations.test.ts`, Browsertest `tests/e2e/qualification.spec.ts`.
+
+## Stationsübergreifender Verteilungsvorschlag
+
+**E52 – offen (10.11.2026):** Nutzer fragt, ob der Verteilungsvorschlag (E43) Mitarbeiter aus anderen Stationen heranziehen kann, um eine Station unter den Takt zu bringen. Heute nicht: Der Vorschlag verteilt nur auf die Mitarbeiter, die schon an der gewählten Station eingetragen sind (Springer nach E40 eingeschlossen, ihre Einsätze an anderen Stationen werden mitgerechnet). Er kann Mitarbeiter entlasten, aber keine hinzunehmen; alle anderen Stationen bleiben unverändert. Hält die Station den Takt mit ihrem Personal nicht, bleibt die Stationshöhe im Vorschlag über dem Takt.
+
+Zu klären, bevor umgesetzt wird:
+
+- Woher darf der Vorschlag Mitarbeiter holen: aus jeder Station der Linie, nur aus Nachbarstationen oder nur von Mitarbeitern, die schon Springer sind?
+- Darf ein Mitarbeiter ganz wechseln oder nur einzelne Arbeitsgänge an der Zielstation übernehmen (Springer nach E40)?
+- Darf die abgebende Station dadurch über den Takt kommen, oder muss sie den Takt weiter halten?
+- Gilt die Qualifikation (E51) als harte Grenze, wie bisher?
+- Sollen statt Personen auch Arbeitsgänge in eine andere Station verschoben werden dürfen (heute nach F61 nur von Hand, der Mitarbeiter wird dabei entfernt)?
+- Ziel: eine Station unter Takt bringen, oder mehrere bzw. die ganze Linie in einem Lauf ausgleichen (vgl. E43, mögliche Ergänzungen)?
