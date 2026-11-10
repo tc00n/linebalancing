@@ -796,3 +796,9 @@ Getroffen im Rahmen der Entwicklung. Präzisieren P1, P3 und die offenen Punkte 
 | ID | Verbindliche Entscheidung | Umsetzungshinweis |
 |---|---|---|
 | F141 | Je Arbeitsgang lässt sich festlegen, welche (anonymisierten) Mitarbeiter ihn ausführen können (E51). Leer = jeder. Die Zuordnung eines nicht qualifizierten Mitarbeiters erfolgt nur nach Rückfrage und bleibt als Warnung sichtbar. Die Optimierung (E43) hält sich daran. | Optionale Importspalte „Qualifiziert“ („1; 8; 12“), in Detailpanel und Tabelle änderbar; Kennzeichnung in der Mitarbeiterauswahl; Excel-Export mit Spalte. |
+
+## 48 · Verteilungsvorschlag (10.11.2026)
+
+| ID | Verbindliche Entscheidung | Umsetzungshinweis |
+|---|---|---|
+| F142 | Die App schlägt für eine Station eine Verteilung der Arbeitsgänge auf ihre Mitarbeiter samt Reihenfolge vor (E43). Ziel wählbar: kleinste Stationshöhe oder möglichst wenige Mitarbeiter unter Takt. Qualifikation (F141), Vorgänger und gemeinsame Arbeitsgänge (F140) werden eingehalten. | Schaltfläche „Verteilung vorschlagen“, Rechnung im Browser im Hintergrund mit Fortschritt und Abbrechen; Ergebnis vorher/nachher und als neues Szenario im Ist/Ziel-Vergleich. Algorithmus statt KI, reproduzierbar. Rechenregeln: docs/RECHENREGELN.md, Abschnitt 6d. |

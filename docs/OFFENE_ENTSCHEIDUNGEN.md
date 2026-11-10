@@ -151,7 +151,7 @@ Nicht umgesetzt (mögliche Ergänzungen): eigene Markierung gemeinsamer Arbeitsg
 
 ## Automatischer Verteilungsvorschlag
 
-**E43 – offen (27.10.2026):** Nutzer wünscht eine Funktion, die für eine Station (oder die Linie) automatisch eine Verteilung der Arbeitsgänge auf die Mitarbeiter vorschlägt. Heute verteilt der Anwender von Hand.
+**E43 – entschieden und umgesetzt (10.11.2026; Wunsch vom 27.10.2026):** Nutzer wünscht eine Funktion, die für eine Station (oder die Linie) automatisch eine Verteilung der Arbeitsgänge auf die Mitarbeiter vorschlägt. Heute verteilt der Anwender von Hand.
 
 Machbarkeit am 27.10.2026 außerhalb der App erprobt (Skript, nicht im Repo): T17 mit den Abhängigkeiten aus dem Workshop und Platzhalterzeiten für Teilpositionen. Stationshöhe 135,4 → 85,3 min mit Mitarbeiter 1, 8 und 12 (Untergrenze Arbeitsinhalt/3 = 69,0); Variante ohne Primern und Ablüften (gehört zu T16, siehe E41) 73,6 min. Die App rechnet das Ergebnis nach dem Import identisch nach. Verfahren: Ablaufplanung wie in der App (frühester Start, Gleichstand nach Reihenfolge) plus gleichzeitiger Start gemeinsamer Arbeitsgänge (E42), Suche über Zuordnung und Reihenfolge per Simulated Annealing; Laufzeit rund 2 Minuten in Python.
 
@@ -162,12 +162,18 @@ Vorschlag: Schaltfläche „Verteilung vorschlagen“ je Station; Ergebnis als n
 - Voraussetzung: belastbare Vorgänger und gemeinsame Arbeitsgänge (E42); ohne Vorgänger verteilt die Optimierung beliebig.
 - Technik: Rechnung im Browser per Web Worker oder serverseitig; Ziel unter 10 s für eine Station.
 
-Stand 10.11.2026, Nutzerentscheidungen zur Optimierung (Umsetzung folgt):
+Stand 10.11.2026, Nutzerentscheidungen zur Optimierung, neue Anforderung F142, Regeln in [RECHENREGELN.md](RECHENREGELN.md) Abschnitt 6d:
 
 - Ziel wählbar: kleinste Stationshöhe mit dem vorhandenen Personal oder möglichst wenige Mitarbeiter, sodass die Station den Takt hält.
 - Umfang: Zuordnung der Arbeitsgänge auf die Mitarbeiter derselben Station und die Reihenfolge; nicht stationsübergreifend.
 - Qualifikation (E51) ist harte Randbedingung.
-- Vorschlag des Entwicklungsteams: Algorithmus im Rechenkern (lokale Suche wie im Test, bewertet mit der vorhandenen Ablaufplanung), Rechnung im Browser per Web Worker, Ergebnis als neues Szenario; Gruppen (E42) werden nur als Ganzes umverteilt.
+- Bisheriger Test (27.10.) war ein Algorithmus (Simulated Annealing), keine KI zur Laufzeit; so auch in der App.
+
+Umsetzung: Schaltfläche „Verteilung vorschlagen“ neben „Duplizieren“. Seitenpanel mit Station (Vorauswahl: höchste Station), Ziel, Fortschritt und Abbrechen; Rechnung im Browser per Web Worker. Ergebnis vorher/Vorschlag (Stationshöhe, Mitarbeiter, ohne Mitarbeiter) und Zahl der Änderungen; „Als neues Szenario anlegen und vergleichen“ legt „<Szenario> – Vorschlag <Station>“ in derselben Variante an und öffnet den Ist/Ziel-Vergleich. Ohne Verbesserung: Hinweis „Keine bessere Verteilung gefunden“, kein Anlegen. Code: `src/domain/optimize/optimize.ts` (Tests `optimize.test.ts`), vorbereitete Ablaufplanung `compileSchedule` in `src/domain/calc/schedule.ts` (dieselbe Planung wie in der App), Panel `src/features/optimize/`. Browsertest `tests/e2e/optimize.spec.ts`. Keine Datenbankänderung.
+
+Ausgestaltung durch das Entwicklungsteam (Änderungswünsche offen): Nicht zugeordnete Arbeitsgänge der Station werden mitverteilt. Beim Ziel „wenigste Mitarbeiter“ entfallen frei gewordene Spuren der Station, damit die Mitarbeiterzahl sinkt. Bei gleichwertigen Lösungen gewinnt die mit den wenigsten Änderungen. Gleiche Eingabe liefert dasselbe Ergebnis. Laufzeit gemessen: 40 Arbeitsgänge/6 Mitarbeiter rund 1,5 s, Ergebnis 0,01 min über der rechnerischen Untergrenze; Suchschritte so begrenzt, dass auch 80 Arbeitsgänge unter 10 s bleiben.
+
+Mögliche Ergänzungen: Fixieren einzelner Arbeitsgänge (vgl. E36), stationsübergreifende Verteilung, mehrere Stationen in einem Lauf.
 
 ## Prozesszeiten ohne Mitarbeiter
 

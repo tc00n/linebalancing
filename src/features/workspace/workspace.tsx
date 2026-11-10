@@ -29,10 +29,12 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   duplicateScenario,
+  uniqueName,
   type StoredScenario,
 } from "@/data/scenarioRepository";
 import { evaluateScenario } from "@/domain/calc/evaluate";
 import { alignedStationLabels, movedStepIds } from "@/domain/compare/compare";
+import type { ScenarioInput } from "@/domain/model/types";
 import type { EditableScenario } from "@/domain/ops/operations";
 import {
   applyFilter,
@@ -61,6 +63,7 @@ import {
 import { formatDateTime, formatMinutes } from "@/lib/format";
 import type { ChartExportInput } from "@/features/export/chart-svg";
 import { ExportMenu } from "@/features/export/export-menu";
+import { OptimizeSheet } from "@/features/optimize/optimize-sheet";
 import { DetailPanel } from "./detail-panel";
 import { IssuesList } from "./issues-list";
 import { KpiBar } from "./kpi-bar";
@@ -295,6 +298,7 @@ function ScenarioWorkspace(props: {
   );
   // F96/F128, E8, E37: Filter und Suche sind Sitzungszustand und starten leer.
   const [filter, setFilter] = useState<StepFilter>(EMPTY_FILTER);
+  const [optimizing, setOptimizing] = useState(false);
   const [search, setSearch] = useState("");
   // F34: Vollbild mit ausblendbaren Bedienelementen und Kennzahlen.
   const fullscreenRef = useRef<HTMLDivElement>(null);
@@ -383,6 +387,37 @@ function ScenarioWorkspace(props: {
     } catch (error) {
       window.alert(
         error instanceof Error ? error.message : "Duplizieren fehlgeschlagen.",
+      );
+    }
+  }
+
+  /** E43: Verteilungsvorschlag als neues Szenario neben dem Ausgangsstand. */
+  async function createProposal(input: ScenarioInput, stationLabel: string) {
+    const siblings = props.choices.filter(
+      (s) => s.variantId === editable.variantId,
+    );
+    const copy = {
+      ...duplicateScenario(
+        { ...editable, input, categories: editor.doc.categories },
+        siblings,
+      ),
+      name: uniqueName(
+        `${editable.name} – Vorschlag ${stationLabel}`,
+        siblings.map((s) => s.name),
+      ),
+    };
+    try {
+      await repository.save(copy);
+      setOptimizing(false);
+      props.navigate({
+        ist: editable.id,
+        ziel: copy.id,
+        tab: "ziel",
+        compare: true,
+      });
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : "Anlegen fehlgeschlagen.",
       );
     }
   }
@@ -695,6 +730,7 @@ function ScenarioWorkspace(props: {
                 }
                 onToggleCompare={() => props.navigate({ compare: !compare })}
                 onDuplicate={duplicate}
+                onOptimize={() => setOptimizing(true)}
               />
             </>
           )}
@@ -1054,6 +1090,15 @@ function ScenarioWorkspace(props: {
         onApply={readOnly ? undefined : apply}
         showMoved={!!comparison}
       />
+
+      {optimizing && (
+        <OptimizeSheet
+          open
+          onOpenChange={setOptimizing}
+          input={editor.doc.input}
+          onCreate={createProposal}
+        />
+      )}
 
       {selected && panelView.steps.has(selected.stepId) && (
         <DetailPanel

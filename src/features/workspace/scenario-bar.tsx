@@ -1,6 +1,6 @@
 "use client";
 
-import { ColumnsIcon, CopyIcon } from "lucide-react";
+import { ColumnsIcon, CopyIcon, WandSparklesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { StoredScenario } from "@/data/scenarioRepository";
 
@@ -8,7 +8,7 @@ export type Side = "ist" | "ziel";
 
 /**
  * Reiter Ist und Ziel mit je einer Szenarioauswahl (F103, F110, F114),
- * Vergleich-Schalter (F122) und Duplizieren (E20). Ist/Ziel sind Ansichtsrollen;
+ * Vergleich-Schalter (F122), Duplizieren (E20) und Verteilungsvorschlag (E43). Ist/Ziel sind Ansichtsrollen;
  * dasselbe Szenario darf auf beiden Seiten stehen (F115). Szenarien aller Varianten
  * sind wählbar, bei mehreren Varianten nach Variante gruppiert (E48).
  */
@@ -22,6 +22,8 @@ export function ScenarioBar(props: {
   onSelect: (side: Side, scenarioId: string) => void;
   onToggleCompare: () => void;
   onDuplicate: () => void;
+  /** E43: Verteilungsvorschlag für eine Station. */
+  onOptimize: () => void;
 }) {
   const groups = new Map<string, StoredScenario[]>();
   for (const s of props.choices)
@@ -100,6 +102,14 @@ export function ScenarioBar(props: {
       >
         <CopyIcon data-icon="inline-start" />
         Duplizieren
+      </Button>
+      <Button
+        variant="outline"
+        onClick={props.onOptimize}
+        title="Arbeitsgänge einer Station automatisch verteilen; Ergebnis als neues Szenario"
+      >
+        <WandSparklesIcon data-icon="inline-start" />
+        Verteilung vorschlagen
       </Button>
       {crossVariant && (
         <span className="text-xs text-muted-foreground">

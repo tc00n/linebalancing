@@ -1,6 +1,6 @@
 # Rechenregeln
 
-**Stand:** 26.10.2026 · Verbindliche Grundlage für den Rechenkern (`src/domain/calc/`). Quellen: 01_ANFORDERUNGEN (F/P-Nummern) und die Entscheidungen E1–E7, E14 und E34 in [`OFFENE_ENTSCHEIDUNGEN.md`](OFFENE_ENTSCHEIDUNGEN.md). Mitarbeiter an mehreren Stationen (E40, F134) siehe Abschnitt 6a, Prozesszeiten (E44, F135) Abschnitt 6b, gemeinsame Arbeitsgänge (E42, F140) Abschnitt 6c. Noch offen und hier nicht geregelt: E8 (Filter).
+**Stand:** 26.10.2026 · Verbindliche Grundlage für den Rechenkern (`src/domain/calc/`). Quellen: 01_ANFORDERUNGEN (F/P-Nummern) und die Entscheidungen E1–E7, E14 und E34 in [`OFFENE_ENTSCHEIDUNGEN.md`](OFFENE_ENTSCHEIDUNGEN.md). Mitarbeiter an mehreren Stationen (E40, F134) siehe Abschnitt 6a, Prozesszeiten (E44, F135) Abschnitt 6b, gemeinsame Arbeitsgänge (E42, F140) Abschnitt 6c, Verteilungsvorschlag (E43, F142) Abschnitt 6d. Noch offen und hier nicht geregelt: E8 (Filter).
 
 ## 1 · Einheiten und Genauigkeit
 
@@ -150,6 +150,16 @@ Entscheidung des Nutzers vom 10.11.2026: Ein Arbeitsgang, den mehrere Mitarbeite
 - Nachfolger warten nur auf die Zeilen, die sie als Vorgänger nennen. Ein Helfer kann nach seinem Teil also Tätigkeiten ausführen, die nicht von der Hauptarbeit abhängen.
 - Auswahl unter bereiten Einheiten wie in 6a; beim Gleichstand zählt die Zeile der Gruppe mit der kleinsten Reihenfolge.
 - Zeilen ohne Mitarbeiter werden wie bisher nicht eingeplant (F109); die übrigen Zeilen starten weiterhin gemeinsam.
+
+## 6d · Verteilungsvorschlag (E43, F142)
+
+Die Optimierung ändert für **eine Station** nur die Zuordnung ihrer Handzeiten zu den Mitarbeitern dieser Station und die `Reihenfolge` ihrer Arbeitsgänge. Zeiten, Vorgänger, Prozesszeiten, Gruppen und alle anderen Stationen bleiben unverändert. Jede Variante wird mit der Ablaufplanung aus den Abschnitten 3 und 6a–6c bewertet; Springer (6a) werden mit ihren Einsätzen an verbundenen Stationen berücksichtigt.
+
+- **Randbedingungen:** Qualifikation (E51); in einer Gruppe jede Person höchstens einmal (6c). Nicht zugeordnete Arbeitsgänge der Station werden einem zulässigen Mitarbeiter gegeben, sofern es einen gibt.
+- **Ziel „kleinste Stationshöhe“:** Stationshöhe (F90) minimal; bei Gleichstand weniger Wartezeit, ausgeglichenere Belegung, weniger Änderungen.
+- **Ziel „wenigste Mitarbeiter unter Takt“:** zuerst Stationshöhe ≤ Takt, dann möglichst wenige Mitarbeiter mit Arbeitsgängen, dann wie oben. Spuren der Station ohne Arbeitsgang entfallen im Vorschlag.
+- **Verfahren:** Simulated Annealing mit festem Startwert (gleiche Eingabe, gleiches Ergebnis). Züge: einen Arbeitsgang einem anderen Mitarbeiter geben, die Mitarbeiter zweier Arbeitsgänge tauschen, die Reihenfolge zweier Arbeitsgänge tauschen; beim Ziel Mitarbeiterzahl zusätzlich einen Mitarbeiter ganz entlasten. Das Ergebnis ist ein guter, nicht garantiert optimaler Vorschlag.
+- Das Ergebnis wird als neues Szenario angelegt; das Ausgangsszenario bleibt unverändert.
 
 ## 7 · Verbindlicher Testfall
 
