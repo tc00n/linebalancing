@@ -335,9 +335,11 @@ export function StepTable(props: {
                       ) : (
                         <QualifiedInput
                           step={step}
+                          employees={view.input.employees}
+                          stations={view.input.stations}
                           onApply={props.onApply}
                           disabled={props.readOnly}
-                          className="h-7 w-24"
+                          className="h-7 w-28"
                         />
                       )}
                     </td>

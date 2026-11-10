@@ -16,10 +16,10 @@ test("Arbeitsgänge in der Tabellenansicht bearbeiten (F132)", async ({
     fullPage: true,
   });
   // ID, Beschreibung und Zeit sind keine Eingabefelder (F17, F69);
-  // Textfelder nur für Gruppe (E42), Qualifiziert (E51), Reihenfolge und Vorgänger.
+  // Textfelder nur für Gruppe (E42), Reihenfolge und Vorgänger; Qualifiziert (E51) ist eine Auswahl.
   await expect(
     table.getByRole("row", { name: /^A / }).getByRole("textbox"),
-  ).toHaveCount(4);
+  ).toHaveCount(3);
 
   // Mitarbeiter wechseln: C von Mitarbeiter 1 zu Mitarbeiter 2 → C hat keine Wartezeit mehr.
   await page

@@ -28,8 +28,18 @@ describe("Verteilungsvorschlag (E43)", () => {
       stationId: "S1",
       goal: "height",
     });
-    expect(result.before).toEqual({ height: 12, persons: 2, unassigned: 0 });
-    expect(result.after).toEqual({ height: 8, persons: 2, unassigned: 0 });
+    expect(result.before).toEqual({
+      height: 12,
+      persons: 2,
+      unassigned: 0,
+      unqualified: 0,
+    });
+    expect(result.after).toEqual({
+      height: 8,
+      persons: 2,
+      unassigned: 0,
+      unqualified: 0,
+    });
     expect(result.reassigned).toBeGreaterThan(0);
     assertValidScenario(result.input);
     // Zeiten, IDs und andere Stationen bleiben unverändert.
@@ -115,7 +125,12 @@ describe("Verteilungsvorschlag (E43)", () => {
     );
     const result = optimizeStation(input, { stationId: "S1", goal: "height" });
     expect(result.before.unassigned).toBe(1);
-    expect(result.after).toEqual({ height: 2, persons: 2, unassigned: 0 });
+    expect(result.after).toEqual({
+      height: 2,
+      persons: 2,
+      unassigned: 0,
+      unqualified: 0,
+    });
   });
 
   it("Ziel Mitarbeiterzahl: so wenige wie möglich unter Takt, freie Spuren entfallen", () => {
@@ -132,7 +147,12 @@ describe("Verteilungsvorschlag (E43)", () => {
       stationId: "S1",
       goal: "headcount",
     });
-    expect(result.after).toEqual({ height: 6, persons: 2, unassigned: 0 });
+    expect(result.after).toEqual({
+      height: 6,
+      persons: 2,
+      unassigned: 0,
+      unqualified: 0,
+    });
     expect(result.removedEmployees).toBe(2);
     const evaluated = evaluateScenario(result.input);
     expect(evaluated.stations[0].employeeCount).toBe(2);
@@ -159,5 +179,51 @@ describe("Verteilungsvorschlag (E43)", () => {
     const result = optimizeStation(input, { stationId: "S1", goal: "height" });
     // Optimum: B startet nach A (3), MA2 macht D davor – Höhe 6 ohne Wartezeit.
     expect(result.after.height).toBe(6);
+  });
+
+  it("korrigiert Zuordnungen, die der Qualifikation widersprechen", () => {
+    // A liegt bei Mitarbeiter 2, darf laut nachträglich eingetragener Qualifikation aber nur Mitarbeiter 1.
+    const input = scenario(
+      [
+        { id: "A", station: "S1", employee: "Mitarbeiter 2", time: 2 },
+        { id: "B", station: "S1", employee: "Mitarbeiter 1", time: 2 },
+      ],
+      { takt: 10 },
+    );
+    const restricted = {
+      ...input,
+      steps: input.steps.map((s) =>
+        s.id === "A" ? { ...s, qualifiedEmployees: ["Mitarbeiter 1"] } : s,
+      ),
+    };
+    const result = optimizeStation(restricted, {
+      stationId: "S1",
+      goal: "height",
+    });
+    expect(employeeOf(result, "A")).toBe("S1/Mitarbeiter 1");
+    expect(result.before.unqualified).toBe(1);
+    expect(result.after.unqualified).toBe(0);
+    expect(evaluateScenario(result.input).issues).toEqual([]);
+  });
+
+  it("meldet, wenn an der Station niemand qualifiziert ist", () => {
+    const input = scenario(
+      [{ id: "A", station: "S1", employee: "Mitarbeiter 2", time: 2 }],
+      { takt: 10 },
+    );
+    const restricted = {
+      ...input,
+      steps: input.steps.map((s) => ({
+        ...s,
+        qualifiedEmployees: ["Mitarbeiter 7"],
+      })),
+    };
+    const result = optimizeStation(restricted, {
+      stationId: "S1",
+      goal: "height",
+    });
+    // Bleibt zugeordnet, damit die Zeit nicht aus der Station verschwindet; als Rest gemeldet.
+    expect(employeeOf(result, "A")).toBe("S1/Mitarbeiter 2");
+    expect(result.after.unqualified).toBe(1);
   });
 });

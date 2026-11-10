@@ -795,7 +795,7 @@ Getroffen im Rahmen der Entwicklung. Präzisieren P1, P3 und die offenen Punkte 
 
 | ID | Verbindliche Entscheidung | Umsetzungshinweis |
 |---|---|---|
-| F141 | Je Arbeitsgang lässt sich festlegen, welche (anonymisierten) Mitarbeiter ihn ausführen können (E51). Leer = jeder. Die Zuordnung eines nicht qualifizierten Mitarbeiters erfolgt nur nach Rückfrage und bleibt als Warnung sichtbar. Die Optimierung (E43) hält sich daran. | Optionale Importspalte „Qualifiziert“ („1; 8; 12“), in Detailpanel und Tabelle änderbar; Kennzeichnung in der Mitarbeiterauswahl; Excel-Export mit Spalte. |
+| F141 | Je Arbeitsgang lässt sich festlegen, welche (anonymisierten) Mitarbeiter ihn ausführen können (E51). Leer = jeder. Die Zuordnung eines nicht qualifizierten Mitarbeiters erfolgt nur nach Rückfrage und bleibt als Warnung sichtbar. Die Optimierung (E43) hält sich daran. | Optionale Importspalte „Qualifiziert“ („1; 8; 12“), in Detailpanel und Tabelle per Ankreuzen änderbar; Kennzeichnung in der Mitarbeiterauswahl; Excel-Export mit Spalte. |
 
 ## 48 · Verteilungsvorschlag (10.11.2026)
 

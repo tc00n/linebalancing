@@ -40,6 +40,8 @@ export interface StationSummary {
   readonly persons: number;
   /** Arbeitsgänge der Station ohne Mitarbeiter. */
   readonly unassigned: number;
+  /** Arbeitsgänge mit einem Mitarbeiter, der nicht als qualifiziert eingetragen ist (E51). */
+  readonly unqualified: number;
 }
 
 export interface OptimizeResult {
@@ -105,11 +107,15 @@ export function optimizeStation(
   const pick = <T>(items: readonly T[]) =>
     items[Math.floor(rng() * items.length)];
 
-  // Nicht zugeordnete Arbeitsgänge zuerst einem zulässigen Mitarbeiter geben.
+  // Zuerst unzulässige Zuordnungen bereinigen (z. B. nachträglich eingetragene
+  // Qualifikation) und nicht zugeordnete Arbeitsgänge einem zulässigen Mitarbeiter geben.
+  // Ist an der Station niemand zulässig, bleibt die Zuordnung und wird als Rest gemeldet.
   free.forEach((_, i) => {
-    if (employees[i] !== null) return;
+    const current = employees[i];
+    if (current !== null && canTake(i, current)) return;
+    employees[i] = null;
     const choices = allowed[i].filter((e) => canTake(i, e));
-    if (choices.length) employees[i] = pick(choices);
+    employees[i] = choices.length ? pick(choices) : current;
   });
 
   const allowance = 1 + input.allowancePct / 100;
@@ -312,6 +318,10 @@ export function optimizeStation(
         own.filter((s) => s.employeeId).map((s) => person.get(s.employeeId!)),
       ).size,
       unassigned: own.filter((s) => s.employeeId === null).length,
+      unqualified: own.filter((s) => {
+        const employee = candidate.employees.find((e) => e.id === s.employeeId);
+        return employee !== undefined && !isQualified(s, employee.label);
+      }).length,
     };
   };
 

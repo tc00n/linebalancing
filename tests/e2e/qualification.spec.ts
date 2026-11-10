@@ -3,18 +3,25 @@ import { importExample } from "./fixtures";
 
 // E51: Beispiel T17 – C (1,5 min) liegt bei Mitarbeiter 1.
 
-test("Qualifikation: Rückfrage bei nicht qualifiziertem Mitarbeiter", async ({
+test("Qualifikation ankreuzen, Rückfrage und Korrektur durch den Verteilungsvorschlag", async ({
   page,
 }) => {
   await importExample(page);
   await page.getByRole("link", { name: "Tabelle" }).click();
   const table = page.getByRole("table", { name: "Arbeitsgänge" });
-  const qualified = page.getByLabel("Qualifiziert für C");
   const employee = page.getByLabel("Mitarbeiter von C");
 
-  await qualified.fill("Mitarbeiter 1; 3");
-  await qualified.press("Enter");
-  await expect(qualified).toHaveValue("1; 3");
+  // Ankreuzen statt Freitext: nur Mitarbeiter 1 darf C.
+  const picker = page.getByRole("button", { name: "Qualifiziert für C" });
+  await expect(picker).toHaveText("jeder");
+  await picker.click();
+  const list = page.getByRole("list", {
+    name: "Qualifizierte Mitarbeiter für C",
+  });
+  await list.getByRole("checkbox").first().click();
+  await expect(picker).toHaveText("1");
+  await page.keyboard.press("Escape");
+
   // Nicht qualifizierte sind in der Auswahl gekennzeichnet.
   await expect(
     employee.locator("option", { hasText: "Mitarbeiter 2" }),
@@ -29,7 +36,7 @@ test("Qualifikation: Rückfrage bei nicht qualifiziertem Mitarbeiter", async ({
   await employee.selectOption({ index: 2 });
   await expect(employee).toHaveValue("station:T17/Mitarbeiter 1");
   expect(messages).toEqual([
-    "Mitarbeiter 2 ist für C nicht als qualifiziert eingetragen (qualifiziert: Mitarbeiter 1, Mitarbeiter 3).\n\nTrotzdem zuordnen?",
+    "Mitarbeiter 2 ist für C nicht als qualifiziert eingetragen (qualifiziert: Mitarbeiter 1).\n\nTrotzdem zuordnen?",
   ]);
 
   // Bestätigen: Zuordnung mit dauerhafter Warnung.
@@ -40,10 +47,18 @@ test("Qualifikation: Rückfrage bei nicht qualifiziertem Mitarbeiter", async ({
     "Mitarbeiter 2 ist für diesen Arbeitsgang nicht als qualifiziert eingetragen",
   );
 
-  // Ungültige Eingabe wird nicht übernommen.
-  await qualified.fill("Meister");
-  await qualified.press("Enter");
+  // Verteilungsvorschlag korrigiert die Zuordnung (E43).
+  await page.getByRole("link", { name: "Diagramm" }).click();
+  await page.getByRole("button", { name: "Verteilung vorschlagen" }).click();
+  const sheet = page.getByRole("dialog", { name: "Verteilung vorschlagen" });
+  await sheet.getByRole("button", { name: "Berechnen" }).click();
+  const result = sheet.getByRole("region", { name: "Ergebnis" });
   await expect(
-    page.getByRole("alert").filter({ hasText: "Meister" }),
+    result.getByRole("row", { name: /nicht qualifiziert/ }),
+  ).toHaveText(/zugeordnet\s*1\s*0/, { timeout: 20000 });
+  await expect(
+    sheet.getByRole("button", {
+      name: "Als neues Szenario anlegen und vergleichen",
+    }),
   ).toBeVisible();
 });

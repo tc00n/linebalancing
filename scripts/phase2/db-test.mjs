@@ -173,6 +173,23 @@ try {
     assert.equal(result.version, 1);
     assert.equal(result.input.steps.length, 2);
   });
+  await test("Import uebernimmt Qualifikation und Gruppe (E51, E42)", async () => {
+    const imported = structuredClone(doc);
+    imported.id = "30000000-0000-4000-8000-000000000021";
+    imported.variantId = "40000000-0000-4000-8000-000000000021";
+    imported.variantName = "Qualifiziert";
+    imported.input.steps[0].qualifiedEmployees = [
+      "Mitarbeiter 1",
+      "Mitarbeiter 15",
+    ];
+    const result = (
+      await q("select public.import_scenario($1,$2) doc", [p, imported])
+    ).rows[0].doc;
+    assert.deepEqual(result.input.steps[0].qualifiedEmployees, [
+      "Mitarbeiter 1",
+      "Mitarbeiter 15",
+    ]);
+  });
   const lock = async (scenarioId, token, takeover = false) =>
     (
       await q("select public.acquire_scenario_lock($1,$2,$3,$4) lock", [

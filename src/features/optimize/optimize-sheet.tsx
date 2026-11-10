@@ -224,6 +224,16 @@ export function OptimizeSheet(props: {
                   `, ${result.removedEmployees} Mitarbeiter frei`}
                 .
               </p>
+              {result.after.unqualified > 0 && (
+                <p className="text-warning">
+                  Für{" "}
+                  {result.after.unqualified === 1
+                    ? "einen Arbeitsgang"
+                    : `${result.after.unqualified} Arbeitsgänge`}{" "}
+                  ist an dieser Station niemand als qualifiziert eingetragen;
+                  die Zuordnung bleibt und ist als Warnung markiert.
+                </p>
+              )}
               {!improved && (
                 <p className="text-muted-foreground">
                   Keine bessere Verteilung gefunden.
@@ -264,6 +274,7 @@ function ResultTable(props: {
     ["Stationshöhe", (s) => `${formatMinutes(s.height)} min`],
     ["Mitarbeiter", (s) => String(s.persons)],
     ["ohne Mitarbeiter", (s) => String(s.unassigned)],
+    ["nicht qualifiziert zugeordnet", (s) => String(s.unqualified)],
   ];
   return (
     <table className="w-full text-sm">
@@ -317,6 +328,7 @@ function isBetter(
 ): boolean {
   const { before, after } = result;
   if (after.unassigned < before.unassigned) return true;
+  if (after.unqualified < before.unqualified) return true;
   if (goal === "headcount") {
     const fits = (s: StationSummary) => s.height <= input.taktMin + 1e-9;
     if (fits(after) && !fits(before)) return true;

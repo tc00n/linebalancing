@@ -173,6 +173,8 @@ Umsetzung: Schaltfläche „Verteilung vorschlagen“ neben „Duplizieren“. S
 
 Ausgestaltung durch das Entwicklungsteam (Änderungswünsche offen): Nicht zugeordnete Arbeitsgänge der Station werden mitverteilt. Beim Ziel „wenigste Mitarbeiter“ entfallen frei gewordene Spuren der Station, damit die Mitarbeiterzahl sinkt. Bei gleichwertigen Lösungen gewinnt die mit den wenigsten Änderungen. Gleiche Eingabe liefert dasselbe Ergebnis. Laufzeit gemessen: 40 Arbeitsgänge/6 Mitarbeiter rund 1,5 s, Ergebnis 0,01 min über der rechnerischen Untergrenze; Suchschritte so begrenzt, dass auch 80 Arbeitsgänge unter 10 s bleiben.
 
+Nachbesserung 10.11.2026 (Rückmeldung des Nutzers: nachträglich eingetragene Qualifikation änderte beim Neuberechnen nichts): Zuordnungen, die der Qualifikation oder einer Gruppe widersprechen, werden vor der Suche bereinigt; das zählt als Verbesserung. Das Ergebnis zeigt „nicht qualifiziert zugeordnet“ vorher/Vorschlag. Ist an der Station niemand qualifiziert, bleibt die Zuordnung (die Zeit verschwindet nicht aus der Station) und das Panel weist darauf hin.
+
 Mögliche Ergänzungen: Fixieren einzelner Arbeitsgänge (vgl. E36), stationsübergreifende Verteilung, mehrere Stationen in einem Lauf.
 
 ## Prozesszeiten ohne Mitarbeiter
@@ -281,5 +283,7 @@ Nutzerentscheidungen:
 - Die Qualifikation hängt am Mitarbeiter; die Mitarbeiter sind anonymisiert („Mitarbeiter N“, linienweit eindeutig nach E40), damit keine Namen hochgeladen werden.
 - Pflege in einer optionalen Excel-Spalte „Qualifiziert“ (z. B. „1; 8; 12“, leer = jeder), in der App im Detailpanel und in der Tabelle änderbar.
 - Zuordnung eines nicht qualifizierten Mitarbeiters von Hand: Rückfrage wie bei E50.
+
+Nachbesserung 10.11.2026 (Rückmeldung des Nutzers: Freitext ungünstig): In der App wird die Qualifikation angekreuzt statt getippt – Auswahlliste mit allen Mitarbeitern der Linie, die der Station zuerst, „Auswahl aufheben (jeder)“. In Excel bleibt die Spalte „1; 8; 12“.
 
 Umsetzung: Die Rückfrage gilt für alle Zuordnungen (Auswahl, Ziehen auf eine Spur oder einen Mitarbeiterbalken, „+ Mitarbeiter N hinzufügen“). Nach Bestätigung bleibt eine Warnung „nicht als qualifiziert eingetragen“ am Arbeitsgang (Konfliktübersicht, Tooltip), wie die Markierung bei E50. Die Mitarbeiterauswahl kennzeichnet nicht qualifizierte Mitarbeiter. Import: ungültige Angaben sind Fehler; ein zugeordneter, nicht qualifizierter Mitarbeiter ist eine Warnung. Bei Prozesszeiten ohne Wirkung. Excel-Export mit Spalte „Qualifiziert“. Code: `src/domain/model/qualification.ts`, Operation `setQualified`, Rückfrage `assignmentWarning` in `movePreview.ts`, Eingabe `qualified-input.tsx`. Migration `202611100002_qualification.sql` mit Datenbanktest. Tests in `import.test.ts`, `operations.test.ts`, Browsertest `tests/e2e/qualification.spec.ts`.

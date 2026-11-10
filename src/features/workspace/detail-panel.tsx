@@ -234,9 +234,10 @@ export function DetailPanel(props: {
                 <QualifiedInput
                   id={`${ids}-qualified`}
                   step={step}
+                  employees={view.input.employees}
+                  stations={view.input.stations}
                   onApply={apply}
                   disabled={readOnly}
-                  className="h-8"
                 />
               </dd>
 
